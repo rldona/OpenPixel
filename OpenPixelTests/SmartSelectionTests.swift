@@ -233,4 +233,27 @@ final class SmartSelectionTests: XCTestCase {
         XCTAssertEqual(pixel(doc, layer: 0, frame: 1, 1, 3), .black)
         XCTAssertEqual(pixel(doc, layer: 1, frame: 1, 5, 5), .black, "the other layer stays")
     }
+
+    // MARK: Locked layers
+
+    func testLockedLayersDontWidenOrMove() {
+        let doc = makeDocument()
+        let bottom = doc.sprite.layers[0].id
+        doc.toggleLock(bottom)
+        doc.select(.selectRectangle)
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.continueStroke(to: PixelPoint(x: 7, y: 7))
+        doc.endStroke()
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 5, minY: 5, maxX: 5, maxY: 5), "only the unlocked dot")
+        XCTAssertNil(doc.selectionLayers)
+        tap(doc, 1, 1)
+        XCTAssertNil(doc.selection, "a locked layer's element can't be picked")
+        doc.selectionAllFrames = true
+        doc.selectAll()
+        doc.select(.move)
+        doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
+        doc.continueTransformDrag(to: CGPoint(x: 6.5, y: 5.5))
+        doc.applyTransform()
+        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .black, "the locked bar stays put")
+    }
 }

@@ -968,11 +968,11 @@ extension SpriteDocument {
         changed()
     }
 
-    /// The topmost visible layer with a pixel at `p` in the active frame, and
-    /// all its pixels there. The background layer is skipped: it covers everything.
+    /// The topmost visible, unlocked layer with a pixel at `p` in the active
+    /// frame, and all its pixels there. The background layer is skipped: it covers everything.
     private func element(at p: PixelPoint) -> (layer: UUID, mask: SelectionMask)? {
         let frame = activeFrame.id
-        for layer in storage.layers.reversed() where layer.isVisible && !layer.isBackground {
+        for layer in storage.layers.reversed() where layer.isVisible && !layer.isBackground && !layer.isLocked {
             guard let cel = storage.cel(layer: layer.id, frame: frame), cel.contains(p), cel[p].a != 0 else { continue }
             return (layer.id, SelectionMask.opaquePixels(of: cel))
         }
@@ -980,13 +980,14 @@ extension SpriteDocument {
     }
 
     /// The layers (and frames) a marquee works on: the timeline range, or
-    /// every visible layer in the active frame. The background is left out.
+    /// every visible layer in the active frame. The background and locked
+    /// layers are left out: they won't move, so they shouldn't widen the selection.
     private var marqueeScope: (layers: [Layer], frames: [UUID]) {
         if let r = timelineRange {
-            return (storage.layers.filter { r.layers.contains($0.id) && $0.isVisible && !$0.isBackground },
+            return (storage.layers.filter { r.layers.contains($0.id) && $0.isVisible && !$0.isBackground && !$0.isLocked },
                     r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil })
         }
-        return (storage.layers.filter { $0.isVisible && !$0.isBackground },
+        return (storage.layers.filter { $0.isVisible && !$0.isBackground && !$0.isLocked },
                 selectionAllFrames ? storage.frames.map(\.id) : [activeFrame.id])
     }
 
