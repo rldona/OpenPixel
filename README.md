@@ -19,7 +19,9 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
     - square or round brush from 1 to 8 px;
     - optional pixel-perfect for clean 1 px strokes (off by default; the choice is remembered);
     - filled or outlined shapes, previewed while you drag, and rounded rectangle corners;
-    - contiguous or global fill.
+    - paint bucket: contiguous or global, tolerance, diagonals (8-way spreading) and “All layers” to find the area from every visible layer while painting only the active one;
+    - eyedropper: the whole image or the active layer only;
+    - when a tool has more options than fit, the bar scrolls sideways.
   - **Symmetry** ([Aseprite's](https://www.aseprite.org/docs/symmetry/)): horizontal, vertical or both. Tap the rail button to turn it on or off; touch and hold to choose the axes or center them. Drag an axis by its handle (below or right of the sprite) to move it in half-pixel steps, so it can run between two pixels or through the middle of one.
   - **Inks** ([Aseprite's](https://www.aseprite.org/docs/ink/)): simple, alpha compositing, copy alpha + color, lock alpha (paint only over what's drawn) and shading (each pass moves drawn pixels to the next or previous palette color). Tool **opacity**, applied once per stroke so going over the same spot doesn't build up.
   - **Apple Pencil pressure** can change the brush size and/or the opacity.

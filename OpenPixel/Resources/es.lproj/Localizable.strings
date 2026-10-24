@@ -436,3 +436,7 @@
 "Center the axes" = "Centrar los ejes";
 "Symmetry" = "Simetría";
 "Touch and hold to choose the axes" = "Mantén pulsado para elegir los ejes";
+
+/* Bucket and eyedropper options */
+"Diagonals" = "Diagonales";
+"Active layer only" = "Solo la capa activa";

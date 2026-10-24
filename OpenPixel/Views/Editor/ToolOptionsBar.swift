@@ -5,6 +5,31 @@ struct ToolOptionsBar: View {
     @Bindable var document: SpriteDocument
 
     var body: some View {
+        // When a tool has more options than fit, the bar scrolls sideways.
+        ViewThatFits(in: .horizontal) {
+            items.padding(.horizontal, 12)
+            ScrollView(.horizontal, showsIndicators: false) {
+                items.padding(.horizontal, 12)
+            }
+        }
+        .frame(height: 44)
+        .background(Theme.panel.opacity(0.95), in: RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+        .background {
+            // Common shortcut for brush size in drawing apps.
+            Group {
+                Button("Smaller brush") { document.setBrushSize(document.brushSize - 1) }
+                    .keyboardShortcut("[", modifiers: [])
+                Button("Bigger brush") { document.setBrushSize(document.brushSize + 1) }
+                    .keyboardShortcut("]", modifiers: [])
+            }
+            .opacity(0)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private var items: some View {
         HStack(spacing: 10) {
             Label(document.tool.title, systemImage: document.tool.systemImage)
                 .font(.system(size: 13, weight: .semibold))
@@ -39,13 +64,21 @@ struct ToolOptionsBar: View {
             }
             if document.tool == .bucket {
                 divider
+                tolerance($document.fillTolerance)
                 toggle("Contiguous", isOn: $document.fillContiguous)
+                if document.fillContiguous { toggle("Diagonals", isOn: $document.fillDiagonal) }
+                toggle("All layers", isOn: $document.fillSampleAllLayers)
             }
             if document.tool == .eyedropper {
-                Text("Tap the canvas to pick a color")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.muted)
-                    .fixedSize()
+                divider
+                toggle("Active layer only", isOn: $document.eyedropperActiveLayer)
+                ViewThatFits(in: .horizontal) {
+                    Text("Tap the canvas to pick a color")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.muted)
+                        .fixedSize()
+                    Color.clear.frame(width: 0, height: 0)
+                }
             }
             if document.tool.isSelection {
                 divider
@@ -74,7 +107,7 @@ struct ToolOptionsBar: View {
             }
             if document.tool == .magicWand {
                 divider
-                tolerance
+                tolerance($document.wandTolerance)
                 toggle("Contiguous", isOn: $document.wandContiguous)
                 toggle("All layers", isOn: $document.wandSampleAllLayers)
             }
@@ -89,21 +122,7 @@ struct ToolOptionsBar: View {
                     .fixedSize()
             }
         }
-        .padding(.horizontal, 12)
         .frame(height: 44)
-        .background(Theme.panel.opacity(0.95), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-        .background {
-            // Common shortcut for brush size in drawing apps.
-            Group {
-                Button("Smaller brush") { document.setBrushSize(document.brushSize - 1) }
-                    .keyboardShortcut("[", modifiers: [])
-                Button("Bigger brush") { document.setBrushSize(document.brushSize + 1) }
-                    .keyboardShortcut("]", modifiers: [])
-            }
-            .opacity(0)
-            .accessibilityHidden(true)
-        }
     }
 
     /// Replace / add / subtract / intersect. On a keyboard-less iPad these
@@ -205,17 +224,17 @@ struct ToolOptionsBar: View {
         }
     }
 
-    private var tolerance: some View {
+    private func tolerance(_ value: Binding<Int>) -> some View {
         HStack(spacing: 2) {
             Text("Tolerance").font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.text).fixedSize()
-            Button { document.wandTolerance = max(0, document.wandTolerance - 8) } label: {
+            Button { value.wrappedValue = max(0, value.wrappedValue - 8) } label: {
                 Image(systemName: "minus").frame(width: 30, height: 34)
             }
             .accessibilityLabel(Text("Lower tolerance"))
-            Text(verbatim: "\(document.wandTolerance)")
+            Text(verbatim: "\(value.wrappedValue)")
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .frame(width: 34)
-            Button { document.wandTolerance = min(255, document.wandTolerance + 8) } label: {
+            Button { value.wrappedValue = min(255, value.wrappedValue + 8) } label: {
                 Image(systemName: "plus").frame(width: 30, height: 34)
             }
             .accessibilityLabel(Text("Higher tolerance"))

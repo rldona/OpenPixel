@@ -95,6 +95,14 @@ final class SpriteDocument {
     }
     /// Bucket fills only the connected area; when off it replaces the color everywhere in the cel.
     var fillContiguous = true
+    /// How different (0...255 per channel) a color can be and still be filled.
+    var fillTolerance = 0
+    /// Contiguous fills also spread through corners (8-connected).
+    var fillDiagonal = false
+    /// The bucket looks at every visible layer to find the area, but paints the active one.
+    var fillSampleAllLayers = false
+    /// The eyedropper reads only the active layer instead of the whole image.
+    var eyedropperActiveLayer = false
     var showGrid = true
     var onionSkin = false
     var onionSettings = OnionSkinSettings()
@@ -328,7 +336,9 @@ final class SpriteDocument {
     }
 
     func pickColor(at p: PixelPoint) {
-        let image = sprite.composite(frameIndex: activeFrameIndex)
+        let image = eyedropperActiveLayer
+            ? sprite.cels[activeCelKey] ?? PixelImage(width: sprite.width, height: sprite.height)
+            : sprite.composite(frameIndex: activeFrameIndex)
         guard image.contains(p), !image[p].isTransparent else { return }
         primary = image[p]
     }
@@ -705,8 +715,13 @@ final class SpriteDocument {
 
     /// Paint bucket: paints the area it reaches with the ink and opacity.
     private func fill(at p: PixelPoint) {
-        let cel = storage.cels[activeCelKey] ?? PixelImage(width: storage.width, height: storage.height)
-        let region = Raster.fillRegion(in: cel, at: p, contiguous: fillContiguous, within: selection)
+        let reference = fillSampleAllLayers
+            ? storage.composite(frameIndex: activeFrameIndex)
+            : storage.cels[activeCelKey] ?? PixelImage(width: storage.width, height: storage.height)
+        let region = Raster.fillRegion(
+            in: reference, at: p, tolerance: fillTolerance, contiguous: fillContiguous,
+            diagonal: fillDiagonal, within: selection
+        )
         let color = primary, alpha = UInt8(max(1, min(255, toolOpacity)))
         mutateActiveCel(dirty: nil) { image in
             var painter = makePainter(color: color)

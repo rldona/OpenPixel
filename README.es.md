@@ -19,7 +19,9 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
     - pincel cuadrado o redondo de 1 a 8 px;
     - pixel-perfect opcional para trazos de 1 px sin esquinas dobles (desactivado por defecto; se recuerda tu elección);
     - formas con o sin relleno, con vista previa mientras arrastras, y rectángulos con esquinas redondeadas;
-    - cubo contiguo o global (sustituye el color en toda la cel).
+    - cubo contiguo o global (sustituye el color en toda la cel), tolerancia, diagonales (se extiende también por las esquinas) y «Todas las capas» para delimitar la zona con todas las capas visibles pintando solo la activa;
+    - cuentagotas: la imagen completa o solo la capa activa;
+    - si una herramienta tiene más opciones de las que caben, la barra se desplaza en horizontal.
   - **Simetría** ([la de Aseprite](https://www.aseprite.org/docs/symmetry/)): horizontal, vertical o ambas. Toca el botón del raíl para activarla o desactivarla; mantenlo pulsado para elegir los ejes o centrarlos. Arrastra un eje por su tirador (debajo o a la derecha del sprite) para moverlo en pasos de medio píxel, de modo que puede pasar entre dos píxeles o por el centro de uno.
   - **Tintas** ([las de Aseprite](https://www.aseprite.org/docs/ink/)): simple, mezcla alfa, copiar alfa + color, bloquear alfa (pinta solo sobre lo dibujado) y sombreado (cada pasada mueve lo dibujado al color siguiente o anterior de la paleta). **Opacidad** de la herramienta, aplicada una vez por trazo para que repasar no acumule.
   - La **presión del Apple Pencil** puede cambiar el grosor y/o la opacidad.
