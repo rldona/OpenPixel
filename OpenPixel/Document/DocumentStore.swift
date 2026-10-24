@@ -65,6 +65,35 @@ final class DocumentStore {
             .sorted { $0.modified > $1.modified }
     }
 
+    /// The frames a gallery card plays, with their durations in ms.
+    struct Animation: @unchecked Sendable {
+        let frames: [CGImage]
+        let durations: [Int]
+    }
+
+    @ObservationIgnored private var animations: [UUID: (modified: Date, animation: Animation)] = [:]
+
+    /// An animated sprite's frames for its gallery card, made in the background
+    /// the first time the card shows and kept until the sprite changes.
+    func animation(for item: SpriteSummary) async -> Animation? {
+        guard item.frameCount > 1 else { return nil }
+        if let cached = animations[item.id], cached.modified == item.modified { return cached.animation }
+        let url = url(for: item.id)
+        let animation = await Task.detached(priority: .utility) { () -> Animation? in
+            guard let data = try? Data(contentsOf: url),
+                  let file = try? JSONDecoder().decode(SpriteFile.self, from: data) else { return nil }
+            let sprite = file.sprite
+            // Keep big, long animations to a few megabytes per card.
+            let limit = max(2, 16_000_000 / max(1, sprite.width * sprite.height))
+            let indices = Array(sprite.frames.indices.prefix(limit))
+            let frames = indices.compactMap { sprite.composite(frameIndex: $0).makeCGImage() }
+            guard frames.count == indices.count else { return nil }
+            return Animation(frames: frames, durations: indices.map { sprite.frames[$0].duration })
+        }.value
+        if let animation { animations[item.id] = (item.modified, animation) }
+        return animation
+    }
+
     func load(_ id: UUID) throws -> SpriteDocument {
         let file = try read(url(for: id))
         return SpriteDocument(id: id, name: file.name, sprite: file.sprite)

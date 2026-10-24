@@ -10,7 +10,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 
 ## Features
 
-- **Projects** gallery with thumbnails, search, filters (all, animations, still images), rename, duplicate, delete, and PNG/GIF/JPEG import.
+- **Projects** gallery with thumbnails (animated sprites play in a loop, unless Reduce Motion is on), search, filters (all, animations, still images), rename, duplicate, delete, and PNG/GIF/JPEG import.
 - **New sprite**: quick sizes (16–256) or custom up to 1024 px, transparent, white or black background, and a starting palette (PICO-8, Sweetie 16, DawnBringer 16, grays).
 - **Editor**
   - Pencil, **spray** (⇧S), eraser, paint bucket, **gradient**, eyedropper, line, **curve**, rectangle, ellipse, **contour** and **polygon** (as in [Aseprite](https://www.aseprite.org/docs/drawing/)).

@@ -268,10 +268,26 @@ private struct NewSpriteCard: View {
 
 private struct SpriteCard: View {
     let item: SpriteSummary
+    @Environment(DocumentStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The frame shown while an animated sprite plays in a loop.
+    @State private var frame: CGImage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PixelThumbnail(image: item.thumbnail)
+            PixelThumbnail(image: frame ?? item.thumbnail)
+                // Animated sprites play in a loop while their card is on screen,
+                // so you can see what each one does.
+                .task(id: "\(item.id)-\(item.modified.timeIntervalSince1970)-\(reduceMotion)") {
+                    frame = nil
+                    guard !reduceMotion, let animation = await store.animation(for: item) else { return }
+                    var i = 0
+                    while !Task.isCancelled {
+                        frame = animation.frames[i]
+                        try? await Task.sleep(for: .milliseconds(max(20, animation.durations[i])))
+                        i = (i + 1) % animation.frames.count
+                    }
+                }
                 .frame(height: 186)
                 .overlay(alignment: .topTrailing) {
                     if item.frameCount > 1 {
