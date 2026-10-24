@@ -47,7 +47,6 @@ struct EditorView: View {
                                 onRevision: scheduleSave
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
-                            if !focusMode && !timelineCollapsed && !document.hasSelection && !document.isTransforming { statusPills }
                         }
                         .overlay(alignment: .top) {
                             if !focusMode { ToolOptionsBar(document: document).padding(14) }
@@ -347,25 +346,6 @@ struct EditorView: View {
         .menuIndicator(.hidden)
         .accessibilityLabel(Text("Tiled mode"))
         .accessibilityAddTraits(isOn ? .isSelected : [])
-    }
-
-    private var statusPills: some View {
-        HStack(spacing: 8) {
-            (Text(document.tool.title)
-                + Text(verbatim: document.tool.usesBrush ? " \(document.brushSize) px" : "")
-                + (document.symmetry.isOn ? Text(" + symmetry") : Text(verbatim: ""))
-                + Text(verbatim: " · \(document.activeLayer?.name ?? "") · ")
-                + Text("frame \(document.activeFrameIndex + 1)/\(document.structure.frames.count)")
-                + Text(verbatim: document.activeTag.map { " · \($0.name)" } ?? ""))
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.muted)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Theme.panel, in: RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
-        }
-        .padding(14)
-        .allowsHitTesting(false)
     }
 
     @ViewBuilder

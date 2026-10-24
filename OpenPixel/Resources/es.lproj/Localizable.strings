@@ -597,3 +597,4 @@
 "Each edited cell gets a matching tile, new or reused; unused tiles go away." = "Cada celda editada recibe un tile igual, nuevo o reutilizado; los que no se usan desaparecen.";
 "Each edited cell gets a new tile; existing tiles never change." = "Cada celda editada recibe un tile nuevo; los existentes no cambian.";
 "The pencil places the selected tile, the eraser clears cells, the bucket fills connected cells and the eyedropper picks a tile." = "El lápiz pone el tile elegido, la goma vacía celdas, el cubo rellena celdas conectadas y el cuentagotas elige un tile.";
+"Tool" = "Herramienta";

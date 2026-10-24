@@ -33,7 +33,12 @@ struct SidePanel: View {
                 paletteSection
 
                 VStack(spacing: 8) {
-                    infoRow("Active cel", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)")
+                    // What used to float over the canvas: tool, cel and tag.
+                    infoRow("Tool", Text(document.tool.title)
+                        + Text(verbatim: document.tool.usesBrush ? " · \(document.brushSize) px" : "")
+                        + (document.symmetry.isOn ? Text(" + symmetry") : Text(verbatim: "")))
+                    infoRow("Active cel", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)/\(document.structure.frames.count)")
+                    if let tag = document.activeTag { infoRow("Tag", tag.name) }
                     infoRow("Layer opacity", "\(Int((document.activeLayer?.opacity ?? 1) * 100)) %")
                     infoRow("Animation", "\(document.structure.totalDuration) ms")
                 }
@@ -352,10 +357,14 @@ struct SidePanel: View {
     }
 
     private func infoRow(_ title: LocalizedStringKey, _ value: String) -> some View {
+        infoRow(title, Text(verbatim: value))
+    }
+
+    private func infoRow(_ title: LocalizedStringKey, _ value: Text) -> some View {
         HStack {
             Text(title).foregroundStyle(Theme.muted)
             Spacer()
-            Text(verbatim: value)
+            value.lineLimit(1).truncationMode(.middle)
         }
         .font(.system(size: 13))
     }
