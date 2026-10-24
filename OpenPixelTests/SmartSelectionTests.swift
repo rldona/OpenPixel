@@ -123,4 +123,60 @@ final class SmartSelectionTests: XCTestCase {
         XCTAssertEqual(doc.transformExtraCels, 0)
         doc.cancelTransform()
     }
+
+    // MARK: Editing a multi-layer selection
+
+    private func selectEverything(_ doc: SpriteDocument) {
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.continueStroke(to: PixelPoint(x: 7, y: 7))
+        doc.endStroke()
+    }
+
+    private func pixel(_ doc: SpriteDocument, layer: Int, _ x: Int, _ y: Int) -> PixelColor {
+        doc.sprite.cel(layer: doc.sprite.layers[layer].id, frame: doc.sprite.frames[0].id)?[x, y] ?? .clear
+    }
+
+    func testDeleteClearsEveryLayerOfTheSelection() {
+        let doc = makeDocument()
+        selectEverything(doc)
+        doc.deleteSelection()
+        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .clear)
+        XCTAssertEqual(pixel(doc, layer: 1, 5, 5), .clear)
+        doc.undo()
+        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .black)
+        XCTAssertEqual(pixel(doc, layer: 1, 5, 5), .black)
+    }
+
+    func testFillRecolorsEachLayerInPlace() {
+        let doc = makeDocument()
+        selectEverything(doc)
+        let red = PixelColor(r: 255, g: 0, b: 0)
+        doc.primary = red
+        doc.fillSelection()
+        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), red, "the bar stays on its layer")
+        XCTAssertEqual(pixel(doc, layer: 1, 5, 5), red)
+        XCTAssertEqual(pixel(doc, layer: 1, 1, 1), .clear, "the top layer doesn't get a copy of the bar")
+    }
+
+    func testCopyMergesTheLayersAndCutClearsThem() throws {
+        let doc = makeDocument()
+        selectEverything(doc)
+        doc.cut()
+        let (image, origin) = try XCTUnwrap(PixelClipboard.read(maxSize: 64))
+        XCTAssertEqual(origin, PixelPoint(x: 1, y: 1))
+        XCTAssertEqual(image.width, 5)
+        XCTAssertEqual(image[0, 0], .black, "the bar")
+        XCTAssertEqual(image[4, 4], .black, "the dot")
+        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .clear)
+        XCTAssertEqual(pixel(doc, layer: 1, 5, 5), .clear)
+    }
+
+    func testLockedLayersAreLeftAlone() {
+        let doc = makeDocument()
+        selectEverything(doc)
+        doc.toggleLock(doc.sprite.layers[0].id)
+        doc.deleteSelection()
+        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .black)
+        XCTAssertEqual(pixel(doc, layer: 1, 5, 5), .clear)
+    }
 }

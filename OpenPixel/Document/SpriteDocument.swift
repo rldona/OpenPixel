@@ -1044,40 +1044,91 @@ extension SpriteDocument {
         return true
     }
 
-    /// Clears the selected pixels of the active cel.
+    /// The cels an edit on the selection changes: every layer a marquee caught
+    /// (in the active frame), every cel of the timeline range, or just the
+    /// active cel. Hidden and locked layers are left out.
+    private var selectionEditKeys: [CelKey] {
+        let keys: [CelKey]
+        if let range = timelineRange {
+            keys = rangeKeys(range).flatMap { $0 }
+        } else if let layers = selectionLayers, selection != nil {
+            keys = storage.layers.filter { layers.contains($0.id) }.map { CelKey(layer: $0.id, frame: activeFrame.id) }
+        } else {
+            return activeLayerEditable ? [activeCelKey] : []
+        }
+        let editable = Set(storage.layers.filter { $0.isVisible && !$0.isLocked }.map(\.id))
+        let result = keys.filter { editable.contains($0.layer) }
+        if result.isEmpty { notice = L10n.string("The layers are hidden or locked") }
+        return result
+    }
+
+    /// Clears the selected pixels in every selected layer.
     func deleteSelection() {
-        guard let mask = selection, activeLayerEditable else { return }
-        let key = activeCelKey, erase = eraseColor
+        guard let mask = selection else { return }
+        let keys = selectionEditKeys
+        guard !keys.isEmpty else { return }
+        let erase = keys.map { eraseColor(forLayer: $0.layer) }
         perform { s in
-            guard var cel = s.cels[key] else { return }
-            for i in cel.pixels.indices where mask.bits[i] { cel.pixels[i] = erase }
-            s.cels[key] = cel.isEmpty ? nil : cel
+            for (key, color) in zip(keys, erase) {
+                guard var cel = s.cels[key] else { continue }
+                for i in cel.pixels.indices where mask.bits[i] { cel.pixels[i] = color }
+                s.cels[key] = cel.isEmpty ? nil : cel
+                s.syncLinks(from: key)
+            }
         }
     }
 
-    /// Fills the selection (or the whole cel) with the primary color.
+    /// Fills the selection (or the whole cel) with the primary color. With
+    /// several layers, each one recolors its own pixels and the empty part
+    /// goes to the active layer, so the layers stay apart.
     func fillSelection() {
-        guard activeLayerEditable else { return }
-        let mask = selection, key = activeCelKey, color = primary
+        let keys = selectionEditKeys
+        guard !keys.isEmpty else { return }
+        let mask = selection, color = primary, active = activeCelKey
         let (w, h) = (storage.width, storage.height)
         perform { s in
-            var cel = s.cels[key] ?? PixelImage(width: w, height: h)
-            for i in cel.pixels.indices where mask?.bits[i] ?? true { cel.pixels[i] = color }
-            s.cels[key] = cel
+            // Pixels drawn in any of the layers: those stay with their own layer.
+            var drawn = [Bool](repeating: false, count: w * h)
+            if keys.count > 1 {
+                for key in keys { if let cel = s.cels[key] { for i in cel.pixels.indices where cel.pixels[i].a != 0 { drawn[i] = true } } }
+            }
+            for key in keys {
+                var cel = s.cels[key] ?? PixelImage(width: w, height: h)
+                let isActive = keys.count == 1 || key == active
+                for i in cel.pixels.indices where mask?.bits[i] ?? true {
+                    let own = cel.pixels[i].a != 0
+                    guard own || (isActive && !drawn[i]) else { continue }
+                    cel.pixels[i] = color
+                }
+                s.cels[key] = cel.isEmpty ? nil : cel
+                s.syncLinks(from: key)
+            }
         }
     }
 
-    /// Copies the selected pixels of the active cel (or the whole cel) to the
-    /// app clipboard and, as a PNG, to the system pasteboard.
+    /// Copies the selected pixels (or the whole cel) to the app clipboard and,
+    /// as a PNG, to the system pasteboard. With several layers selected it
+    /// copies them merged, as they look.
     func copy() {
         applyTransformIfNeeded()
-        guard let cel = storage.cels[activeCelKey] else { return }
+        let keys = selectionEditKeys.filter { $0.frame == activeFrame.id }
+        guard !keys.isEmpty else { return }
+        let image: PixelImage
+        if keys.count == 1 {
+            guard let cel = storage.cels[keys[0]] else { return }
+            image = cel
+        } else {
+            var merged = storage
+            let layers = Set(keys.map(\.layer))
+            for i in merged.layers.indices where !layers.contains(merged.layers[i].id) { merged.layers[i].isVisible = false }
+            image = merged.composite(frameIndex: activeFrameIndex)
+        }
         let mask = selection ?? SelectionMask(width: storage.width, height: storage.height, filled: true)
         guard let bounds = mask.bounds else { return }
-        var image = cel.cropped(to: bounds)
+        var cropped = image.cropped(to: bounds)
         let local = mask.cropped(to: bounds)
-        for i in image.pixels.indices where !local.bits[i] { image.pixels[i] = .clear }
-        PixelClipboard.store(image, origin: PixelPoint(x: bounds.minX, y: bounds.minY))
+        for i in cropped.pixels.indices where !local.bits[i] { cropped.pixels[i] = .clear }
+        PixelClipboard.store(cropped, origin: PixelPoint(x: bounds.minX, y: bounds.minY))
     }
 
     func cut() {
