@@ -1,10 +1,16 @@
+import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Aseprite-style timeline: rows of tags, one row per layer, one column per
 /// frame, and a dot in each cel (filled when it has pixels, hollow when empty).
 struct FrameTimeline: View {
     @Bindable var document: SpriteDocument
     @State private var renaming: Layer?
+    /// Picking the image for a new reference layer.
+    @State private var pickingReferencePhoto = false
+    @State private var referencePhoto: PhotosPickerItem?
+    @State private var importingReferenceFile = false
     @State private var renameText = ""
     @State private var editingTag: FrameTag?
     /// Aseprite's "First frame as 0 (or any other number)".
@@ -26,6 +32,15 @@ struct FrameTimeline: View {
     private static let speeds: [Double] = [0.25, 0.5, 1, 1.5, 2, 3]
 
     var body: some View {
+        content
+            .photosPicker(isPresented: $pickingReferencePhoto, selection: $referencePhoto, matching: .images)
+            .onChange(of: referencePhoto) { loadReferencePhoto() }
+            .fileImporter(isPresented: $importingReferenceFile, allowedContentTypes: [.image]) { result in
+                loadReferenceFile(result)
+            }
+    }
+
+    private var content: some View {
         VStack(spacing: 0) {
             controls
             Rectangle().fill(Theme.border).frame(height: 1)
@@ -412,8 +427,30 @@ struct FrameTimeline: View {
                 columnHeaders
                 Spacer(minLength: 4)
                 timelineOptions
-                IconButton(systemImage: "plus", label: "New layer", size: 28) { document.addLayer() }
-                    .keyboardShortcut("n", modifiers: .shift)
+                Menu {
+                    Button("New layer", systemImage: "square.3.layers.3d") { document.addLayer() }
+                    Section("New reference layer") {
+                        Button("From Photos", systemImage: "photo.on.rectangle") { pickingReferencePhoto = true }
+                        Button("From Files", systemImage: "folder") { importingReferenceFile = true }
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11.2, weight: .medium))
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(Theme.text)
+                } primaryAction: {
+                    document.addLayer()
+                }
+                .menuIndicator(.hidden)
+                .accessibilityLabel(Text("New layer"))
+                .accessibilityHint(Text("Touch and hold for a reference layer"))
+                .background {
+                    Button("New layer") { document.addLayer() }
+                        .keyboardShortcut("n", modifiers: .shift)
+                        .opacity(0)
+                        .accessibilityHidden(true)
+                }
+
                 IconButton(systemImage: "trash", label: "Delete layer", size: 28) { document.deleteLayer(document.activeLayerID) }
                     .opacity(document.sprite.layers.count > 1 ? 1 : 0.35)
             }
@@ -537,12 +574,19 @@ struct FrameTimeline: View {
                     .frame(width: 26, height: rowHeight)
             }
             .buttonStyle(.plain)
+            .opacity(layer.isReference ? 0 : 1)
+            .disabled(layer.isReference)
             .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
             .accessibilityHint(Text("New frames link this layer's cel instead of copying it"))
             Button {
                 if document.isSelectingRange { document.extendRange(layerRow: layer.id) } else { document.activeLayerID = layer.id }
             } label: {
-                Text(verbatim: layer.name)
+                HStack(spacing: 4) {
+                    if layer.isReference {
+                        Image(systemName: "photo").font(.system(size: 11)).foregroundStyle(Theme.muted)
+                    }
+                    Text(verbatim: layer.name)
+                }
                     .font(.system(size: 13, weight: .medium))
                     // Underlined like Aseprite's background layer.
                     .underline(layer.isBackground)
@@ -571,8 +615,17 @@ struct FrameTimeline: View {
                 renaming = layer
             }
             Button(layer.isLocked ? LocalizedStringKey("Unlock") : LocalizedStringKey("Lock"), systemImage: "lock") { document.toggleLock(layer.id) }
-            Toggle(isOn: Binding(get: { layer.isContinuous }, set: { _ in document.toggleContinuous(layer.id) })) {
-                Label("Continuous", systemImage: "capsule")
+            if layer.isReference {
+                Section("Reference image") {
+                    Button("Fit the canvas", systemImage: "arrow.down.right.and.arrow.up.left") { document.fitReference(layer.id, fill: false) }
+                    Button("Fill the canvas", systemImage: "arrow.up.left.and.arrow.down.right") { document.fitReference(layer.id, fill: true) }
+                    Button("Bigger", systemImage: "plus.magnifyingglass") { document.scaleReference(layer.id, by: 1.25) }
+                    Button("Smaller", systemImage: "minus.magnifyingglass") { document.scaleReference(layer.id, by: 0.8) }
+                }
+            } else {
+                Toggle(isOn: Binding(get: { layer.isContinuous }, set: { _ in document.toggleContinuous(layer.id) })) {
+                    Label("Continuous", systemImage: "capsule")
+                }
             }
             if !layer.isBackground {
                 Menu("Opacity") {
@@ -583,13 +636,13 @@ struct FrameTimeline: View {
             }
             if layer.isBackground {
                 Button("Convert to layer", systemImage: "square.3.layers.3d.top.filled") { document.convertToLayer(layer.id) }
-            } else if !document.sprite.layers.contains(where: \.isBackground) {
+            } else if !layer.isReference, !document.sprite.layers.contains(where: \.isBackground) {
                 Button("Convert to background", systemImage: "square.3.layers.3d.bottom.filled") { document.convertToBackground(layer.id) }
             }
             Divider()
             Button("Duplicate layer", systemImage: "plus.square.on.square") { document.duplicateLayer(layer.id) }
             Button("Merge down", systemImage: "arrow.down.to.line") { document.mergeDown(layer.id) }
-                .disabled(document.sprite.layers.first?.id == layer.id)
+                .disabled(!canMergeDown(layer))
             Button("Flatten", systemImage: "square.stack.3d.down.forward") { document.flatten() }
                 .disabled(document.sprite.layers.count <= 1)
             Button("Select layers", systemImage: "checkmark.rectangle.stack") {
@@ -611,6 +664,29 @@ struct FrameTimeline: View {
             Button("Delete layer", systemImage: "trash", role: .destructive) { document.deleteLayer(layer.id) }
                 .disabled(document.sprite.layers.count <= 1)
         }
+    }
+
+    private func canMergeDown(_ layer: Layer) -> Bool {
+        guard let index = document.sprite.layers.firstIndex(where: { $0.id == layer.id }), index > 0 else { return false }
+        return !layer.isReference && !document.sprite.layers[index - 1].isReference
+    }
+
+    private func loadReferencePhoto() {
+        guard let item = referencePhoto else { return }
+        referencePhoto = nil
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                document.addReferenceLayer(imageData: data)
+            }
+        }
+    }
+
+    private func loadReferenceFile(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return }
+        document.addReferenceLayer(imageData: data, name: url.deletingPathExtension().lastPathComponent)
     }
 
     // MARK: Tags
@@ -741,8 +817,19 @@ struct FrameTimeline: View {
             VStack(alignment: .leading, spacing: 0) {
             ForEach(layersTopFirst) { layer in
                 HStack(spacing: 0) {
-                    ForEach(frames.indices, id: \.self) { index in
-                        celButton(layer: layer, frameIndex: index, frame: frames[index])
+                    if layer.isReference {
+                        // A reference image is the same in every frame: one strip, no cels.
+                        RoundedRectangle(cornerRadius: 7)
+                            .fill(Theme.chip)
+                            .overlay(Label("Reference image", systemImage: "photo").labelStyle(.iconOnly).foregroundStyle(Theme.muted))
+                            .frame(width: CGFloat(frames.count) * celWidth - 4, height: rowHeight - 8)
+                            .frame(width: CGFloat(frames.count) * celWidth, height: rowHeight)
+                            .contentShape(Rectangle())
+                            .onTapGesture { document.activeLayerID = layer.id }
+                    } else {
+                        ForEach(frames.indices, id: \.self) { index in
+                            celButton(layer: layer, frameIndex: index, frame: frames[index])
+                        }
                     }
                     if showsDropColumn {
                         RoundedRectangle(cornerRadius: 7)

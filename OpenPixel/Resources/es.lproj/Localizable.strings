@@ -496,3 +496,17 @@
 "Cut to new layer" = "Cortar a una capa nueva";
 "Play preview" = "Reproducir la vista previa";
 "Pause preview" = "Pausar la vista previa";
+
+/* Reference layers */
+"Reference" = "Referencia";
+"New reference layer" = "Nueva capa de referencia";
+"From Photos" = "Desde Fotos";
+"From Files" = "Desde Archivos";
+"Touch and hold for a reference layer" = "Mantén pulsado para una capa de referencia";
+"Reference image" = "Imagen de referencia";
+"Fit the canvas" = "Ajustar al lienzo";
+"Fill the canvas" = "Llenar el lienzo";
+"Bigger" = "Más grande";
+"Smaller" = "Más pequeña";
+"That image can't be opened" = "No se puede abrir esa imagen";
+"“%@” is a reference layer: use the Move tool to place it" = "«%@» es una capa de referencia: usa la herramienta Mover para colocarla";

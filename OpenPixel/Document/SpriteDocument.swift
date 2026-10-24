@@ -1,5 +1,7 @@
 import CoreGraphics
 import Foundation
+import ImageIO
+import UIKit
 import Observation
 
 /// One undo step: the sprite and the selection, like Aseprite (deselecting is undoable).
@@ -179,6 +181,8 @@ final class SpriteDocument {
 
     // Transform
     @ObservationIgnored private var floating: FloatingSelection?
+    /// A reference image being dragged with the Move tool.
+    @ObservationIgnored private var referenceDrag: (layer: UUID, start: CGPoint, frame: CGRect, before: Sprite)?
     @ObservationIgnored private var floatingBase: PixelImage?
     @ObservationIgnored private var transformStart: DocumentSnapshot?
     @ObservationIgnored private var floatingDirty: PixelRect?
@@ -389,6 +393,7 @@ final class SpriteDocument {
         guard let layer = activeLayer else { return }
         if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return }
         if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return }
+        if layer.isReference { notice = L10n.string("“%@” is a reference layer: use the Move tool to place it", layer.name); return }
         if tool == .text {
             textAnchor = p
             return
@@ -1422,6 +1427,7 @@ extension SpriteDocument {
         guard let layer = activeLayer else { return false }
         if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return false }
         if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return false }
+        if layer.isReference { notice = L10n.string("“%@” is a reference layer: use the Move tool to place it", layer.name); return false }
         return true
     }
 
@@ -1813,12 +1819,24 @@ extension SpriteDocument {
     }
 
     func beginTransformDrag(_ handle: TransformHandle, at point: CGPoint) {
+        // The Move tool on a reference layer moves its image.
+        if !isTransforming, let layer = activeLayer, let reference = layer.reference {
+            guard !layer.isLocked else { notice = L10n.string("Layer “%@” is locked", layer.name); return }
+            referenceDrag = (layer.id, point, reference.frame, storage)
+            return
+        }
         if !isTransforming { beginTransform() }
         guard let box = floating?.box else { return }
         transformDrag = (handle, point, box)
     }
 
     func continueTransformDrag(to point: CGPoint) {
+        if let drag = referenceDrag {
+            let moved = drag.frame.offsetBy(dx: (point.x - drag.start.x).rounded(), dy: (point.y - drag.start.y).rounded())
+            if let i = storage.layers.firstIndex(where: { $0.id == drag.layer }) { storage.layers[i].reference?.frame = moved }
+            revision &+= 1
+            return
+        }
         guard let drag = transformDrag, var f = floating else { return }
         var box = drag.box
         switch drag.handle {
@@ -1846,6 +1864,11 @@ extension SpriteDocument {
 
     func endTransformDrag() {
         transformDrag = nil
+        if let drag = referenceDrag {
+            referenceDrag = nil
+            if drag.before != storage { registerUndo(DocumentSnapshot(sprite: drag.before, selection: selection)) }
+            changed()
+        }
     }
 
     /// Flips the selection, or the whole cel when nothing is selected.
@@ -2246,10 +2269,66 @@ extension SpriteDocument {
         if let copy = placed.first { activeLayerID = copy }
     }
 
+    /// Adds a reference layer with the image in `data` (PNG, JPEG, HEIC…),
+    /// fitted inside the canvas, just under the active layer and half transparent.
+    @discardableResult
+    func addReferenceLayer(imageData data: Data, name: String? = nil) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil), image.width > 0, image.height > 0 else {
+            notice = L10n.string("That image can't be opened")
+            return false
+        }
+        // Keep it as PNG so any format the system reads is stored the same way.
+        let stored = UIImage(cgImage: image).pngData() ?? data
+        let reference = ReferenceImage(data: stored, frame: Self.fit(CGSize(width: image.width, height: image.height), in: storage, fill: false))
+        let layer = Layer(name: name ?? L10n.string("Reference"), opacity: 0.5, reference: reference)
+        let index = storage.layers.firstIndex { $0.id == activeLayerID } ?? 0
+        perform { s in
+            let at = s.layers[index].isBackground ? index + 1 : index
+            s.layers.insert(layer, at: at)
+        }
+        activeLayerID = layer.id
+        return true
+    }
+
+    /// Fits (or, with `fill`, covers) the canvas with the reference image, centred.
+    func fitReference(_ id: UUID, fill: Bool) {
+        guard let layer = sprite.layers.first(where: { $0.id == id }), let reference = layer.reference,
+              let size = Self.imageSize(of: reference.data) else { return }
+        let frame = Self.fit(size, in: storage, fill: fill)
+        perform { s in
+            if let i = s.layers.firstIndex(where: { $0.id == id }) { s.layers[i].reference?.frame = frame }
+        }
+    }
+
+    /// Scales the reference image around its centre; `percent` of its fitted size.
+    func scaleReference(_ id: UUID, by factor: Double) {
+        guard factor > 0 else { return }
+        perform { s in
+            guard let i = s.layers.firstIndex(where: { $0.id == id }), let f = s.layers[i].reference?.frame else { return }
+            let w = f.width * factor, h = f.height * factor
+            s.layers[i].reference?.frame = CGRect(x: f.midX - w / 2, y: f.midY - h / 2, width: w, height: h)
+        }
+    }
+
+    private static func imageSize(of data: Data) -> CGSize? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        return CGSize(width: image.width, height: image.height)
+    }
+
+    private static func fit(_ size: CGSize, in sprite: Sprite, fill: Bool) -> CGRect {
+        let w = Double(sprite.width), h = Double(sprite.height)
+        let scale = fill ? max(w / size.width, h / size.height) : min(w / size.width, h / size.height)
+        let fw = size.width * scale, fh = size.height * scale
+        return CGRect(x: (w - fw) / 2, y: (h - fh) / 2, width: fw, height: fh)
+    }
+
     /// Layer > Merge Down: the layer is drawn onto the one below it, frame by
     /// frame, with its opacity, and disappears.
     func mergeDown(_ id: UUID) {
-        guard let index = sprite.layers.firstIndex(where: { $0.id == id }), index > 0 else { return }
+        guard let index = sprite.layers.firstIndex(where: { $0.id == id }), index > 0,
+              !sprite.layers[index].isReference, !sprite.layers[index - 1].isReference else { return }
         let lower = sprite.layers[index - 1].id
         perform { s in s.mergeDown(at: index) }
         activeLayerID = lower

@@ -46,6 +46,7 @@ struct EditorView: View {
                                 revision: document.revision,
                                 frameIndex: document.activeFrameIndex,
                                 onionLayers: onionLayers(sprite),
+                                references: referenceOverlays(sprite),
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
                                 symmetry: document.symmetry,
@@ -174,6 +175,15 @@ struct EditorView: View {
             if settings.tint { image = image.tinted(offset < 0 ? .onionPrevious : .onionNext) }
             guard let cgImage = image.makeCGImage() else { return nil }
             return OnionLayer(image: cgImage, alpha: settings.opacity / CGFloat(abs(offset)))
+        }
+    }
+
+    /// Visible reference layers, each over the drawing when no drawn layer is above it.
+    private func referenceOverlays(_ sprite: Sprite) -> [ReferenceOverlay] {
+        sprite.layers.enumerated().compactMap { index, layer in
+            guard layer.isVisible, let reference = layer.reference else { return nil }
+            let above = !sprite.layers[(index + 1)...].contains { !$0.isReference && $0.isVisible }
+            return ReferenceOverlay(id: layer.id, data: reference.data, frame: reference.frame, opacity: layer.opacity, above: above)
         }
     }
 

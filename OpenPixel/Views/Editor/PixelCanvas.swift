@@ -19,6 +19,7 @@ struct PixelCanvas: UIViewRepresentable {
     let revision: Int
     let frameIndex: Int
     let onionLayers: [OnionLayer]
+    let references: [ReferenceOverlay]
     let spriteSize: CGSize
     let showGrid: Bool
     let symmetry: Symmetry
@@ -68,6 +69,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.symmetry = symmetry
         view.tiledMode = tiledMode
         view.onionLayers = onionLayers
+        view.references = references
         if view.renderedRevision != revision || view.renderedFrame != frameIndex {
             view.renderAll()
         }

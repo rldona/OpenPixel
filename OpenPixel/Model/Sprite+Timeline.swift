@@ -212,7 +212,9 @@ extension Sprite {
             let image = composite(frameIndex: index)
             if !image.isEmpty { flat[CelKey(layer: layer.id, frame: frame.id)] = image }
         }
-        layers = [layer]
+        // Reference layers aren't part of the image; they stay as they are.
+        layers = layers.filter(\.isReference) + [layer]
+        if background { layers.insert(layers.removeLast(), at: 0) }
         cels = flat
         links = [:]
         celOpacity = [:]

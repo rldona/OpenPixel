@@ -8,6 +8,15 @@ enum ColorMode: String, Codable, Sendable {
     case rgba
 }
 
+/// The image of a reference layer: kept at its own resolution (not turned
+/// into sprite pixels) and placed over the canvas in sprite coordinates.
+struct ReferenceImage: Codable, Equatable, Sendable {
+    /// PNG or JPEG data, as imported.
+    var data: Data
+    /// Where it sits, in sprite pixels (fractions allowed).
+    var frame: CGRect
+}
+
 struct Layer: Identifiable, Codable, Equatable, Sendable {
     var id = UUID()
     var name: String
@@ -19,8 +28,12 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
     /// Aseprite's background layer: opaque, always at the bottom, erased to the
     /// secondary color. https://www.aseprite.org/docs/layers/#background-layer
     var isBackground = false
+    /// Aseprite's reference layer: an image to trace over. It can't be drawn
+    /// on, isn't exported and is shown at its own resolution.
+    var reference: ReferenceImage?
+    var isReference: Bool { reference != nil }
 
-    init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false, isBackground: Bool = false) {
+    init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false, isBackground: Bool = false, reference: ReferenceImage? = nil) {
         self.id = id
         self.name = name
         self.isVisible = isVisible
@@ -28,9 +41,10 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         self.opacity = opacity
         self.isContinuous = isContinuous
         self.isBackground = isBackground
+        self.reference = reference
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground }
+    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground, reference }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -41,6 +55,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         opacity = try c.decode(Double.self, forKey: .opacity)
         isContinuous = try c.decodeIfPresent(Bool.self, forKey: .isContinuous) ?? false
         isBackground = try c.decodeIfPresent(Bool.self, forKey: .isBackground) ?? false
+        reference = try c.decodeIfPresent(ReferenceImage.self, forKey: .reference)
     }
 }
 
@@ -104,7 +119,8 @@ struct Sprite: Equatable, Sendable {
             }
             guard frames.indices.contains(frameIndex) else { return }
             let frameID = frames[frameIndex].id
-            for layer in layers where layer.isVisible && layer.opacity > 0 {
+            // Reference layers aren't part of the image: the canvas shows them on its own.
+            for layer in layers where layer.isVisible && layer.opacity > 0 && !layer.isReference {
                 let key = CelKey(layer: layer.id, frame: frameID)
                 guard let image = cels[key] else { continue }
                 let opacity = layer.opacity * (celOpacity[key] ?? 1)

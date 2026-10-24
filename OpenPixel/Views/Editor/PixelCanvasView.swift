@@ -1,9 +1,21 @@
+import ImageIO
 import UIKit
 
 /// A neighbouring frame drawn faintly under the current one.
 struct OnionLayer {
     let image: CGImage
     let alpha: CGFloat
+}
+
+/// A reference layer as the canvas shows it: its own image at its own
+/// resolution, under the drawing or over it.
+struct ReferenceOverlay: Equatable {
+    let id: UUID
+    let data: Data
+    let frame: CGRect
+    let opacity: Double
+    /// Above every drawn layer (tracing guide on top), or under the drawing.
+    let above: Bool
 }
 
 /// The drawing surface. UIKit instead of SwiftUI gestures because we need
@@ -24,6 +36,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         didSet { if oldValue != spriteSize { needsFit = true; setNeedsLayout() } }
     }
     var onionLayers: [OnionLayer] = [] { didSet { updateOnionLayers() } }
+    var references: [ReferenceOverlay] = [] { didSet { if oldValue != references { updateReferences() } } }
     var showGrid = true { didSet { if oldValue != showGrid { updateOverlays() } } }
     var symmetry = Symmetry() { didSet { if oldValue != symmetry { updateOverlays() } } }
     var tiledMode = TiledMode.none { didSet { if oldValue != tiledMode { updateGeometry() } } }
@@ -79,6 +92,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let checkerLayer = CALayer()
     private let onionHost = CALayer()
     private let imageLayer = CALayer()
+    /// Reference images under and over the drawing.
+    private let referencesBelow = CALayer()
+    private let referencesAbove = CALayer()
+    /// Decoded reference images, by layer, with the data they came from.
+    private var referenceImages: [UUID: (data: Data, image: CGImage)] = [:]
     /// Copies of the sprite around it in tiled mode.
     private let tilesHost = CALayer()
     private let gridLayer = CAShapeLayer()
@@ -160,8 +178,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             l.minificationFilter = .nearest
         }
         spriteLayer.addSublayer(checkerLayer)
+        spriteLayer.addSublayer(referencesBelow)
         spriteLayer.addSublayer(onionHost)
         spriteLayer.addSublayer(imageLayer)
+        spriteLayer.addSublayer(referencesAbove)
+        for l in [referencesBelow, referencesAbove] { l.actions = Self.noAnimations }
 
         gridLayer.fillColor = nil
         mirrorLayer.fillColor = nil
@@ -316,6 +337,40 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         }
     }
 
+    private func updateReferences() {
+        referenceImages = referenceImages.filter { entry in references.contains { $0.id == entry.key } }
+        var below: [CALayer] = [], above: [CALayer] = []
+        for reference in references {
+            if referenceImages[reference.id]?.data != reference.data,
+               let source = CGImageSourceCreateWithData(reference.data as CFData, nil),
+               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+                referenceImages[reference.id] = (reference.data, image)
+            }
+            let l = CALayer()
+            l.actions = Self.noAnimations
+            l.contents = referenceImages[reference.id]?.image
+            l.opacity = Float(reference.opacity)
+            l.contentsGravity = .resize
+            // Photos are smooth when scaled; pixel references stay sharp up close.
+            l.magnificationFilter = .nearest
+            l.minificationFilter = .trilinear
+            if reference.above { above.append(l) } else { below.append(l) }
+        }
+        referencesBelow.sublayers = below
+        referencesAbove.sublayers = above
+        layoutReferences()
+    }
+
+    private func layoutReferences() {
+        referencesBelow.frame = spriteLayer.bounds
+        referencesAbove.frame = spriteLayer.bounds
+        let layers = (referencesBelow.sublayers ?? []) + (referencesAbove.sublayers ?? [])
+        let frames = references.filter { !$0.above }.map(\.frame) + references.filter(\.above).map(\.frame)
+        for (l, f) in zip(layers, frames) {
+            l.frame = CGRect(x: f.minX * scale, y: f.minY * scale, width: f.width * scale, height: f.height * scale)
+        }
+    }
+
     private func updateOnionLayers() {
         onionHost.sublayers = onionLayers.map { onion in
             let l = CALayer()
@@ -362,6 +417,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         imageLayer.frame = spriteLayer.bounds
         onionHost.frame = spriteLayer.bounds
         onionHost.sublayers?.forEach { $0.frame = onionHost.bounds }
+        layoutReferences()
         updateChecker()
         updateTiles()
         updateOverlays()
