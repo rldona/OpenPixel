@@ -97,6 +97,9 @@ final class SpriteDocument {
     var wandSampleAllLayers = false
     /// Marquee and lasso selections shrink to the drawn pixels inside them.
     var selectionFitsContent = true
+    /// Layers a marquee caught besides the active one: moving or transforming
+    /// the selection changes them too. Nil when the selection is one layer's.
+    @ObservationIgnored private(set) var selectionLayers: Set<UUID>?
     /// The shape being dragged, before it's combined with the previous selection.
     @ObservationIgnored private var dragShape: SelectionMask?
     // Timeline range selection
@@ -228,6 +231,7 @@ final class SpriteDocument {
     private func restore(_ snapshot: DocumentSnapshot) {
         storage = snapshot.sprite
         selection = snapshot.selection
+        selectionLayers = nil
         fixSelection()
         changed()
     }
@@ -926,6 +930,7 @@ extension SpriteDocument {
         if !drag.moved && tool != .magicWand {
             // A tap picks the element under it: the content of the topmost layer
             // with a pixel there. On empty canvas it deselects, like Aseprite.
+            selectionLayers = nil
             if let element = element(at: drag.start) {
                 activeLayerID = element.layer
                 if timelineRange != nil { endRangeSelection() }
@@ -934,9 +939,18 @@ extension SpriteDocument {
             } else if selectionMode == .replace {
                 selection = nil
             }
-        } else if drag.moved, selectionFitsContent, tool != .magicWand, let shape,
-                  let fitted = fittedToContent(shape) {
-            selection = base.combined(with: fitted, mode: selectionMode)
+        } else if drag.moved, tool != .magicWand, let shape {
+            // A marquee over several layers takes all of them, not just the active one.
+            let caught = layersWithContent(in: shape)
+            if selectionFitsContent, let fitted = fittedToContent(shape, layers: caught) {
+                selection = base.combined(with: fitted, mode: selectionMode)
+            }
+            var layers = Set(caught.map(\.id))
+            if selectionMode == .add, let previous = selectionLayers { layers.formUnion(previous) }
+            if selectionMode == .replace || selectionMode == .add {
+                layers.insert(activeLayerID)
+                selectionLayers = layers.count > 1 && timelineRange == nil ? layers : nil
+            }
         }
         guard selection != drag.before else { return }
         if drag.before != nil { lastSelection = drag.before }
@@ -955,15 +969,33 @@ extension SpriteDocument {
         return nil
     }
 
-    /// `shape` reduced to the drawn pixels inside it, in the layers and frames
-    /// being edited (the timeline range, or the active cel). Nil when the shape
+    /// The layers (and frames) a marquee works on: the timeline range, or
+    /// every visible layer in the active frame. The background is left out.
+    private var marqueeScope: (layers: [Layer], frames: [UUID]) {
+        if let r = timelineRange {
+            return (storage.layers.filter { r.layers.contains($0.id) && $0.isVisible && !$0.isBackground },
+                    r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil })
+        }
+        return (storage.layers.filter { $0.isVisible && !$0.isBackground }, [activeFrame.id])
+    }
+
+    /// The layers in scope with drawn pixels inside `shape`.
+    private func layersWithContent(in shape: SelectionMask) -> [Layer] {
+        let scope = marqueeScope
+        return scope.layers.filter { layer in
+            scope.frames.contains { frame in
+                guard let cel = storage.cel(layer: layer.id, frame: frame) else { return false }
+                return cel.pixels.indices.contains { cel.pixels[$0].a != 0 && shape.bits[$0] }
+            }
+        }
+    }
+
+    /// `shape` reduced to the drawn pixels of `layers` inside it. Nil when it
     /// holds nothing drawn, so selecting empty canvas still works.
-    private func fittedToContent(_ shape: SelectionMask) -> SelectionMask? {
+    private func fittedToContent(_ shape: SelectionMask, layers: [Layer]) -> SelectionMask? {
         var content = emptyMask
-        let layers = timelineRange.map { r in storage.layers.filter { r.layers.contains($0.id) } } ?? activeLayer.map { [$0] } ?? []
-        let frames = timelineRange.map { r in r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil } } ?? [activeFrame.id]
-        for layer in layers where layer.isVisible && !layer.isBackground {
-            for frame in frames {
+        for layer in layers {
+            for frame in marqueeScope.frames {
                 guard let cel = storage.cel(layer: layer.id, frame: frame) else { continue }
                 content = content.combined(with: SelectionMask.opaquePixels(of: cel), mode: .add)
             }
@@ -979,6 +1011,7 @@ extension SpriteDocument {
         guard normalized != selection else { return }
         if selection != nil { lastSelection = selection }
         registerUndo(DocumentSnapshot(sprite: storage, selection: selection))
+        selectionLayers = nil
         selection = normalized
         changed()
     }
@@ -1194,12 +1227,19 @@ extension SpriteDocument {
     /// The cels of the timeline range besides the active one: one per link
     /// group, skipping locked layers and empty cels.
     private func rangeTransformTargets() -> [(key: CelKey, linked: [CelKey])] {
-        guard let range = timelineRange else { return [] }
+        let keys: [CelKey]
+        if let range = timelineRange {
+            keys = rangeKeys(range).flatMap { $0 }
+        } else if let layers = selectionLayers, selection != nil {
+            keys = storage.layers.filter { layers.contains($0.id) }.map { CelKey(layer: $0.id, frame: activeFrame.id) }
+        } else {
+            return []
+        }
         let active = activeCelKey, activeGroup = storage.links[active]
         let locked = Set(storage.layers.filter(\.isLocked).map(\.id))
         var result: [(key: CelKey, linked: [CelKey])] = []
         var byGroup: [UUID: Int] = [:]
-        for key in rangeKeys(range).flatMap({ $0 }) where key != active && storage.cels[key] != nil && !locked.contains(key.layer) {
+        for key in keys where key != active && storage.cels[key] != nil && !locked.contains(key.layer) {
             let group = storage.links[key]
             if let group, group == activeGroup { continue }
             if let group, let index = byGroup[group] {
@@ -1226,21 +1266,26 @@ extension SpriteDocument {
         for i in rangeFloating.indices { rangeFloating[i].floating.box = box }
     }
 
+    /// Floating pixels drawn over the cel they were lifted from.
+    private static func stamp(_ rendered: (image: PixelImage, origin: PixelPoint, mask: SelectionMask), onto base: PixelImage) -> PixelImage {
+        var cel = base
+        let o = rendered.origin
+        for y in 0..<rendered.image.height {
+            for x in 0..<rendered.image.width {
+                let p = rendered.image[x, y]
+                guard p.a != 0, rendered.mask[o.x + x, o.y + y] else { continue }
+                cel[o.x + x, o.y + y] = p.blended(over: cel[o.x + x, o.y + y])
+            }
+        }
+        return cel
+    }
+
     /// Drops the transform into the other cels of the range.
     private func applyRangeFloating() {
         guard let box = floating?.box else { return }
         for var item in rangeFloating {
             item.floating.box = box
-            let rendered = item.floating.render(spriteWidth: storage.width, spriteHeight: storage.height)
-            var cel = item.base
-            let o = rendered.origin
-            for y in 0..<rendered.image.height {
-                for x in 0..<rendered.image.width {
-                    let p = rendered.image[x, y]
-                    guard p.a != 0, rendered.mask[o.x + x, o.y + y] else { continue }
-                    cel[o.x + x, o.y + y] = p.blended(over: cel[o.x + x, o.y + y])
-                }
-            }
+            let cel = Self.stamp(item.floating.render(spriteWidth: storage.width, spriteHeight: storage.height), onto: item.base)
             let result: PixelImage? = cel.isEmpty ? nil : cel
             for key in [item.floating.celKey] + item.linked { storage.cels[key] = result }
         }
@@ -1250,18 +1295,18 @@ extension SpriteDocument {
 
     /// Draws the floating pixels over the cel they were lifted from.
     private func renderFloating() {
-        guard var f = floating, var cel = floatingBase else { return }
+        guard var f = floating, let base = floatingBase else { return }
         let rendered = f.render(spriteWidth: storage.width, spriteHeight: storage.height)
         floating = f
-        let o = rendered.origin
-        for y in 0..<rendered.image.height {
-            for x in 0..<rendered.image.width {
-                let p = rendered.image[x, y]
-                guard p.a != 0, rendered.mask[o.x + x, o.y + y] else { continue }
-                cel[o.x + x, o.y + y] = p.blended(over: cel[o.x + x, o.y + y])
-            }
+        storage.cels[f.celKey] = Self.stamp(rendered, onto: base)
+        // The other layers of a multi-layer selection follow live in this frame;
+        // other frames of a timeline range change when the transform is applied.
+        for i in rangeFloating.indices where rangeFloating[i].floating.celKey.frame == f.celKey.frame {
+            rangeFloating[i].floating.box = f.box
+            let other = rangeFloating[i].floating.render(spriteWidth: storage.width, spriteHeight: storage.height)
+            let cel = Self.stamp(other, onto: rangeFloating[i].base)
+            for key in [rangeFloating[i].floating.celKey] + rangeFloating[i].linked { storage.cels[key] = cel }
         }
-        storage.cels[f.celKey] = cel
         selection = rendered.mask.isEmpty ? nil : rendered.mask
         let newRect = rendered.mask.bounds
         if let dirty = [floatingDirty, newRect].compactMap({ $0 }).reduce(nil as PixelRect?, { $0?.union($1) ?? $1 }) {
@@ -1290,6 +1335,7 @@ extension SpriteDocument {
         // Applying finishes the job: the selection goes away (Reselect brings it back).
         if let selection { lastSelection = selection }
         selection = nil
+        selectionLayers = nil
         if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
         restoreToolAfterTransform()
         changed()

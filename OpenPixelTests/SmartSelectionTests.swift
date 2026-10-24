@@ -88,4 +88,39 @@ final class SmartSelectionTests: XCTestCase {
         XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 1, minY: 1, maxX: 5, maxY: 5), "the bar and the dot, from both layers")
         XCTAssertNotNil(doc.timelineRange, "dragging keeps the range")
     }
+
+    func testMarqueeOverSeveralLayersTakesThemAll() {
+        let doc = makeDocument()
+        let bottom = doc.sprite.layers[0].id, top = doc.sprite.layers[1].id
+        XCTAssertEqual(doc.activeLayerID, top)
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.continueStroke(to: PixelPoint(x: 7, y: 7))
+        doc.endStroke()
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 1, minY: 1, maxX: 5, maxY: 5), "the bar (bottom layer) and the dot (top layer)")
+        XCTAssertEqual(doc.selectionLayers, [bottom, top])
+
+        doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
+        XCTAssertEqual(doc.transformExtraCels, 1)
+        doc.continueTransformDrag(to: CGPoint(x: 6.5, y: 6.5))
+        doc.endTransformDrag()
+        doc.applyTransform()
+        let frame = doc.sprite.frames[0].id
+        XCTAssertEqual(doc.sprite.cel(layer: bottom, frame: frame)?[2, 2], .black, "the bar moved with the dot")
+        XCTAssertEqual(doc.sprite.cel(layer: bottom, frame: frame)?[1, 1], .clear)
+        XCTAssertEqual(doc.sprite.cel(layer: top, frame: frame)?[6, 6], .black)
+        doc.undo()
+        XCTAssertEqual(doc.sprite.cel(layer: bottom, frame: frame)?[1, 1], .black, "one undo step for both layers")
+    }
+
+    func testMarqueeOverOneLayerStaysOnThatLayer() {
+        let doc = makeDocument()
+        doc.beginStroke(at: PixelPoint(x: 4, y: 4))
+        doc.continueStroke(to: PixelPoint(x: 6, y: 6))
+        doc.endStroke()
+        XCTAssertNil(doc.selectionLayers)
+        doc.select(.move)
+        doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
+        XCTAssertEqual(doc.transformExtraCels, 0)
+        doc.cancelTransform()
+    }
 }
