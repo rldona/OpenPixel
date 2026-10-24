@@ -16,7 +16,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - Pencil, **spray** (⇧S), eraser, paint bucket, **gradient**, eyedropper, line, **curve**, rectangle, ellipse, **contour** and **polygon** (as in [Aseprite](https://www.aseprite.org/docs/drawing/)).
     - Curve: drag the line, then drag twice to bend each end. Polygon: tap each corner and tap the first one (or Done) to close it. Contour: draw an outline and it fills when you lift. Gradient (⇧G, with the bucket): drag across the area the bucket would fill to blend the primary into the secondary color, linear or radial, smooth or with 2×2, 4×4 or 8×8 Bayer dithering. Control points and corners are marked on the canvas.
   - Floating tool options:
-    - square, round or **line** brush (at any angle, in 15° steps) from 1 to 8 px;
+    - square, round or **line** brush (at any angle, in 15° steps) from 1 to 32 px; every number in the options bar opens a panel with common values, a slider, large −/+ buttons and a field to type it;
     - **custom brush**: select part of the drawing and choose Edit > New brush from selection (⌘B) to paint with it, in its own colors or in the primary color;
     - spray width and speed;
     - optional pixel-perfect for clean 1 px strokes (off by default; the choice is remembered);
@@ -65,7 +65,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - Presets (DawnBringer 32, PICO-8, Sweetie 16, Endesga 32, DawnBringer 16, Game Boy, grays), palette from the sprite's colors, import (.gpl, .hex, .pal, .txt, .png, .gif) and export (.gpl, .hex), and a default palette for new sprites.
 - **Export**: PNG of the current frame, sprite sheet or animated GIF, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.
 - **Autosave** to `Documents/Sprites` (visible in the Files app), as readable `.openpixel` JSON. Saving runs in the background.
-- **Preferences**: English (default) or Spanish, and light, dark or system appearance.
+- **Preferences**: English (default) or Spanish, light, dark or system appearance, and the accent color (ember, blue, green, purple or pink).
 - Full-screen editing with no status bar, and a focus mode that leaves only the canvas.
 
 ## Performance

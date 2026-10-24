@@ -16,7 +16,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - Lápiz, **spray** (⇧S), goma, cubo de pintura, **degradado**, cuentagotas, línea, **curva**, rectángulo, elipse, **contorno** y **polígono** (como en [Aseprite](https://www.aseprite.org/docs/drawing/)).
     - Curva: arrastra la línea y luego arrastra dos veces para curvar cada extremo. Polígono: toca cada esquina y toca la primera (o Listo) para cerrarlo. Contorno: dibuja el borde y se rellena al levantar. Degradado (⇧G, junto al cubo): arrastra sobre la zona que rellenaría el cubo para pasar del color principal al secundario, lineal o radial, suave o con tramado Bayer de 2×2, 4×4 u 8×8. Los puntos de control y las esquinas se marcan en el lienzo.
   - Barra de opciones flotante según la herramienta:
-    - pincel cuadrado, redondo o de **línea** (con cualquier ángulo, en pasos de 15°) de 1 a 8 px;
+    - pincel cuadrado, redondo o de **línea** (con cualquier ángulo, en pasos de 15°) de 1 a 32 px; cada número de la barra de opciones abre un panel con valores habituales, un deslizador, botones −/+ grandes y un campo para escribirlo;
     - **pincel propio**: selecciona una parte del dibujo y elige Editar > Nuevo pincel con la selección (⌘B) para pintar con ella, con sus colores o con el color principal;
     - ancho y velocidad del spray;
     - pixel-perfect opcional para trazos de 1 px sin esquinas dobles (desactivado por defecto; se recuerda tu elección);
@@ -51,7 +51,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Selección y transformar** como en Aseprite: marco rectangular y elíptico, lazo y varita mágica; modos añadir, restar e intersecar; hormigas; cortar, copiar y pegar; mover, escalar, rotar con RotSprite y pivote, voltear, rotar 90° y recortar el lienzo.
 - **Cels enlazadas y rangos**: capas continuas cuyas cels se enlazan al crear frames, desenlazar, y modo «Seleccionar» en el timeline (cels, números de frame o nombres de capa) para enlazar, vaciar, duplicar, invertir o eliminar bloques.
 - **Timeline avanzado**: mover y copiar bloques de cels, frames o capas arrastrando, también más allá del último frame (un interruptor junto a «Listo» elige mover o copiar); copiar y pegar entre sprites; sección de bucle; tags y duración sobre los frames seleccionados; enfocar una banda de tags para reproducir solo sus tags; opacidad por cel; duplicar capa; doble toque para renombrar; primer frame numerado desde 0 o 1; y los atajos de Aseprite `,` `.` y ⇧X.
-- **Preferencias**: inglés (por defecto) o español, y tema claro, oscuro o el del sistema.
+- **Preferencias**: inglés (por defecto) o español, tema claro, oscuro o el del sistema, y el color de acento (brasa, azul, verde, morado o rosa).
 - Edición a pantalla completa, sin barra de estado, y modo enfoque (toque con cuatro dedos o Tab) que deja solo el lienzo.
 - **Rendimiento**: lienzo con capas de GPU y repintado parcial; los trazos van fluidos también en 256×256.
 

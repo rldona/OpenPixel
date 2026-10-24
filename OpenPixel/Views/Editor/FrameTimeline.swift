@@ -323,34 +323,12 @@ struct FrameTimeline: View {
 
             Spacer(minLength: 8)
 
-            HStack(spacing: 0) {
-                Image(systemName: "timer")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.muted)
-                    .padding(.leading, 10)
-                    .accessibilityLabel(Text("Frame duration"))
-                Button(String("−")) { changeDuration(by: -durationStep) }
-                    .frame(width: 34, height: 34)
-                    .accessibilityLabel(Text("Shorter duration"))
-                Menu {
-                    ForEach(Self.durationPresets, id: \.self) { ms in
-                        Button(Self.durationLabel(ms)) { document.setDuration(ms, frameIndex: document.activeFrameIndex) }
-                    }
-                    Divider()
-                    Button("Custom…", systemImage: "keyboard") { typeDuration(.activeFrame) }
-                } label: {
-                    Text(verbatim: "\(document.activeFrame.duration) ms")
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.text)
-                        .frame(width: 70)
-                }
-                Button(String("+")) { changeDuration(by: durationStep) }
-                    .frame(width: 34, height: 34)
-                    .accessibilityLabel(Text("Longer duration"))
-            }
-            .foregroundStyle(Theme.text)
-            .background(Theme.field, in: RoundedRectangle(cornerRadius: 9))
-            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.border))
+            NumberChip(
+                title: "Frame duration", systemImage: "timer",
+                value: Binding(get: { document.activeFrame.duration }, set: { document.setDuration($0, frameIndex: document.activeFrameIndex) }),
+                range: 1...SpriteDocument.maxFrameDuration, step: durationStep, unit: "ms", presets: Self.durationPresets,
+                sliderRange: 10...1000
+            )
         }
         .padding(.horizontal, 10)
         .frame(height: 44)
@@ -422,10 +400,6 @@ struct FrameTimeline: View {
         case .range: document.setRangeDuration(ms)
         case nil: break
         }
-    }
-
-    private func changeDuration(by delta: Int) {
-        document.setDuration(document.activeFrame.duration + delta, frameIndex: document.activeFrameIndex)
     }
 
     // MARK: Layers

@@ -225,7 +225,7 @@ final class SpriteDocument {
     /// at 2 and 3 while each end is bent; a polygon stays at 1.
     private(set) var pendingShapeStage = 0
     var isBuildingShape: Bool { pendingShapeStage != 0 }
-    static let maxBrushSize = 8
+    static let maxBrushSize = 32
     @ObservationIgnored private var playTask: Task<Void, Never>?
     private static let historyLimit = 100
 

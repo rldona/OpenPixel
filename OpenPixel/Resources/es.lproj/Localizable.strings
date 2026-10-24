@@ -468,3 +468,17 @@
 "Tile horizontally" = "Repetir en horizontal";
 "Tile vertically" = "Repetir en vertical";
 "Tile in both directions" = "Repetir en ambas direcciones";
+
+/* Accent color */
+"Accent color" = "Color de acento";
+"Ember" = "Brasa";
+"Blue" = "Azul";
+"Green" = "Verde";
+"Purple" = "Morado";
+"Pink" = "Rosa";
+
+/* Number chips */
+"Corner radius" = "Radio de las esquinas";
+"Text size" = "Tamaño del texto";
+"Brush size" = "Tamaño del pincel";
+"Brush angle" = "Ángulo del pincel";

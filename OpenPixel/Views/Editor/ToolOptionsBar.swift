@@ -48,8 +48,8 @@ struct ToolOptionsBar: View {
             }
             if document.tool == .spray {
                 divider
-                stepper(value: $document.sprayWidth, range: 1...32, label: "Width", unit: "px")
-                stepper(value: $document.spraySpeed, range: 1...32, label: "Speed", unit: nil)
+                stepper(value: $document.sprayWidth, range: 1...32, label: "Width", unit: "px", presets: [2, 4, 6, 8, 12, 16, 24, 32])
+                stepper(value: $document.spraySpeed, range: 1...32, label: "Speed", unit: nil, presets: [1, 2, 4, 8, 16, 32])
             }
             if document.tool.usesInk || document.tool == .eraser {
                 divider
@@ -210,26 +210,8 @@ struct ToolOptionsBar: View {
     }
 
     private var cornerRadius: some View {
-        HStack(spacing: 2) {
-            Image(systemName: "button.roundedtop.horizontal")
-                .font(.system(size: 13, weight: .medium))
-                .accessibilityHidden(true)
-            Button { document.cornerRadius = max(0, document.cornerRadius - 1) } label: {
-                Image(systemName: "minus").frame(width: 30, height: 34)
-            }
-            .disabled(document.cornerRadius == 0)
-            .accessibilityLabel(Text("Less rounded corners"))
-            Text(verbatim: "\(document.cornerRadius) px")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .frame(width: 40)
-                .accessibilityLabel(Text("Corner radius: \(document.cornerRadius) pixels"))
-            Button { document.cornerRadius = min(SpriteDocument.maxCornerRadius, document.cornerRadius + 1) } label: {
-                Image(systemName: "plus").frame(width: 30, height: 34)
-            }
-            .accessibilityLabel(Text("More rounded corners"))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.text)
+        NumberChip(title: "Corner radius", systemImage: "button.roundedtop.horizontal", value: $document.cornerRadius,
+                   range: 0...SpriteDocument.maxCornerRadius, unit: "px", presets: [0, 1, 2, 3, 4, 6, 8, 12, 16, 32])
     }
 
     /// What the next touch does while a curve or polygon is being built, and a Done button.
@@ -272,22 +254,7 @@ struct ToolOptionsBar: View {
     }
 
     private func tolerance(_ value: Binding<Int>) -> some View {
-        HStack(spacing: 2) {
-            Text("Tolerance").font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.text).fixedSize()
-            Button { value.wrappedValue = max(0, value.wrappedValue - 8) } label: {
-                Image(systemName: "minus").frame(width: 30, height: 34)
-            }
-            .accessibilityLabel(Text("Lower tolerance"))
-            Text(verbatim: "\(value.wrappedValue)")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .frame(width: 34)
-            Button { value.wrappedValue = min(255, value.wrappedValue + 8) } label: {
-                Image(systemName: "plus").frame(width: 30, height: 34)
-            }
-            .accessibilityLabel(Text("Higher tolerance"))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.text)
+        NumberChip(title: "Tolerance", value: value, range: 0...255, presets: [0, 8, 16, 32, 48, 64, 96, 128, 192, 255])
     }
 
     /// Font, size and outline; the rest is in the sheet that opens on tapping the canvas.
@@ -305,17 +272,7 @@ struct ToolOptionsBar: View {
                 .fixedSize()
             }
             .accessibilityLabel(Text("Font"))
-            HStack(spacing: 2) {
-                Button { adjustTextSize(-1) } label: { Image(systemName: "minus").frame(width: 30, height: 34) }
-                    .accessibilityLabel(Text("Smaller text"))
-                Text(verbatim: document.textStyle.sizeLabel)
-                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .frame(minWidth: 40)
-                Button { adjustTextSize(1) } label: { Image(systemName: "plus").frame(width: 30, height: 34) }
-                    .accessibilityLabel(Text("Bigger text"))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Theme.text)
+            textSize
             toggle("Outline", isOn: $document.textStyle.outline)
             Text("Tap the canvas to write")
                 .font(.system(size: 13))
@@ -324,11 +281,15 @@ struct ToolOptionsBar: View {
         }
     }
 
-    private func adjustTextSize(_ direction: Int) {
+    /// Pixel fonts grow in whole-pixel scales; system fonts in points.
+    @ViewBuilder
+    private var textSize: some View {
         if case .pixel = document.textStyle.font {
-            document.textStyle.scale = min(8, max(1, document.textStyle.scale + direction))
+            NumberChip(title: "Text size", systemImage: "textformat.size", value: $document.textStyle.scale,
+                       range: 1...8, unit: "×", presets: [1, 2, 3, 4, 5, 6, 7, 8])
         } else {
-            document.textStyle.pointSize = min(128, max(6, document.textStyle.pointSize + 2 * direction))
+            NumberChip(title: "Text size", systemImage: "textformat.size", value: $document.textStyle.pointSize,
+                       range: 6...128, step: 2, unit: "pt", presets: [8, 10, 12, 16, 20, 24, 32, 48, 64, 96])
         }
     }
 
@@ -337,24 +298,8 @@ struct ToolOptionsBar: View {
     }
 
     private var brushSize: some View {
-        HStack(spacing: 2) {
-            Button { document.setBrushSize(document.brushSize - 1) } label: {
-                Image(systemName: "minus").frame(width: 32, height: 34)
-            }
-            .disabled(document.brushSize <= 1)
-            .accessibilityLabel(Text("Smaller brush"))
-            Text(verbatim: "\(document.brushSize) px")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .frame(width: 44)
-                .accessibilityLabel(Text("Brush size: \(document.brushSize) pixels"))
-            Button { document.setBrushSize(document.brushSize + 1) } label: {
-                Image(systemName: "plus").frame(width: 32, height: 34)
-            }
-            .disabled(document.brushSize >= SpriteDocument.maxBrushSize)
-            .accessibilityLabel(Text("Bigger brush"))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.text)
+        NumberChip(title: "Brush size", systemImage: "circle.fill", value: Binding(get: { document.brushSize }, set: { document.setBrushSize($0) }),
+                   range: 1...SpriteDocument.maxBrushSize, unit: "px", presets: [1, 2, 3, 4, 6, 8, 12, 16, 24, 32])
     }
 
     private var usingCustomBrush: Bool { document.useCustomBrush && document.customBrush != nil }
@@ -413,44 +358,12 @@ struct ToolOptionsBar: View {
     }
 
     private var brushAngle: some View {
-        HStack(spacing: 2) {
-            Image(systemName: "angle").font(.system(size: 13, weight: .medium)).accessibilityHidden(true)
-            Button { document.brushAngle = (document.brushAngle + 165) % 180 } label: {
-                Image(systemName: "minus").frame(width: 30, height: 34)
-            }
-            .accessibilityLabel(Text("Rotate the brush left"))
-            Text(verbatim: "\(document.brushAngle)°")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .frame(width: 40)
-                .accessibilityLabel(Text("Brush angle: \(document.brushAngle) degrees"))
-            Button { document.brushAngle = (document.brushAngle + 15) % 180 } label: {
-                Image(systemName: "plus").frame(width: 30, height: 34)
-            }
-            .accessibilityLabel(Text("Rotate the brush right"))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.text)
+        NumberChip(title: "Brush angle", systemImage: "angle", value: $document.brushAngle,
+                   range: 0...179, step: 15, unit: "°", presets: [0, 15, 30, 45, 60, 90, 120, 135, 150, 165])
     }
 
-    private func stepper(value: Binding<Int>, range: ClosedRange<Int>, label: LocalizedStringKey, unit: String?) -> some View {
-        HStack(spacing: 2) {
-            Text(label).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.text).fixedSize()
-            Button { value.wrappedValue = max(range.lowerBound, value.wrappedValue - 1) } label: {
-                Image(systemName: "minus").frame(width: 30, height: 34)
-            }
-            .disabled(value.wrappedValue <= range.lowerBound)
-            .accessibilityLabel(Text("Less"))
-            Text(verbatim: unit.map { "\(value.wrappedValue) \($0)" } ?? "\(value.wrappedValue)")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .frame(minWidth: 34)
-            Button { value.wrappedValue = min(range.upperBound, value.wrappedValue + 1) } label: {
-                Image(systemName: "plus").frame(width: 30, height: 34)
-            }
-            .disabled(value.wrappedValue >= range.upperBound)
-            .accessibilityLabel(Text("More"))
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.text)
+    private func stepper(value: Binding<Int>, range: ClosedRange<Int>, label: LocalizedStringKey, unit: String?, presets: [Int]) -> some View {
+        NumberChip(title: label, value: value, range: range, unit: unit ?? "", presets: presets)
     }
 
     /// An on/off option as a pill: the whole label is the touch target, and

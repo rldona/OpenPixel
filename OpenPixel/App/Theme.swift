@@ -18,14 +18,23 @@ enum Theme {
     static let text = adaptive(light: 0x17171A, dark: 0xF2F2F5)
     static let muted = adaptive(light: 0x64646E, dark: 0xA1A1AA)
     static let dot = adaptive(light: 0x4A4A52, dark: 0xD4D4D8)
-    static let accent = adaptive(light: 0xC9461F, dark: 0xFF7A59)
+    /// The accent follows the color chosen in Preferences (`AccentChoice`).
+    static let accent = accentToken(\.accent)
     static let onAccent = adaptive(light: 0xFFFFFF, dark: 0x141417)
     /// Background of selected chips and toggles.
-    static let accentSoft = adaptive(light: 0xFBE6DF, dark: 0x2A211E)
+    static let accentSoft = accentToken(\.soft)
     /// Text on `accentSoft`.
-    static let accentText = adaptive(light: 0xB23C18, dark: 0xFFB29E)
+    static let accentText = accentToken(\.text)
     static let checkerLight = adaptive(light: 0xE4E4E8, dark: 0x24242A)
     static let checkerDark = adaptive(light: 0xD6D6DC, dark: 0x2E2E36)
+
+    /// Resolved each time it's drawn, so a new accent shows once the views are rebuilt.
+    private static func accentToken(_ shade: KeyPath<AccentChoice.Shades, (light: UInt32, dark: UInt32)>) -> Color {
+        Color(UIColor { traits in
+            let pair = AccentChoice.current.shades[keyPath: shade]
+            return UIColor(hex: traits.userInterfaceStyle == .dark ? pair.dark : pair.light)
+        })
+    }
 
     static func adaptive(light: UInt32, dark: UInt32) -> Color {
         Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })
