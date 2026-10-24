@@ -224,4 +224,19 @@ enum Raster {
         }
         return SelectionMask(width: w, height: h, bits: region)
     }
+
+    /// Bayer ordered-dither matrix of size n (2, 4 or 8), values 0..<n².
+    static func bayer(_ n: Int) -> [[Int]] {
+        guard n > 1 else { return [[0]] }
+        let half = bayer(n / 2)
+        var m = [[Int]](repeating: [Int](repeating: 0, count: n), count: n)
+        for y in 0..<n {
+            for x in 0..<n {
+                let base = 4 * half[y % (n / 2)][x % (n / 2)]
+                let quadrant = [[0, 2], [3, 1]][y / (n / 2)][x / (n / 2)]
+                m[y][x] = base + quadrant
+            }
+        }
+        return m
+    }
 }

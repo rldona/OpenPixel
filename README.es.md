@@ -13,8 +13,8 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Proyectos**: galería con miniaturas, búsqueda, filtros (todos, animaciones, estáticos), renombrar, duplicar, eliminar e importar PNG/GIF/JPEG.
 - **Nuevo sprite**: tamaños rápidos (16–256) o personalizado hasta 1024 px, fondo transparente, blanco o negro, y paleta inicial (PICO-8, Sweetie 16, DawnBringer 16, grises).
 - **Editor**
-  - Lápiz, goma, cubo de pintura, cuentagotas, línea, **curva**, rectángulo, elipse, **contorno** y **polígono** (como en [Aseprite](https://www.aseprite.org/docs/drawing/)).
-    - Curva: arrastra la línea y luego arrastra dos veces para curvar cada extremo. Polígono: toca cada esquina y toca la primera (o Listo) para cerrarlo. Contorno: dibuja el borde y se rellena al levantar. Los puntos de control y las esquinas se marcan en el lienzo.
+  - Lápiz, goma, cubo de pintura, **degradado**, cuentagotas, línea, **curva**, rectángulo, elipse, **contorno** y **polígono** (como en [Aseprite](https://www.aseprite.org/docs/drawing/)).
+    - Curva: arrastra la línea y luego arrastra dos veces para curvar cada extremo. Polígono: toca cada esquina y toca la primera (o Listo) para cerrarlo. Contorno: dibuja el borde y se rellena al levantar. Degradado (⇧G, junto al cubo): arrastra sobre la zona que rellenaría el cubo para pasar del color principal al secundario, lineal o radial, suave o con tramado Bayer de 2×2, 4×4 u 8×8. Los puntos de control y las esquinas se marcan en el lienzo.
   - Barra de opciones flotante según la herramienta:
     - pincel cuadrado o redondo de 1 a 8 px;
     - pixel-perfect opcional para trazos de 1 px sin esquinas dobles (desactivado por defecto; se recuerda tu elección);
@@ -69,7 +69,7 @@ Con teclado se usan los atajos de Aseprite:
 |---|---|
 | `B` | Lápiz |
 | `E` | Goma |
-| `G` | Cubo |
+| `G` / `⇧G` | Cubo / degradado |
 | `I` | Cuentagotas |
 | `L` / `⇧L` | Línea / curva |
 | `D` / `⇧D` | Contorno / polígono |

@@ -86,3 +86,65 @@ enum ShadeDirection: String, CaseIterable, Identifiable {
         return ramp[j]
     }
 }
+
+/// The gradient tool's shape: along the drag, or in circles around its start.
+enum GradientShape: String, CaseIterable, Identifiable {
+    case linear, radial
+    var id: String { rawValue }
+}
+
+/// Ordered dithering between the two gradient colors, as in Aseprite.
+enum GradientDither: Int, CaseIterable, Identifiable {
+    /// A smooth blend between the two colors.
+    case none = 0
+    case bayer2 = 2, bayer4 = 4, bayer8 = 8
+    var id: Int { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .none: "Smooth"
+        case .bayer2: "Bayer 2×2"
+        case .bayer4: "Bayer 4×4"
+        case .bayer8: "Bayer 8×8"
+        }
+    }
+}
+
+/// Colors of a gradient from `from` (at `a`) to `to` (at `b`).
+struct Gradient {
+    let from: PixelColor
+    let to: PixelColor
+    let a: PixelPoint
+    let b: PixelPoint
+    let shape: GradientShape
+    let dither: GradientDither
+    private let matrix: [[Int]]
+
+    init(from: PixelColor, to: PixelColor, a: PixelPoint, b: PixelPoint, shape: GradientShape, dither: GradientDither) {
+        self.from = from
+        self.to = to
+        self.a = a
+        self.b = b
+        self.shape = shape
+        self.dither = dither
+        matrix = dither == .none ? [] : Raster.bayer(dither.rawValue)
+    }
+
+    /// How far along the gradient pixel `p` is, 0 (at `a`) to 1 (at `b` and beyond).
+    func position(of p: PixelPoint) -> Double {
+        let dx = Double(b.x - a.x), dy = Double(b.y - a.y)
+        let length2 = dx * dx + dy * dy
+        guard length2 > 0 else { return 0 }
+        let px = Double(p.x - a.x), py = Double(p.y - a.y)
+        let t = shape == .linear ? (px * dx + py * dy) / length2 : ((px * px + py * py) / length2).squareRoot()
+        return min(1, max(0, t))
+    }
+
+    func color(at p: PixelPoint) -> PixelColor {
+        let t = position(of: p)
+        guard dither != .none else { return from.mixed(with: to, t) }
+        let n = dither.rawValue
+        let threshold = (Double(matrix[((p.y % n) + n) % n][((p.x % n) + n) % n]) + 0.5) / Double(n * n)
+        return t > threshold ? to : from
+    }
+}

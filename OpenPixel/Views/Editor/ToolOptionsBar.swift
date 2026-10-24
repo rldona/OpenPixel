@@ -62,7 +62,11 @@ struct ToolOptionsBar: View {
                 divider
                 shapeProgress
             }
-            if document.tool == .bucket {
+            if document.tool == .gradient {
+                divider
+                gradientOptions
+            }
+            if document.tool == .bucket || document.tool == .gradient {
                 divider
                 tolerance($document.fillTolerance)
                 toggle("Contiguous", isOn: $document.fillContiguous)
@@ -159,6 +163,40 @@ struct ToolOptionsBar: View {
         case .add: "Add to selection"
         case .subtract: "Subtract from selection"
         case .intersect: "Intersect selection"
+        }
+    }
+
+    private var gradientOptions: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 2) {
+                ForEach(GradientShape.allCases) { shape in
+                    Button { document.gradientShape = shape } label: {
+                        Image(systemName: shape == .linear ? "square.lefthalf.filled" : "circle.circle")
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(width: 36, height: 30)
+                            .foregroundStyle(document.gradientShape == shape ? Theme.onAccent : Theme.text)
+                            .background(document.gradientShape == shape ? Theme.accent : .clear, in: RoundedRectangle(cornerRadius: 7))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(shape == .linear ? Text("Linear gradient") : Text("Radial gradient"))
+                    .accessibilityAddTraits(document.gradientShape == shape ? .isSelected : [])
+                }
+            }
+            Menu {
+                Picker("Dithering", selection: $document.gradientDither) {
+                    ForEach(GradientDither.allCases) { Text($0.title).tag($0) }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkerboard.rectangle")
+                    Text(document.gradientDither.title)
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.text)
+                .fixedSize()
+            }
+            .accessibilityLabel(Text("Dithering"))
         }
     }
 

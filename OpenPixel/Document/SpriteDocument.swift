@@ -101,6 +101,8 @@ final class SpriteDocument {
     var fillDiagonal = false
     /// The bucket looks at every visible layer to find the area, but paints the active one.
     var fillSampleAllLayers = false
+    var gradientShape = GradientShape.linear
+    var gradientDither = GradientDither.none
     /// The eyedropper reads only the active layer instead of the whole image.
     var eyedropperActiveLayer = false
     var showGrid = true
@@ -199,6 +201,8 @@ final class SpriteDocument {
     /// over the same pixel twice in one stroke doesn't build up opacity or shading.
     @ObservationIgnored private var strokeCoverage: [UInt8] = []
     @ObservationIgnored private var strokePressure: Double = 1
+    /// The area a gradient drag fills, found like the paint bucket's at the touch-down point.
+    @ObservationIgnored private var gradientRegion: SelectionMask?
     /// The contour tool's path, filled when the stroke ends.
     @ObservationIgnored private var contourPath: [PixelPoint] = []
     /// The curve ([start, end, control 1, control 2]) or the polygon's corners
@@ -387,6 +391,10 @@ final class SpriteDocument {
             shapeOrigin = p
             shapeRect = nil
             drawShape(to: p)
+        case .gradient:
+            shapeOrigin = p
+            gradientRegion = bucketRegion(at: p)
+            drawShape(to: p)
         case .curve, .polygon:
             pendingShape = tool == .curve ? [p, p, p, p] : [p]
             pendingBeforeDrag = []
@@ -498,6 +506,7 @@ final class SpriteDocument {
         strokeCoverage = []
         strokePressure = 1
         contourPath = []
+        gradientRegion = nil
     }
 
     // MARK: Curves and polygons
@@ -683,6 +692,7 @@ final class SpriteDocument {
         case .line: drawPreview(Raster.line(from: origin, to: p))
         case .rectangle: drawPreview(Raster.rectangle(from: origin, to: p, filled: shapeFilled, radius: cornerRadius))
         case .ellipse: drawPreview(Raster.ellipse(from: origin, to: p, filled: shapeFilled))
+        case .gradient: drawGradient(from: origin, to: p)
         default: return
         }
     }
@@ -713,15 +723,38 @@ final class SpriteDocument {
         }
     }
 
-    /// Paint bucket: paints the area it reaches with the ink and opacity.
-    private func fill(at p: PixelPoint) {
+    /// The area the paint bucket (and the gradient) reaches from `p`, with the bucket's options.
+    private func bucketRegion(at p: PixelPoint) -> SelectionMask {
         let reference = fillSampleAllLayers
             ? storage.composite(frameIndex: activeFrameIndex)
             : storage.cels[activeCelKey] ?? PixelImage(width: storage.width, height: storage.height)
-        let region = Raster.fillRegion(
+        return Raster.fillRegion(
             in: reference, at: p, tolerance: fillTolerance, contiguous: fillContiguous,
             diagonal: fillDiagonal, within: selection
         )
+    }
+
+    /// Paints the gradient over its area, from the cel as the drag found it.
+    private func drawGradient(from a: PixelPoint, to b: PixelPoint) {
+        guard let region = gradientRegion, let bounds = region.bounds else { return }
+        let gradient = Gradient(from: primary, to: secondary, a: a, b: b, shape: gradientShape, dither: gradientDither)
+        let alpha = UInt8(max(1, min(255, toolOpacity)))
+        mutateActiveCel(dirty: bounds) { image in
+            strokeCoverage = [UInt8](repeating: 0, count: image.width * image.height)
+            var painter = makePainter(color: primary)
+            for y in bounds.minY...bounds.maxY {
+                for x in bounds.minX...bounds.maxX where region[x, y] {
+                    let q = PixelPoint(x: x, y: y)
+                    painter.paint(q, alpha: alpha, color: gradient.color(at: q), on: &image)
+                }
+            }
+            strokeCoverage = painter.coverage
+        }
+    }
+
+    /// Paint bucket: paints the area it reaches with the ink and opacity.
+    private func fill(at p: PixelPoint) {
+        let region = bucketRegion(at: p)
         let color = primary, alpha = UInt8(max(1, min(255, toolOpacity)))
         mutateActiveCel(dirty: nil) { image in
             var painter = makePainter(color: color)
@@ -2129,12 +2162,13 @@ private struct Painter {
     let direction: ShadeDirection
     var coverage: [UInt8]
 
-    mutating func paint(_ q: PixelPoint, alpha: UInt8, on image: inout PixelImage) {
+    /// `color` overrides the painter's color for this pixel (gradients).
+    mutating func paint(_ q: PixelPoint, alpha: UInt8, color: PixelColor? = nil, on image: inout PixelImage) {
         guard image.contains(q), mask?.contains(q) ?? true else { return }
         let i = q.y * image.width + q.x
         guard alpha > coverage[i] else { return }
         coverage[i] = alpha
         let ramp = ramp, direction = direction
-        image.pixels[i] = ink.apply(color, over: original?.pixels[i] ?? .clear, alpha: alpha) { direction.step($0, in: ramp) }
+        image.pixels[i] = ink.apply(color ?? self.color, over: original?.pixels[i] ?? .clear, alpha: alpha) { direction.step($0, in: ramp) }
     }
 }

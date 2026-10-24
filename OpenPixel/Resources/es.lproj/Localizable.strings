@@ -440,3 +440,12 @@
 /* Bucket and eyedropper options */
 "Diagonals" = "Diagonales";
 "Active layer only" = "Solo la capa activa";
+
+/* Gradient */
+"Linear gradient" = "Degradado lineal";
+"Radial gradient" = "Degradado radial";
+"Dithering" = "Tramado";
+"Smooth" = "Suave";
+"Bayer 2×2" = "Bayer 2×2";
+"Bayer 4×4" = "Bayer 4×4";
+"Bayer 8×8" = "Bayer 8×8";

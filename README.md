@@ -13,8 +13,8 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 - **Projects** gallery with thumbnails, search, filters (all, animations, still images), rename, duplicate, delete, and PNG/GIF/JPEG import.
 - **New sprite**: quick sizes (16–256) or custom up to 1024 px, transparent, white or black background, and a starting palette (PICO-8, Sweetie 16, DawnBringer 16, grays).
 - **Editor**
-  - Pencil, eraser, paint bucket, eyedropper, line, **curve**, rectangle, ellipse, **contour** and **polygon** (as in [Aseprite](https://www.aseprite.org/docs/drawing/)).
-    - Curve: drag the line, then drag twice to bend each end. Polygon: tap each corner and tap the first one (or Done) to close it. Contour: draw an outline and it fills when you lift. Control points and corners are marked on the canvas.
+  - Pencil, eraser, paint bucket, **gradient**, eyedropper, line, **curve**, rectangle, ellipse, **contour** and **polygon** (as in [Aseprite](https://www.aseprite.org/docs/drawing/)).
+    - Curve: drag the line, then drag twice to bend each end. Polygon: tap each corner and tap the first one (or Done) to close it. Contour: draw an outline and it fills when you lift. Gradient (⇧G, with the bucket): drag across the area the bucket would fill to blend the primary into the secondary color, linear or radial, smooth or with 2×2, 4×4 or 8×8 Bayer dithering. Control points and corners are marked on the canvas.
   - Floating tool options:
     - square or round brush from 1 to 8 px;
     - optional pixel-perfect for clean 1 px strokes (off by default; the choice is remembered);
@@ -93,7 +93,7 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 |---|---|
 | `B` | Pencil |
 | `E` | Eraser |
-| `G` | Paint bucket |
+| `G` / `⇧G` | Paint bucket / gradient |
 | `I` | Eyedropper |
 | `L` / `⇧L` | Line / curve |
 | `D` / `⇧D` | Contour / polygon |
