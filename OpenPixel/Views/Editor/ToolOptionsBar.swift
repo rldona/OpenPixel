@@ -14,7 +14,8 @@ struct ToolOptionsBar: View {
             if document.tool.usesBrush {
                 divider
                 brushSize
-                brushShape
+                // The tip's shape only shows from 2 px up.
+                if document.brushSize > 1 { brushShape }
             }
             if document.tool == .pencil || document.tool == .eraser {
                 divider
@@ -223,6 +224,7 @@ struct ToolOptionsBar: View {
             ForEach(BrushShape.allCases) { shape in
                 Button { document.brushShape = shape } label: {
                     Image(systemName: shape == .square ? "square.fill" : "circle.fill")
+                        .accessibilityHidden(true)
                         .font(.system(size: 12))
                         .frame(width: 32, height: 30)
                         .foregroundStyle(document.brushShape == shape ? Theme.onAccent : Theme.muted)

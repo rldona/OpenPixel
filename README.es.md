@@ -16,7 +16,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - Lápiz, goma, cubo de pintura, cuentagotas, línea, rectángulo y elipse, más simetría horizontal.
   - Barra de opciones flotante según la herramienta:
     - pincel cuadrado o redondo de 1 a 8 px;
-    - pixel-perfect para trazos de 1 px sin esquinas dobles;
+    - pixel-perfect opcional para trazos de 1 px sin esquinas dobles (desactivado por defecto; se recuerda tu elección);
     - formas con o sin relleno, con vista previa mientras arrastras;
     - cubo contiguo o global (sustituye el color en toda la cel).
   - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.

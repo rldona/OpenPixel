@@ -16,7 +16,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - Pencil, eraser, paint bucket, eyedropper, line, rectangle and ellipse, plus horizontal symmetry.
   - Floating tool options:
     - square or round brush from 1 to 8 px;
-    - pixel-perfect for clean 1 px strokes;
+    - optional pixel-perfect for clean 1 px strokes (off by default; the choice is remembered);
     - filled or outlined shapes, previewed while you drag;
     - contiguous or global fill.
   - Pixel grid, whole-number zoom levels and fit to screen.

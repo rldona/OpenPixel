@@ -72,6 +72,7 @@ final class DrawingToolDocumentTests: XCTestCase {
 
     func testPixelPerfectRemovesCorners() {
         let doc = makeDocument()
+        doc.pixelPerfect = true
         // An L-shaped staircase: (0,0) (1,0) (1,1) (2,1) (2,2)
         doc.beginStroke(at: PixelPoint(x: 0, y: 0))
         for p in [(1, 0), (1, 1), (2, 1), (2, 2)] { doc.continueStroke(to: PixelPoint(x: p.0, y: p.1)) }
@@ -88,6 +89,7 @@ final class DrawingToolDocumentTests: XCTestCase {
 
     func testPixelPerfectKeepsWhatWasUnderneath() {
         let doc = makeDocument()
+        doc.pixelPerfect = true
         doc.primary = .white
         doc.beginStroke(at: PixelPoint(x: 1, y: 0))
         doc.endStroke()
@@ -97,6 +99,28 @@ final class DrawingToolDocumentTests: XCTestCase {
         doc.continueStroke(to: PixelPoint(x: 1, y: 1))
         doc.endStroke()
         XCTAssertEqual(doc.sprite.composite(frameIndex: 0)[1, 0], .white)
+    }
+
+    func testPixelPerfectLeavesNoHolesWhereTheStrokeCrossesItself() {
+        let doc = makeDocument()
+        doc.pixelPerfect = true
+        // Down x = 1, round the right side and back over (1, 1), which the
+        // second pass reaches as the middle of an L.
+        doc.beginStroke(at: PixelPoint(x: 1, y: 0))
+        for p in [(1, 1), (1, 2), (1, 3), (2, 4), (3, 3), (3, 2), (2, 1), (1, 1), (1, 2)] {
+            doc.continueStroke(to: PixelPoint(x: p.0, y: p.1))
+        }
+        doc.endStroke()
+        XCTAssertTrue(painted(doc).contains(PixelPoint(x: 1, y: 1)), "no hole where the stroke crossed itself")
+    }
+
+    func testPixelPerfectIsOffByDefaultAndRemembered() {
+        UserDefaults.standard.removeObject(forKey: "pixelPerfect")
+        XCTAssertFalse(makeDocument().pixelPerfect)
+        let doc = makeDocument()
+        doc.pixelPerfect = true
+        XCTAssertTrue(makeDocument().pixelPerfect, "the next sprite keeps the choice")
+        doc.pixelPerfect = false
     }
 
     func testBrushSizeStampsSquare() {

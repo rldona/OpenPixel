@@ -65,7 +65,11 @@ final class SpriteDocument {
     var brushSize = 1
     var brushShape = BrushShape.square
     /// Removes the extra corner pixel in 1 px freehand strokes (Aseprite's pixel-perfect).
-    var pixelPerfect = true
+    /// Off by default: it removes corner pixels, which trades control for
+    /// smoother 1 px lines. The choice is remembered across sprites.
+    var pixelPerfect = UserDefaults.standard.bool(forKey: "pixelPerfect") {
+        didSet { UserDefaults.standard.set(pixelPerfect, forKey: "pixelPerfect") }
+    }
     var shapeFilled = false
     /// Bucket fills only the connected area; when off it replaces the color everywhere in the cel.
     var fillContiguous = true
@@ -457,7 +461,9 @@ final class SpriteDocument {
         let a = strokePath[n - 3], b = strokePath[n - 2], c = strokePath[n - 1]
         let isCorner = (a.x == b.x || a.y == b.y) && (c.x == b.x || c.y == b.y)
             && abs(a.x - c.x) == 1 && abs(a.y - c.y) == 1
-        guard isCorner, image.contains(b) else { return }
+        // A pixel the stroke already went through elsewhere stays: removing it
+        // would open a hole where the line crosses or doubles back on itself.
+        guard isCorner, image.contains(b), !strokePath[..<(n - 3)].contains(b) else { return }
         image[b] = original?[b] ?? .clear
         if mirrorX {
             let m = PixelPoint(x: image.width - 1 - b.x, y: b.y)
