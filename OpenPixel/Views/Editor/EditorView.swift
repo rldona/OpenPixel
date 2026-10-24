@@ -83,11 +83,10 @@ struct EditorView: View {
                         .overlay(alignment: .top) { noticeBanner.padding(.top, 58) }
                     }
                     if !focusMode && !timelineCollapsed {
-                        VStack(spacing: 0) {
-                            timelineResizeHandle
-                            FrameTimeline(document: document)
-                                .frame(height: CGFloat(timelineHeight))
-                        }
+                        FrameTimeline(document: document)
+                            .frame(height: CGFloat(timelineHeight))
+                            // The grab bar floats over the timeline's top edge, taking no room from the canvas.
+                            .overlay(alignment: .top) { timelineResizeHandle.offset(y: -11) }
                         // While pulled past its smallest size it slides down and fades, to show it's about to hide.
                         .offset(y: timelinePull)
                         .opacity(1 - 0.5 * min(1, timelinePull / Self.collapsePull))
@@ -214,8 +213,6 @@ struct EditorView: View {
             .frame(width: 56, height: 6)
             .frame(maxWidth: .infinity)
             .frame(height: 22)
-            .background(Theme.panel)
-            .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 2, coordinateSpace: .global)
