@@ -8,6 +8,20 @@ enum ColorMode: String, Codable, Sendable {
     case rgba
 }
 
+/// Aseprite's pixel aspect ratio: each pixel shows `width` × `height` units,
+/// so 2:1 makes wide pixels and 1:2 tall ones.
+/// https://www.aseprite.org/docs/sprite-properties/
+struct PixelRatio: Codable, Hashable, Sendable {
+    var width = 1
+    var height = 1
+
+    static let square = PixelRatio()
+    static let presets = [square, PixelRatio(width: 2, height: 1), PixelRatio(width: 1, height: 2)]
+
+    var isSquare: Bool { width == height }
+    var title: String { "\(width):\(height)" }
+}
+
 /// The image of a reference layer: kept at its own resolution (not turned
 /// into sprite pixels) and placed over the canvas in sprite coordinates.
 struct ReferenceImage: Codable, Equatable, Sendable {
@@ -108,6 +122,7 @@ struct Sprite: Equatable, Sendable {
     var slices: [Slice] = []
     /// The tiles each tilemap cel shows. Cel images stay the rendered result.
     var tilemaps: [CelKey: TileMap] = [:]
+    var pixelRatio = PixelRatio.square
 
     static func blank(width: Int, height: Int, background: PixelColor?, palette: [PixelColor]) -> Sprite {
         let frame = Frame()
@@ -323,7 +338,7 @@ extension Sprite: Codable {
         var opacity: Double
     }
 
-    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags, links, celOpacity, grid, slices, tilemaps }
+    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags, links, celOpacity, grid, slices, tilemaps, pixelRatio }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -340,6 +355,7 @@ extension Sprite: Codable {
         celOpacity = Dictionary(opacityList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.opacity) }, uniquingKeysWith: { a, _ in a })
         grid = try c.decodeIfPresent(GridSettings.self, forKey: .grid) ?? GridSettings()
         slices = try c.decodeIfPresent([Slice].self, forKey: .slices) ?? []
+        pixelRatio = try c.decodeIfPresent(PixelRatio.self, forKey: .pixelRatio) ?? .square
         let mapList = try c.decodeIfPresent([CelTileMap].self, forKey: .tilemaps) ?? []
         tilemaps = Dictionary(mapList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.map) }, uniquingKeysWith: { a, _ in a })
         let list = try c.decode([Cel].self, forKey: .cels)
@@ -357,6 +373,7 @@ extension Sprite: Codable {
         try c.encode(tags, forKey: .tags)
         try c.encode(grid, forKey: .grid)
         try c.encode(slices, forKey: .slices)
+        if !pixelRatio.isSquare { try c.encode(pixelRatio, forKey: .pixelRatio) }
         let mapList = tilemaps.map { CelTileMap(layer: $0.key.layer, frame: $0.key.frame, map: $0.value) }
             .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
         try c.encode(mapList, forKey: .tilemaps)

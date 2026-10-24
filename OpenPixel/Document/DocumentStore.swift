@@ -169,22 +169,52 @@ final class DocumentStore {
         items.removeAll { $0.id == id }
     }
 
-    /// Creates a one-layer, one-frame sprite from a PNG.
-    func importImage(at fileURL: URL) throws -> UUID {
+    /// Makes a project from an Aseprite file or an image; an animated GIF
+    /// or PNG keeps its frames and their durations.
+    func importFile(at fileURL: URL) throws -> UUID {
         let accessing = fileURL.startAccessingSecurityScopedResource()
         defer { if accessing { fileURL.stopAccessingSecurityScopedResource() } }
-        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil),
-              let image = PixelImage(cgImage: cgImage) else {
+        let data = try Data(contentsOf: fileURL)
+        let name = fileURL.deletingPathExtension().lastPathComponent
+        if ["aseprite", "ase"].contains(fileURL.pathExtension.lowercased()) {
+            return try create(name: name, sprite: AsepriteFile.read(data))
+        }
+        return try create(name: name, sprite: Self.sprite(fromImage: data))
+    }
+
+    /// One layer, with a frame for each frame of the image.
+    nonisolated static func sprite(fromImage data: Data) throws -> Sprite {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0 else {
             throw ImportError.unreadable
         }
-        guard image.width <= Self.maxImportSize, image.height <= Self.maxImportSize else {
-            throw ImportError.tooLarge
+        var sprite: Sprite?
+        for index in 0..<CGImageSourceGetCount(source) {
+            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil), let image = PixelImage(cgImage: cgImage) else {
+                throw ImportError.unreadable
+            }
+            if sprite == nil {
+                guard image.width <= maxImportSize, image.height <= maxImportSize else { throw ImportError.tooLarge }
+                var first = Sprite.blank(width: image.width, height: image.height, background: nil, palette: Palette.newSpriteDefault.colors)
+                first.layers[0].name = L10n.string("Image")
+                sprite = first
+            } else {
+                sprite!.insertFrame(Frame(), at: index)
+            }
+            guard image.width == sprite!.width, image.height == sprite!.height else { throw ImportError.unreadable }
+            if let delay = frameDelay(source, at: index) { sprite!.frames[index].duration = max(10, Int((delay * 1000).rounded())) }
+            if !image.isEmpty { sprite!.cels[CelKey(layer: sprite!.layers[0].id, frame: sprite!.frames[index].id)] = image }
         }
-        var sprite = Sprite.blank(width: image.width, height: image.height, background: nil, palette: Palette.newSpriteDefault.colors)
-        sprite.layers[0].name = L10n.string("Image")
-        sprite.cels[CelKey(layer: sprite.layers[0].id, frame: sprite.frames[0].id)] = image
-        return try create(name: fileURL.deletingPathExtension().lastPathComponent, sprite: sprite)
+        return sprite!
+    }
+
+    /// A GIF's or animated PNG's delay for one frame, in seconds.
+    private nonisolated static func frameDelay(_ source: CGImageSource, at index: Int) -> Double? {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any] else { return nil }
+        let gif = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any]
+        let png = properties[kCGImagePropertyPNGDictionary] as? [CFString: Any]
+        let delay = gif?[kCGImagePropertyGIFUnclampedDelayTime] ?? gif?[kCGImagePropertyGIFDelayTime]
+            ?? png?[kCGImagePropertyAPNGUnclampedDelayTime] ?? png?[kCGImagePropertyAPNGDelayTime]
+        return (delay as? Double).flatMap { $0 > 0 ? $0 : nil }
     }
 }
 

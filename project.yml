@@ -19,6 +19,25 @@ targets:
     platform: iOS
     sources:
       - OpenPixel
+    # Merged with the generated Info.plist: the files OpenPixel opens from Files, AirDrop or Mail.
+    info:
+      path: OpenPixel/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Aseprite sprite
+            LSItemContentTypes: [org.aseprite.aseprite]
+            LSHandlerRank: Default
+          - CFBundleTypeName: Image
+            LSItemContentTypes: [public.png, com.compuserve.gif]
+            LSHandlerRank: Alternate
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: org.aseprite.aseprite
+            UTTypeDescription: Aseprite sprite
+            UTTypeConformsTo: [public.data]
+            UTTypeTagSpecification:
+              public.filename-extension: [aseprite, ase]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rldona.openpixel

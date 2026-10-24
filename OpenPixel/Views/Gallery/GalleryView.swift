@@ -83,8 +83,12 @@ struct GalleryView: View {
                 }
             }
             .sheet(isPresented: $showingPreferences) { PreferencesView() }
-            .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.png, .gif, .jpeg]) { result in
-                attempt { path.append(try store.importImage(at: result.get())) }
+            .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.aseprite, .png, .gif, .jpeg]) { result in
+                attempt { path.append(try store.importFile(at: result.get())) }
+            }
+            // Files, AirDrop or Mail opening a sprite in OpenPixel.
+            .onOpenURL { url in
+                attempt { path = [try store.importFile(at: url)] }
             }
             .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
                 TextField("Name", text: $renameText)
