@@ -27,7 +27,7 @@ struct EditorView: View {
                                 document: document,
                                 controller: canvas,
                                 image: composite,
-                                onionImages: onionImages(sprite),
+                                onionLayers: onionLayers(sprite),
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
                                 mirrorX: document.mirrorX,
@@ -69,12 +69,29 @@ struct EditorView: View {
         }
     }
 
-    private func onionImages(_ sprite: Sprite) -> [CGImage] {
+    /// Previous frames tinted red and next frames tinted blue, fading with distance.
+    /// Farthest first, so the nearest frames end up on top.
+    private func onionLayers(_ sprite: Sprite) -> [OnionLayer] {
         guard document.onionSkin, !document.isPlaying else { return [] }
-        let i = document.activeFrameIndex
-        return [i - 1, i + 1]
-            .filter { sprite.frames.indices.contains($0) }
-            .compactMap { sprite.composite(frameIndex: $0).makeCGImage() }
+        let settings = document.onionSettings
+        let current = document.activeFrameIndex
+        let tag = settings.onlyInTag ? sprite.tag(containing: current) : nil
+        var offsets: [Int] = []
+        let maxDistance = max(settings.previous, settings.next)
+        if maxDistance > 0 {
+            for d in stride(from: maxDistance, through: 1, by: -1) {
+                if d <= settings.previous { offsets.append(-d) }
+                if d <= settings.next { offsets.append(d) }
+            }
+        }
+        return offsets.compactMap { offset in
+            let index = current + offset
+            guard sprite.frames.indices.contains(index), tag?.contains(index) ?? true else { return nil }
+            var image = sprite.composite(frameIndex: index)
+            if settings.tint { image = image.tinted(offset < 0 ? .onionPrevious : .onionNext) }
+            guard let cgImage = image.makeCGImage() else { return nil }
+            return OnionLayer(image: cgImage, alpha: settings.opacity / CGFloat(abs(offset)))
+        }
     }
 
     private func scheduleSave() {
@@ -158,7 +175,7 @@ struct EditorView: View {
 
     private var statusPills: some View {
         HStack(spacing: 8) {
-            Text("\(document.tool.title)\(document.mirrorX ? " + simetría" : "") · \(document.activeLayer?.name ?? "") · frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)")
+            Text(verbatim: "\(document.tool.title)\(document.mirrorX ? " + simetría" : "") · \(document.activeLayer?.name ?? "") · frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)\(document.activeTag.map { " · \($0.name)" } ?? "")")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 10)

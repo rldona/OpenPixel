@@ -1,6 +1,17 @@
 import Foundation
 import Observation
 
+/// Onion skin options, like Aseprite's: how many frames to show on each
+/// side, how strongly, and whether to tint them red (before) and blue (after).
+struct OnionSkinSettings: Equatable {
+    var previous = 1
+    var next = 1
+    var opacity = 0.35
+    var tint = true
+    /// Only show frames inside the active frame's tag.
+    var onlyInTag = false
+}
+
 /// Editing session for one sprite: the sprite itself, the editor state
 /// (active cel, tool, colors) and the undo history.
 @MainActor
@@ -22,6 +33,9 @@ final class SpriteDocument {
     var mirrorX = false
     var showGrid = true
     var onionSkin = false
+    var onionSettings = OnionSkinSettings()
+    /// Playback speed multiplier (1 = the frames' own durations).
+    var playbackSpeed: Double = 1
     private(set) var isPlaying = false
     /// Short feedback shown over the canvas, e.g. when drawing on a locked layer.
     var notice: String?
@@ -254,6 +268,17 @@ final class SpriteDocument {
         perform { $0.layers.swapAt(index, target) }
     }
 
+    /// Moves a layer to the stack position currently held by `target` (drag and drop).
+    func moveLayer(_ id: UUID, to target: UUID) {
+        guard id != target,
+              let from = sprite.layers.firstIndex(where: { $0.id == id }),
+              let to = sprite.layers.firstIndex(where: { $0.id == target }) else { return }
+        perform { s in
+            let layer = s.layers.remove(at: from)
+            s.layers.insert(layer, at: to)
+        }
+    }
+
     private func updateLayer(_ id: UUID, _ change: (inout Layer) -> Void) {
         guard let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
         perform { change(&$0.layers[index]) }
@@ -268,7 +293,7 @@ final class SpriteDocument {
         let frame = Frame(duration: source.duration)
         let index = activeFrameIndex
         perform { s in
-            s.frames.insert(frame, at: index + 1)
+            s.insertFrame(frame, at: index + 1)
             guard !empty else { return }
             for layer in s.layers {
                 if let image = s.cel(layer: layer.id, frame: source.id) {
@@ -281,18 +306,19 @@ final class SpriteDocument {
 
     func deleteFrame(at index: Int) {
         guard sprite.frames.count > 1, sprite.frames.indices.contains(index) else { return }
-        let id = sprite.frames[index].id
-        perform { s in
-            s.frames.remove(at: index)
-            s.cels = s.cels.filter { $0.key.frame != id }
-        }
+        perform { $0.removeFrame(at: index) }
     }
 
     func moveFrame(at index: Int, by offset: Int) {
-        let target = index + offset
-        guard sprite.frames.indices.contains(index), sprite.frames.indices.contains(target) else { return }
-        perform { $0.frames.swapAt(index, target) }
-        if activeFrameIndex == index { activeFrameIndex = target }
+        moveFrame(from: index, to: index + offset)
+    }
+
+    func moveFrame(from source: Int, to destination: Int) {
+        guard source != destination,
+              sprite.frames.indices.contains(source), sprite.frames.indices.contains(destination) else { return }
+        let wasActive = activeFrameIndex == source
+        perform { $0.moveFrame(from: source, to: destination) }
+        if wasActive { activeFrameIndex = destination }
     }
 
     func setDuration(_ ms: Int, frameIndex: Int) {
@@ -305,6 +331,40 @@ final class SpriteDocument {
         let count = sprite.frames.count
         activeFrameIndex = ((index % count) + count) % count
     }
+
+    // MARK: - Tags
+
+    /// Creates a tag on the active frame and returns it.
+    @discardableResult
+    func addTag() -> FrameTag {
+        let index = activeFrameIndex
+        let tag = FrameTag(
+            name: "Tag \(sprite.tags.count + 1)",
+            from: index,
+            to: index,
+            color: FrameTag.colors[sprite.tags.count % FrameTag.colors.count]
+        )
+        perform { $0.tags.append(tag) }
+        return tag
+    }
+
+    func updateTag(_ tag: FrameTag) {
+        guard let index = sprite.tags.firstIndex(where: { $0.id == tag.id }) else { return }
+        var tag = tag
+        let last = sprite.frames.count - 1
+        tag.from = min(max(0, tag.from), last)
+        tag.to = min(max(tag.from, tag.to), last)
+        tag.repeatCount = max(0, tag.repeatCount)
+        let trimmed = tag.name.trimmingCharacters(in: .whitespaces)
+        tag.name = trimmed.isEmpty ? sprite.tags[index].name : trimmed
+        perform { $0.tags[index] = tag }
+    }
+
+    func deleteTag(_ id: UUID) {
+        perform { $0.tags.removeAll { $0.id == id } }
+    }
+
+    var activeTag: FrameTag? { sprite.tag(containing: activeFrameIndex) }
 
     // MARK: - Palette
 
@@ -324,16 +384,33 @@ final class SpriteDocument {
         isPlaying ? stopPlayback() : startPlayback()
     }
 
+    /// Plays the tag that contains the active frame (with its direction and
+    /// repeat count), or every frame in a loop when the frame has no tag.
     func startPlayback() {
-        guard !isPlaying, sprite.frames.count > 1 else { return }
+        guard !isPlaying else { return }
+        let (cycle, repeatCount) = sprite.playbackCycle(at: activeFrameIndex)
+        guard cycle.count > 1 else { return }
         cancelStroke()
         isPlaying = true
+        let start = cycle.firstIndex(of: activeFrameIndex) ?? 0
         playTask = Task { [weak self] in
-            while let self, !Task.isCancelled {
-                let duration = self.activeFrame.duration
-                try? await Task.sleep(for: .milliseconds(duration))
+            var position = start
+            var loops = 0
+            while !Task.isCancelled {
+                guard let self else { return }
+                let duration = Double(self.activeFrame.duration) / max(0.1, self.playbackSpeed)
+                try? await Task.sleep(for: .milliseconds(Int(duration)))
                 guard !Task.isCancelled else { return }
-                self.activeFrameIndex = (self.activeFrameIndex + 1) % self.sprite.frames.count
+                position += 1
+                if position == cycle.count {
+                    loops += 1
+                    if repeatCount > 0 && loops >= repeatCount {
+                        self.stopPlayback()
+                        return
+                    }
+                    position = 0
+                }
+                self.activeFrameIndex = cycle[position]
             }
         }
     }

@@ -14,7 +14,7 @@ struct PixelCanvas: UIViewRepresentable {
     let document: SpriteDocument
     let controller: CanvasController
     let image: CGImage?
-    let onionImages: [CGImage]
+    let onionLayers: [OnionLayer]
     let spriteSize: CGSize
     let showGrid: Bool
     let mirrorX: Bool
@@ -38,7 +38,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.onZoomChanged = onZoomChanged
         view.spriteSize = spriteSize
         view.image = image
-        view.onionImages = onionImages
+        view.onionLayers = onionLayers
         view.showGrid = showGrid
         view.mirrorX = mirrorX
     }

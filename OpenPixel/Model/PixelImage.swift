@@ -76,6 +76,17 @@ struct PixelImage: Equatable, Sendable {
         return out
     }
 
+    /// Mixes every visible pixel towards `tint`, keeping alpha.
+    func tinted(_ tint: PixelColor, amount: Double = 0.6) -> PixelImage {
+        var out = self
+        for i in out.pixels.indices where out.pixels[i].a != 0 {
+            let p = out.pixels[i]
+            func mix(_ a: UInt8, _ b: UInt8) -> UInt8 { UInt8((Double(a) * (1 - amount) + Double(b) * amount).rounded()) }
+            out.pixels[i] = PixelColor(r: mix(p.r, tint.r), g: mix(p.g, tint.g), b: mix(p.b, tint.b), a: p.a)
+        }
+        return out
+    }
+
     /// Copies `image` into this one with its top-left corner at (`dx`, `dy`).
     mutating func paste(_ image: PixelImage, at dx: Int, _ dy: Int) {
         for y in 0..<image.height {

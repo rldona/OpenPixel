@@ -15,12 +15,13 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.
   - Deshacer y rehacer (hasta 100 pasos).
 - **Timeline** al estilo Aseprite
-  - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, reordenar y eliminar.
-  - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden mover, eliminar y fijar la duración en ms de cada uno.
-  - Onion skin con el frame anterior y el siguiente.
-  - Reproducción de la animación.
+  - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, eliminar y reordenar arrastrando.
+  - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden reordenar arrastrando su número, eliminar y fijar la duración en ms de cada uno.
+  - **Tags**: rangos de frames con nombre y color, dirección (adelante, atrás, ping-pong, ping-pong inverso) y repeticiones.
+  - **Reproducción**: reproduce el tag del frame actual (o todos los frames), a velocidad de 0,25× a 3×.
+  - **Onion skin** configurable: de 0 a 3 frames antes y después, opacidad, tinte rojo/azul y opción de limitarlo al tag.
 - **Color**: color principal y secundario, selector de color del sistema y paleta editable.
-- **Exportar**: PNG del frame actual, hoja de sprites o GIF animado, a escala 1×–10× sin suavizado. Se comparte con la hoja de compartir de iOS.
+- **Exportar**: PNG del frame actual, hoja de sprites o GIF animado, a escala 1×–10× sin suavizado. La hoja de sprites y el GIF pueden limitarse a un tag; el GIF respeta su dirección y sus repeticiones. Se comparte con la hoja de compartir de iOS.
 - **Autoguardado** en `Documentos/Sprites` (visible desde la app Archivos), en un JSON `.openpixel` legible.
 
 ## Gestos
@@ -48,6 +49,7 @@ Con teclado se usan los atajos de Aseprite:
 | `⌥⇧N` | Nuevo frame vacío |
 | `⇧N` | Nueva capa |
 | `↩` | Reproducir |
+| `⌥⌘T` | Nuevo tag |
 | `←` `→` | Frame anterior / siguiente |
 | `⌘Z` / `⇧⌘Z` | Deshacer / rehacer |
 
@@ -84,8 +86,7 @@ OpenPixelTests/
 
 ## Próximos pasos
 
-- Tags de frames con dirección de bucle (adelante, atrás, ping-pong)
-- Onion skin configurable, cels enlazadas y selección de rangos en el timeline
+- Cels enlazadas y selección de rangos en el timeline
 - Línea, rectángulo, elipse, selección y mover
 - Modos de color indexado y escala de grises
 - Abrir y guardar `.aseprite`

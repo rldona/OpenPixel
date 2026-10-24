@@ -33,13 +33,21 @@ enum ExportError: LocalizedError {
 }
 
 enum Exporter {
-    /// Frames side by side, left to right.
-    static func spriteSheet(_ sprite: Sprite) -> PixelImage {
-        var sheet = PixelImage(width: sprite.width * sprite.frames.count, height: sprite.height)
-        for index in sprite.frames.indices {
-            sheet.paste(sprite.composite(frameIndex: index), at: index * sprite.width, 0)
+    /// Frames side by side, left to right. `frames` defaults to all of them.
+    static func spriteSheet(_ sprite: Sprite, frames: [Int]? = nil) -> PixelImage {
+        let frames = frames ?? Array(sprite.frames.indices)
+        var sheet = PixelImage(width: sprite.width * frames.count, height: sprite.height)
+        for (column, index) in frames.enumerated() {
+            sheet.paste(sprite.composite(frameIndex: index), at: column * sprite.width, 0)
         }
         return sheet
+    }
+
+    /// Frames a GIF plays and how many times it loops (0 = forever):
+    /// the tag's cycle, honouring its direction, or every frame in order.
+    static func animation(_ sprite: Sprite, tag: FrameTag?) -> (frames: [Int], loopCount: Int) {
+        guard let tag else { return (Array(sprite.frames.indices), 0) }
+        return (Playback.cycle(from: tag.from, to: tag.to, direction: tag.direction), tag.repeatCount)
     }
 
     static func pngData(_ image: PixelImage) throws -> Data {
@@ -53,18 +61,19 @@ enum Exporter {
         return data as Data
     }
 
-    static func gifData(_ sprite: Sprite, scale: Int) throws -> Data {
+    static func gifData(_ sprite: Sprite, frames: [Int]? = nil, loopCount: Int = 0, scale: Int) throws -> Data {
+        let frames = frames ?? Array(sprite.frames.indices)
         let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data, UTType.gif.identifier as CFString, sprite.frames.count, nil) else {
+        guard let destination = CGImageDestinationCreateWithData(data, UTType.gif.identifier as CFString, frames.count, nil) else {
             throw ExportError.encodingFailed
         }
-        let fileProperties = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary
+        let fileProperties = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: loopCount]] as CFDictionary
         CGImageDestinationSetProperties(destination, fileProperties)
-        for (index, frame) in sprite.frames.enumerated() {
+        for index in frames {
             guard let cgImage = sprite.composite(frameIndex: index).scaled(by: scale).makeCGImage() else {
                 throw ExportError.encodingFailed
             }
-            let delay = Double(frame.duration) / 1000
+            let delay = Double(sprite.frames[index].duration) / 1000
             let frameProperties = [kCGImagePropertyGIFDictionary: [
                 kCGImagePropertyGIFDelayTime: delay,
                 kCGImagePropertyGIFUnclampedDelayTime: delay
@@ -76,17 +85,21 @@ enum Exporter {
     }
 
     /// Writes the export to a temporary file ready to share.
-    static func export(_ sprite: Sprite, name: String, frameIndex: Int, format: ExportFormat, scale: Int) throws -> URL {
+    /// `tag` limits the sprite sheet and the GIF to that tag's frames.
+    static func export(_ sprite: Sprite, name: String, frameIndex: Int, format: ExportFormat, scale: Int, tag: FrameTag? = nil) throws -> URL {
         let data: Data
         switch format {
         case .png:
             data = try pngData(sprite.composite(frameIndex: frameIndex).scaled(by: scale))
         case .spriteSheet:
-            data = try pngData(spriteSheet(sprite).scaled(by: scale))
+            let frames = tag.map { Array($0.from...$0.to) }
+            data = try pngData(spriteSheet(sprite, frames: frames).scaled(by: scale))
         case .gif:
-            data = try gifData(sprite, scale: scale)
+            let animation = animation(sprite, tag: tag)
+            data = try gifData(sprite, frames: animation.frames, loopCount: animation.loopCount, scale: scale)
         }
-        let safeName = name.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
+        var safeName = name.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
+        if let tag, format != .png { safeName += "-\(tag.name)" }
         let suffix = format == .spriteSheet ? "-sheet" : ""
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Export", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

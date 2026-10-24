@@ -1,5 +1,11 @@
 import UIKit
 
+/// A neighbouring frame drawn faintly under the current one.
+struct OnionLayer {
+    let image: CGImage
+    let alpha: CGFloat
+}
+
 /// The drawing surface. UIKit instead of SwiftUI gestures because we need
 /// per-touch control: Apple Pencil vs finger, coalesced touches, and turning
 /// a one-finger stroke into a pinch when a second finger lands.
@@ -12,7 +18,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         didSet { if oldValue != spriteSize { needsFit = true; setNeedsLayout() } }
     }
     var image: CGImage? { didSet { setNeedsDisplay() } }
-    var onionImages: [CGImage] = [] { didSet { setNeedsDisplay() } }
+    var onionLayers: [OnionLayer] = [] { didSet { setNeedsDisplay() } }
     var showGrid = true { didSet { if oldValue != showGrid { setNeedsDisplay() } } }
     var mirrorX = false { didSet { if oldValue != mirrorX { setNeedsDisplay() } } }
 
@@ -303,8 +309,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         drawCheckerboard(in: visible, spriteRect: spriteRect, ctx: ctx)
 
         ctx.interpolationQuality = .none
-        for onion in onionImages {
-            UIImage(cgImage: onion).draw(in: spriteRect, blendMode: .normal, alpha: 0.28)
+        for onion in onionLayers {
+            UIImage(cgImage: onion.image).draw(in: spriteRect, blendMode: .normal, alpha: onion.alpha)
         }
         if let image {
             UIImage(cgImage: image).draw(in: spriteRect)

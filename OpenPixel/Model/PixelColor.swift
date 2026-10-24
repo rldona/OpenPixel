@@ -11,6 +11,8 @@ struct PixelColor: Hashable, Sendable {
     static let clear = PixelColor(r: 0, g: 0, b: 0, a: 0)
     static let black = PixelColor(r: 0, g: 0, b: 0)
     static let white = PixelColor(r: 255, g: 255, b: 255)
+    static let onionPrevious = PixelColor(r: 255, g: 64, b: 64)
+    static let onionNext = PixelColor(r: 64, g: 128, b: 255)
 
     init(r: UInt8, g: UInt8, b: UInt8, a: UInt8 = 255) {
         self.r = r

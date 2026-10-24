@@ -37,6 +37,7 @@ struct Sprite: Equatable, Sendable {
     /// Missing keys are empty cels.
     var cels: [CelKey: PixelImage]
     var palette: [PixelColor]
+    var tags: [FrameTag] = []
 
     static func blank(width: Int, height: Int, background: PixelColor?, palette: [PixelColor]) -> Sprite {
         let frame = Frame()
@@ -76,7 +77,7 @@ extension Sprite: Codable {
         var image: PixelImage
     }
 
-    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette }
+    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -86,6 +87,7 @@ extension Sprite: Codable {
         layers = try c.decode([Layer].self, forKey: .layers)
         frames = try c.decode([Frame].self, forKey: .frames)
         palette = try c.decode([PixelColor].self, forKey: .palette)
+        tags = try c.decodeIfPresent([FrameTag].self, forKey: .tags) ?? []
         let list = try c.decode([Cel].self, forKey: .cels)
         cels = Dictionary(list.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.image) }, uniquingKeysWith: { a, _ in a })
     }
@@ -98,6 +100,7 @@ extension Sprite: Codable {
         try c.encode(layers, forKey: .layers)
         try c.encode(frames, forKey: .frames)
         try c.encode(palette, forKey: .palette)
+        try c.encode(tags, forKey: .tags)
         let list = cels.map { Cel(layer: $0.key.layer, frame: $0.key.frame, image: $0.value) }
             .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
         try c.encode(list, forKey: .cels)

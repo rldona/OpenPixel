@@ -5,6 +5,8 @@ struct ExportView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var format = ExportFormat.png
     @State private var scale = 4
+    /// nil exports every frame.
+    @State private var tagID: UUID?
     @State private var fileURL: URL?
     @State private var errorMessage: String?
 
@@ -26,6 +28,24 @@ struct ExportView: View {
                             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(format == f ? Theme.accent : Theme.border, lineWidth: 2))
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+
+                if format != .png && !document.sprite.tags.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionLabel("Frames")
+                        Picker("Frames", selection: $tagID) {
+                            Text("Todos").tag(UUID?.none)
+                            ForEach(document.sprite.tags) { tag in
+                                Text(tag.name).tag(Optional(tag.id))
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        if let tag, format == .gif {
+                            Text("\(tag.direction.title) · \(tag.repeatCount == 0 ? "bucle infinito" : "\(tag.repeatCount) \(tag.repeatCount == 1 ? "vez" : "veces")")")
+                                .font(.footnote)
+                                .foregroundStyle(Theme.muted)
+                        }
                     }
                 }
 
@@ -79,14 +99,20 @@ struct ExportView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } }
             }
-            .task(id: "\(format.rawValue)-\(scale)") { render() }
+            .task(id: "\(format.rawValue)-\(scale)-\(tagID?.uuidString ?? "all")") { render() }
         }
     }
 
+    private var tag: FrameTag? {
+        format == .png ? nil : document.sprite.tags.first { $0.id == tagID }
+    }
+
     private var previewImage: CGImage? {
+        let sprite = document.sprite
         switch format {
-        case .png, .gif: document.sprite.composite(frameIndex: format == .gif ? 0 : document.activeFrameIndex).makeCGImage()
-        case .spriteSheet: Exporter.spriteSheet(document.sprite).makeCGImage()
+        case .png: return sprite.composite(frameIndex: document.activeFrameIndex).makeCGImage()
+        case .gif: return sprite.composite(frameIndex: Exporter.animation(sprite, tag: tag).frames[0]).makeCGImage()
+        case .spriteSheet: return Exporter.spriteSheet(sprite, frames: tag.map { Array($0.from...$0.to) }).makeCGImage()
         }
     }
 
@@ -94,15 +120,21 @@ struct ExportView: View {
         let s = document.sprite
         let w = s.width * scale, h = s.height * scale
         switch format {
-        case .png: return "\(w) × \(h) px"
-        case .spriteSheet: return "\(w * s.frames.count) × \(h) px · \(s.frames.count) frames"
-        case .gif: return "\(w) × \(h) px · \(s.frames.count) frames · \(s.totalDuration) ms"
+        case .png:
+            return "\(w) × \(h) px"
+        case .spriteSheet:
+            let count = tag?.frameCount ?? s.frames.count
+            return "\(w * count) × \(h) px · \(count) frames"
+        case .gif:
+            let frames = Exporter.animation(s, tag: tag).frames
+            let duration = frames.reduce(0) { $0 + s.frames[$1].duration }
+            return "\(w) × \(h) px · \(frames.count) frames · \(duration) ms"
         }
     }
 
     private func render() {
         do {
-            fileURL = try Exporter.export(document.sprite, name: document.name, frameIndex: document.activeFrameIndex, format: format, scale: scale)
+            fileURL = try Exporter.export(document.sprite, name: document.name, frameIndex: document.activeFrameIndex, format: format, scale: scale, tag: tag)
             errorMessage = nil
         } catch {
             fileURL = nil
