@@ -55,6 +55,9 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private weak var drawingTouch: UITouch?
     private var strokeActive = false
     private weak var transformTouch: UITouch?
+    /// A touch inside the selection: it moves the pixels once it drags,
+    /// and selects the element under it if it lifts without moving.
+    private var pendingSelectionTouch: (touch: UITouch, start: CGPoint, point: PixelPoint)?
 
     /// What the document looked like the last time the whole image was rendered.
     private(set) var renderedRevision = -1
@@ -591,8 +594,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
            let p = spritePoint(touch.location(in: self)), document.dragMovesSelection(at: p) {
             if touch.type == .pencil { pencilOnly = true }
             if touch.type == .direct, (event?.allTouches?.filter { $0.type == .direct }.count ?? 1) > 1 { return }
-            transformTouch = touch
-            onTransformBegan?(.move, toSprite(touch.location(in: self)))
+            pendingSelectionTouch = (touch, touch.location(in: self), p)
             return
         }
         if drawingTouch != nil {
@@ -613,6 +615,15 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
+            let now = pending.touch.location(in: self)
+            guard hypot(now.x - pending.start.x, now.y - pending.start.y) > 6 else { return }
+            pendingSelectionTouch = nil
+            transformTouch = pending.touch
+            onTransformBegan?(.move, toSprite(pending.start))
+            onTransformMoved?(toSprite(now))
+            return
+        }
         if let touch = transformTouch, touches.contains(touch) {
             onTransformMoved?(toSprite(touch.location(in: self)))
             return
@@ -634,6 +645,13 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
+            // A tap inside the selection: select the element under it.
+            pendingSelectionTouch = nil
+            onStrokeBegan?(pending.point)
+            onStrokeEnded?()
+            return
+        }
         if let touch = transformTouch, touches.contains(touch) {
             transformTouch = nil
             onTransformEnded?()
@@ -646,6 +664,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
+            pendingSelectionTouch = nil
+            return
+        }
         if let touch = transformTouch, touches.contains(touch) {
             transformTouch = nil
             onTransformEnded?()

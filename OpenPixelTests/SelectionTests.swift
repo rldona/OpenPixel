@@ -246,12 +246,12 @@ final class SelectionDocumentTests: XCTestCase {
         XCTAssertFalse(doc.isTransforming)
         XCTAssertNil(doc.selection, "applying deselects")
         doc.reselect()
-        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 3, minY: 2, maxX: 5, maxY: 4), "Reselect brings back the moved selection")
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 4, minY: 3, maxX: 4, maxY: 3), "Reselect brings back the moved selection (fitted to the one drawn pixel)")
         doc.undo()
         doc.undo()
         XCTAssertEqual(pixel(doc, 1, 1), .black)
         XCTAssertEqual(pixel(doc, 4, 3), .clear)
-        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 0, minY: 0, maxX: 2, maxY: 2), "undo restores the original selection")
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 1, minY: 1, maxX: 1, maxY: 1), "undo restores the original selection")
     }
 
     func testCancelAndDuplicate() {

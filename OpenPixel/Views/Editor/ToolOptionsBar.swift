@@ -39,11 +39,21 @@ struct ToolOptionsBar: View {
             if document.tool.isSelection {
                 divider
                 selectionModes
-                if document.hasSelection, document.selectionMode == .replace, document.tool != .magicWand {
-                    Text("Drag inside to move")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.muted)
-                        .fixedSize()
+                if document.tool != .magicWand {
+                    divider
+                    toggle("Fit to content", isOn: $document.selectionFitsContent)
+                }
+                if document.tool != .magicWand {
+                    Group {
+                        if document.hasSelection && document.selectionMode == .replace {
+                            Text("Drag inside to move")
+                        } else {
+                            Text("Tap an element to select it")
+                        }
+                    }
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize()
                 }
             }
             if document.tool == .magicWand {

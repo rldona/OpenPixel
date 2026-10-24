@@ -95,6 +95,10 @@ final class SpriteDocument {
     var wandTolerance = 0
     var wandContiguous = true
     var wandSampleAllLayers = false
+    /// Marquee and lasso selections shrink to the drawn pixels inside them.
+    var selectionFitsContent = true
+    /// The shape being dragged, before it's combined with the previous selection.
+    @ObservationIgnored private var dragShape: SelectionMask?
     // Timeline range selection
     var isSelectingRange = false
     var timelineRange: TimelineRange?
@@ -901,6 +905,7 @@ extension SpriteDocument {
             let rect = PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
             shape = .rect(rect, width: storage.width, height: storage.height)
         }
+        dragShape = shape
         applySelectionShape(shape)
     }
 
@@ -913,14 +918,58 @@ extension SpriteDocument {
 
     private func finishSelection() {
         guard let drag = selectionDrag else { return }
+        let shape = dragShape
         selectionDrag = nil
+        dragShape = nil
         lassoPath = []
-        // A tap without dragging deselects, like a click in Aseprite.
-        if !drag.moved && selectionMode == .replace { selection = nil }
+        let base = drag.before ?? emptyMask
+        if !drag.moved && tool != .magicWand {
+            // A tap picks the element under it: the content of the topmost layer
+            // with a pixel there. On empty canvas it deselects, like Aseprite.
+            if let element = element(at: drag.start) {
+                activeLayerID = element.layer
+                if timelineRange != nil { endRangeSelection() }
+                let result = base.combined(with: element.mask, mode: selectionMode)
+                selection = result.isEmpty ? nil : result
+            } else if selectionMode == .replace {
+                selection = nil
+            }
+        } else if drag.moved, selectionFitsContent, tool != .magicWand, let shape,
+                  let fitted = fittedToContent(shape) {
+            selection = base.combined(with: fitted, mode: selectionMode)
+        }
         guard selection != drag.before else { return }
         if drag.before != nil { lastSelection = drag.before }
         registerUndo(DocumentSnapshot(sprite: storage, selection: drag.before))
         changed()
+    }
+
+    /// The topmost visible layer with a pixel at `p` in the active frame, and
+    /// all its pixels there. The background layer is skipped: it covers everything.
+    private func element(at p: PixelPoint) -> (layer: UUID, mask: SelectionMask)? {
+        let frame = activeFrame.id
+        for layer in storage.layers.reversed() where layer.isVisible && !layer.isBackground {
+            guard let cel = storage.cel(layer: layer.id, frame: frame), cel.contains(p), cel[p].a != 0 else { continue }
+            return (layer.id, SelectionMask.opaquePixels(of: cel))
+        }
+        return nil
+    }
+
+    /// `shape` reduced to the drawn pixels inside it, in the layers and frames
+    /// being edited (the timeline range, or the active cel). Nil when the shape
+    /// holds nothing drawn, so selecting empty canvas still works.
+    private func fittedToContent(_ shape: SelectionMask) -> SelectionMask? {
+        var content = emptyMask
+        let layers = timelineRange.map { r in storage.layers.filter { r.layers.contains($0.id) } } ?? activeLayer.map { [$0] } ?? []
+        let frames = timelineRange.map { r in r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil } } ?? [activeFrame.id]
+        for layer in layers where layer.isVisible && !layer.isBackground {
+            for frame in frames {
+                guard let cel = storage.cel(layer: layer.id, frame: frame) else { continue }
+                content = content.combined(with: SelectionMask.opaquePixels(of: cel), mode: .add)
+            }
+        }
+        let fitted = shape.combined(with: content, mode: .intersect)
+        return fitted.isEmpty ? nil : fitted
     }
 
     /// Replaces the selection as one undoable step.
