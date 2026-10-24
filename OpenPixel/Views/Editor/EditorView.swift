@@ -57,8 +57,10 @@ struct EditorView: View {
                         }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {
-                                // With the timeline open, the bars leave room for its grab bar below them.
-                                let barBottom: CGFloat = !focusMode && !timelineCollapsed ? 44 : 14
+                                // With the timeline open, the grab bar sits centered between the bars and the
+                                // timeline: its capsule is 11 pt above the timeline, 8 pt clear of it, so the
+                                // bars end 8 pt above the capsule.
+                                let barBottom: CGFloat = !focusMode && !timelineCollapsed ? 22 : 14
                                 if document.isTransforming {
                                     TransformBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
                                 } else if document.hasSelection {
