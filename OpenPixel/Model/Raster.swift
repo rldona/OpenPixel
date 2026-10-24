@@ -95,24 +95,25 @@ enum Raster {
         return rows.flatMap { y, span in (span.0...span.1).map { PixelPoint(x: $0, y: y) } }
     }
 
-    /// Replaces every pixel of `start`'s color, connected or not.
-    static func replaceColor(_ image: inout PixelImage, at start: PixelPoint, with color: PixelColor) {
-        guard image.contains(start) else { return }
+    /// Replaces every pixel of `start`'s color, connected or not, inside `mask` if given.
+    static func replaceColor(_ image: inout PixelImage, at start: PixelPoint, with color: PixelColor, within mask: SelectionMask? = nil) {
+        guard image.contains(start), mask?.contains(start) ?? true else { return }
         let target = image[start]
         guard target != color else { return }
-        for i in image.pixels.indices where image.pixels[i] == target {
+        for i in image.pixels.indices where image.pixels[i] == target && (mask?.bits[i] ?? true) {
             image.pixels[i] = color
         }
     }
 
-    /// 4-connected flood fill of the region that has the same color as `start`.
-    static func floodFill(_ image: inout PixelImage, at start: PixelPoint, with color: PixelColor) {
-        guard image.contains(start) else { return }
+    /// 4-connected flood fill of the region that has the same color as `start`,
+    /// staying inside `mask` if given.
+    static func floodFill(_ image: inout PixelImage, at start: PixelPoint, with color: PixelColor, within mask: SelectionMask? = nil) {
+        guard image.contains(start), mask?.contains(start) ?? true else { return }
         let target = image[start]
         guard target != color else { return }
         var stack = [start]
         while let p = stack.popLast() {
-            guard image.contains(p), image[p] == target else { continue }
+            guard image.contains(p), image[p] == target, mask?.contains(p) ?? true else { continue }
             image[p] = color
             stack.append(PixelPoint(x: p.x + 1, y: p.y))
             stack.append(PixelPoint(x: p.x - 1, y: p.y))

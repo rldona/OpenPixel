@@ -33,10 +33,17 @@ struct EditorView: View {
                                 mirrorX: document.mirrorX,
                                 onZoomChanged: { zoom = $0 }
                             )
-                            statusPills
+                            if !document.hasSelection && !document.isTransforming { statusPills }
                         }
                         .overlay(alignment: .topLeading) {
                             ToolOptionsBar(document: document).padding(14)
+                        }
+                        .overlay(alignment: .bottom) {
+                            if document.isTransforming {
+                                TransformBar(document: document).padding(14)
+                            } else if document.hasSelection {
+                                SelectionActionBar(document: document).padding(14)
+                            }
                         }
                         .overlay(alignment: .top) { noticeBanner.padding(.top, 58) }
                     }
@@ -48,6 +55,7 @@ struct EditorView: View {
             }
         }
         .background(Theme.background)
+        .background { EditorShortcuts(document: document) }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) { ExportView(document: document) }
         .alert("Rename project", isPresented: $showingRename) {
@@ -134,13 +142,14 @@ struct EditorView: View {
 
             IconButton(systemImage: "arrow.uturn.backward", label: "Undo") { document.undo() }
                 .keyboardShortcut("z", modifiers: .command)
-                .opacity(document.canUndo ? 1 : 0.35)
+                .opacity(document.canUndo || document.isTransforming ? 1 : 0.35)
             IconButton(systemImage: "arrow.uturn.forward", label: "Redo") { document.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .opacity(document.canRedo ? 1 : 0.35)
 
             Spacer()
 
+            EditMenu(document: document)
             IconButton(systemImage: "grid", label: "Pixel grid", isOn: document.showGrid) { document.showGrid.toggle() }
                 .keyboardShortcut("'", modifiers: .command)
             HStack(spacing: 0) {
@@ -219,11 +228,8 @@ struct ToolRail: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            ForEach(Tool.allCases) { tool in
-                IconButton(systemImage: tool.systemImage, label: tool.title, isOn: document.tool == tool, size: 48) {
-                    document.select(tool)
-                }
-                .keyboardShortcut(tool.shortcut, modifiers: tool.shortcutModifiers)
+            ForEach(ToolGroup.allCases) { group in
+                toolButton(for: group)
             }
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             IconButton(systemImage: "square.split.2x1", label: "Horizontal symmetry", isOn: document.mirrorX, size: 48) {
@@ -251,5 +257,55 @@ struct ToolRail: View {
         .frame(width: 68)
         .background(Theme.panel)
         .overlay(alignment: .trailing) { Rectangle().fill(Theme.border).frame(width: 1) }
+        .background {
+            // Aseprite's single-key tool shortcuts; tools inside groups aren't buttons of their own.
+            Group {
+                ForEach(Tool.allCases) { tool in
+                    Button(tool.title) { document.select(tool) }
+                        .keyboardShortcut(tool.shortcut, modifiers: tool.shortcutModifiers)
+                }
+            }
+            .opacity(0)
+            .accessibilityHidden(true)
+        }
+    }
+
+    /// One slot per group. Groups with several tools show the last one used;
+    /// tap selects it, touch and hold lists the others.
+    @ViewBuilder
+    private func toolButton(for group: ToolGroup) -> some View {
+        let tool = document.currentTool(in: group)
+        let isOn = ToolGroup.of(document.tool) == group
+        if group.tools.count == 1 {
+            IconButton(systemImage: tool.systemImage, label: tool.title, isOn: isOn, size: 48) {
+                document.select(tool)
+            }
+        } else {
+            Menu {
+                ForEach(group.tools) { option in
+                    Button { document.select(option) } label: { Label(option.title, systemImage: option.systemImage) }
+                }
+            } label: {
+                Image(systemName: tool.systemImage)
+                    .font(.system(size: 19, weight: .medium))
+                    .frame(width: 48, height: 48)
+                    .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
+                    .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+                    // Corner mark: this slot has more tools.
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "arrowtriangle.down.fill")
+                            .font(.system(size: 6))
+                            .rotationEffect(.degrees(-45))
+                            .foregroundStyle(isOn ? Theme.onAccent : Theme.muted)
+                            .padding(5)
+                    }
+            } primaryAction: {
+                document.select(tool)
+            }
+            .menuIndicator(.hidden)
+            .accessibilityLabel(Text(tool.title))
+            .accessibilityHint(Text("Touch and hold for more tools"))
+            .accessibilityAddTraits(isOn ? .isSelected : [])
+        }
     }
 }

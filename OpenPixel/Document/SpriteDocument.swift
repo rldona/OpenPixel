@@ -1,5 +1,24 @@
+import CoreGraphics
 import Foundation
 import Observation
+
+/// One undo step: the sprite and the selection, like Aseprite (deselecting is undoable).
+struct DocumentSnapshot: Equatable {
+    var sprite: Sprite
+    var selection: SelectionMask?
+}
+
+/// Live numbers shown while transforming.
+struct TransformInfo: Equatable {
+    var width = 0
+    var height = 0
+    var degrees = 0
+}
+
+/// What a drag on the transform box does.
+enum TransformHandle: Equatable {
+    case move, scale(Int), rotate, pivot
+}
 
 /// Onion skin options, like Aseprite's: how many frames to show on each
 /// side, how strongly, and whether to tint them red (before) and blue (after).
@@ -33,8 +52,9 @@ final class SpriteDocument {
     @ObservationIgnored var onCanvasChange: ((PixelRect) -> Void)?
     private(set) var hasUnsavedChanges = false
 
-    var activeLayerID: UUID
-    var activeFrameIndex = 0
+    /// Changing the active cel drops any floating pixels first, like Aseprite.
+    var activeLayerID: UUID { didSet { if oldValue != activeLayerID { applyTransformIfNeeded() } } }
+    var activeFrameIndex = 0 { didSet { if oldValue != activeFrameIndex { applyTransformIfNeeded() } } }
     private(set) var tool: Tool = .pencil
     private var previousTool: Tool = .pencil
     var primary: PixelColor
@@ -56,8 +76,49 @@ final class SpriteDocument {
     /// Short feedback shown over the canvas, e.g. when drawing on a locked layer.
     var notice: String?
 
-    private var undoStack: [Sprite] = []
-    private var redoStack: [Sprite] = []
+    // Selection
+    /// Not observed (it changes on every move of a marquee drag); views use `hasSelection`.
+    @ObservationIgnored private(set) var selection: SelectionMask? {
+        didSet {
+            if hasSelection != (selection != nil) { hasSelection = selection != nil }
+            onOverlayChange?()
+        }
+    }
+    private(set) var hasSelection = false
+    @ObservationIgnored private var lastSelection: SelectionMask?
+    @ObservationIgnored private var selectionDrag: (start: PixelPoint, before: SelectionMask?, moved: Bool)?
+    @ObservationIgnored private var lassoPath: [PixelPoint] = []
+    var selectionMode = SelectionMode.replace
+    /// Magic wand options.
+    var wandTolerance = 0
+    var wandContiguous = true
+    var wandSampleAllLayers = false
+    /// Called when the selection outline or the transform box changes.
+    @ObservationIgnored var onOverlayChange: (() -> Void)?
+
+    // Transform
+    @ObservationIgnored private var floating: FloatingSelection?
+    @ObservationIgnored private var floatingBase: PixelImage?
+    @ObservationIgnored private var transformStart: DocumentSnapshot?
+    @ObservationIgnored private var floatingDirty: PixelRect?
+    @ObservationIgnored private var transformDrag: (handle: TransformHandle, start: CGPoint, box: TransformBox)?
+    private(set) var isTransforming = false
+    private(set) var transformInfo = TransformInfo()
+    var rotationAlgorithm = RotationAlgorithm.rotSprite {
+        didSet {
+            guard floating != nil else { return }
+            floating?.algorithm = rotationAlgorithm
+            renderFloating()
+        }
+    }
+    var keepAspect = false
+    /// Snaps free rotation to 15° steps.
+    var snapAngle = true
+    /// The floating pixels' box, for the canvas handles.
+    var transformBox: TransformBox? { floating?.box }
+
+    private var undoStack: [DocumentSnapshot] = []
+    private var redoStack: [DocumentSnapshot] = []
     @ObservationIgnored private var strokeStart: Sprite?
     @ObservationIgnored private var lastPoint: PixelPoint?
     @ObservationIgnored private var shapeOrigin: PixelPoint?
@@ -97,7 +158,7 @@ final class SpriteDocument {
         hasUnsavedChanges = true
     }
 
-    private func registerUndo(_ snapshot: Sprite) {
+    private func registerUndo(_ snapshot: DocumentSnapshot) {
         undoStack.append(snapshot)
         if undoStack.count > Self.historyLimit { undoStack.removeFirst() }
         redoStack.removeAll()
@@ -105,30 +166,37 @@ final class SpriteDocument {
 
     /// Applies a structural change as one undoable step.
     private func perform(_ change: (inout Sprite) -> Void) {
+        applyTransformIfNeeded()
         stopPlayback()
         let before = storage
         change(&storage)
         guard storage != before else { return }
-        registerUndo(before)
+        registerUndo(DocumentSnapshot(sprite: before, selection: selection))
         fixSelection()
         changed()
     }
 
+    /// While transforming, undo cancels the transform.
     func undo() {
+        if isTransforming { return cancelTransform() }
         cancelStroke()
         guard let previous = undoStack.popLast() else { return }
         stopPlayback()
-        redoStack.append(storage)
-        storage = previous
-        fixSelection()
-        changed()
+        redoStack.append(DocumentSnapshot(sprite: storage, selection: selection))
+        restore(previous)
     }
 
     func redo() {
+        applyTransformIfNeeded()
         guard let next = redoStack.popLast() else { return }
         stopPlayback()
-        undoStack.append(storage)
-        storage = next
+        undoStack.append(DocumentSnapshot(sprite: storage, selection: selection))
+        restore(next)
+    }
+
+    private func restore(_ snapshot: DocumentSnapshot) {
+        storage = snapshot.sprite
+        selection = snapshot.selection
         fixSelection()
         changed()
     }
@@ -143,8 +211,24 @@ final class SpriteDocument {
     // MARK: - Tools and colors
 
     func select(_ newTool: Tool) {
+        if newTool != .move { applyTransformIfNeeded() }
         if newTool != tool { previousTool = tool }
         tool = newTool
+        toolInGroup[ToolGroup.of(newTool)] = newTool
+    }
+
+    /// The last tool used in each tool rail group.
+    private(set) var toolInGroup: [ToolGroup: Tool] = [:]
+
+    func currentTool(in group: ToolGroup) -> Tool { toolInGroup[group] ?? group.tools[0] }
+
+    /// Moves floating pixels by whole pixels (arrow keys).
+    func nudgeTransform(dx: Double, dy: Double) {
+        if !isTransforming { beginTransform() }
+        guard var f = floating else { return }
+        f.box.translate(dx: dx, dy: dy)
+        floating = f
+        renderFloating()
     }
 
     /// Apple Pencil double tap: toggles between the eraser and the last tool.
@@ -181,6 +265,11 @@ final class SpriteDocument {
             pickColor(at: p)
             return
         }
+        if tool.isSelection {
+            beginSelection(at: p)
+            return
+        }
+        applyTransformIfNeeded()
         guard let layer = activeLayer else { return }
         if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return }
         if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return }
@@ -188,12 +277,12 @@ final class SpriteDocument {
         strokeStart = storage
         switch tool {
         case .bucket:
-            let color = primary, contiguous = fillContiguous
+            let color = primary, contiguous = fillContiguous, mask = selection
             mutateActiveCel(dirty: nil) { image in
                 if contiguous {
-                    Raster.floodFill(&image, at: p, with: color)
+                    Raster.floodFill(&image, at: p, with: color, within: mask)
                 } else {
-                    Raster.replaceColor(&image, at: p, with: color)
+                    Raster.replaceColor(&image, at: p, with: color, within: mask)
                 }
             }
             endStroke()
@@ -215,6 +304,7 @@ final class SpriteDocument {
     /// Extends the stroke through several points at once (all the Pencil
     /// samples of one touch event), redrawing the canvas only once.
     func continueStroke(through points: [PixelPoint]) {
+        if selectionDrag != nil { return updateSelection(through: points) }
         guard strokeStart != nil, let target = points.last else { return }
         if tool.isShape {
             drawShape(to: target)
@@ -232,16 +322,22 @@ final class SpriteDocument {
     }
 
     func endStroke() {
+        if selectionDrag != nil { return finishSelection() }
         guard let start = strokeStart else { return }
         resetStroke()
         let key = activeCelKey
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
-        if start != storage { registerUndo(start) }
+        if start != storage { registerUndo(DocumentSnapshot(sprite: start, selection: selection)) }
         changed()
     }
 
     /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be a pinch.
     func cancelStroke() {
+        if let drag = selectionDrag {
+            selectionDrag = nil
+            selection = drag.before
+            return
+        }
         guard let start = strokeStart else { return }
         resetStroke()
         storage = start
@@ -267,14 +363,19 @@ final class SpriteDocument {
     }
 
     /// Stamps the brush on every point (and its mirror when symmetry is on).
+    /// With a selection, only selected pixels are painted, as in Aseprite.
     private func stamp(_ points: [PixelPoint], on image: inout PixelImage, color: PixelColor) {
         let offsets = Raster.brushOffsets(size: brushSize, shape: brushShape)
+        let mask = selection
+        func paint(_ q: PixelPoint) {
+            guard image.contains(q), mask?.contains(q) ?? true else { return }
+            image[q] = color
+        }
         for p in points {
             for o in offsets {
                 let q = PixelPoint(x: p.x + o.x, y: p.y + o.y)
-                guard image.contains(q) else { continue }
-                image[q] = color
-                if mirrorX { image[image.width - 1 - q.x, q.y] = color }
+                paint(q)
+                if mirrorX { paint(PixelPoint(x: image.width - 1 - q.x, y: q.y)) }
             }
         }
     }
@@ -574,4 +675,362 @@ final class SpriteDocument {
         playTask = nil
         isPlaying = false
     }
+}
+
+// MARK: - Selection
+// https://www.aseprite.org/docs/selecting/
+
+extension SpriteDocument {
+    private var emptyMask: SelectionMask { SelectionMask(width: storage.width, height: storage.height) }
+
+    private func beginSelection(at p: PixelPoint) {
+        applyTransformIfNeeded()
+        selectionDrag = (p, selection, false)
+        lassoPath = [p]
+        if tool == .magicWand {
+            let image = wandSampleAllLayers
+                ? storage.composite(frameIndex: activeFrameIndex)
+                : storage.cels[activeCelKey] ?? PixelImage(width: storage.width, height: storage.height)
+            applySelectionShape(SelectionMask.magicWand(in: image, at: p, tolerance: wandTolerance, contiguous: wandContiguous))
+            selectionDrag?.moved = true
+            finishSelection()
+        } else {
+            updateSelection(through: [p])
+        }
+    }
+
+    private func updateSelection(through points: [PixelPoint]) {
+        guard let drag = selectionDrag, let p = points.last else { return }
+        if p != drag.start { selectionDrag?.moved = true }
+        let shape: SelectionMask
+        switch tool {
+        case .selectEllipse:
+            shape = .ellipse(from: drag.start, to: p, width: storage.width, height: storage.height)
+        case .lasso:
+            for q in points where q != lassoPath.last { lassoPath.append(q) }
+            shape = .polygon(lassoPath, width: storage.width, height: storage.height)
+        default:
+            let rect = PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
+            shape = .rect(rect, width: storage.width, height: storage.height)
+        }
+        applySelectionShape(shape)
+    }
+
+    /// Previews the new shape combined with the selection from before the drag.
+    private func applySelectionShape(_ shape: SelectionMask) {
+        let base = selectionDrag?.before ?? emptyMask
+        let result = base.combined(with: shape, mode: selectionMode)
+        selection = result.isEmpty ? nil : result
+    }
+
+    private func finishSelection() {
+        guard let drag = selectionDrag else { return }
+        selectionDrag = nil
+        lassoPath = []
+        // A tap without dragging deselects, like a click in Aseprite.
+        if !drag.moved && selectionMode == .replace { selection = nil }
+        guard selection != drag.before else { return }
+        if drag.before != nil { lastSelection = drag.before }
+        registerUndo(DocumentSnapshot(sprite: storage, selection: drag.before))
+        changed()
+    }
+
+    /// Replaces the selection as one undoable step.
+    private func commitSelection(_ new: SelectionMask?) {
+        applyTransformIfNeeded()
+        let normalized = new?.isEmpty == true ? nil : new
+        guard normalized != selection else { return }
+        if selection != nil { lastSelection = selection }
+        registerUndo(DocumentSnapshot(sprite: storage, selection: selection))
+        selection = normalized
+        changed()
+    }
+
+    func selectAll() { commitSelection(SelectionMask(width: storage.width, height: storage.height, filled: true)) }
+    func deselect() { commitSelection(nil) }
+
+    func reselect() {
+        guard let last = lastSelection, last.width == storage.width, last.height == storage.height else { return }
+        commitSelection(last)
+    }
+
+    func invertSelection() { commitSelection((selection ?? emptyMask).inverted()) }
+    func expandSelection(by amount: Int) { commitSelection(selection?.expanded(by: amount)) }
+    func contractSelection(by amount: Int) { commitSelection(selection?.contracted(by: amount)) }
+    func borderSelection(_ amount: Int) { commitSelection(selection?.border(amount)) }
+
+    /// Selects the non-transparent pixels of the active cel.
+    func selectLayerContent() {
+        guard let cel = storage.cels[activeCelKey] else { return commitSelection(nil) }
+        commitSelection(SelectionMask.opaquePixels(of: cel))
+    }
+
+    // MARK: Editing
+
+    private var activeLayerEditable: Bool {
+        guard let layer = activeLayer else { return false }
+        if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return false }
+        if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return false }
+        return true
+    }
+
+    /// Clears the selected pixels of the active cel.
+    func deleteSelection() {
+        guard let mask = selection, activeLayerEditable else { return }
+        let key = activeCelKey
+        perform { s in
+            guard var cel = s.cels[key] else { return }
+            for i in cel.pixels.indices where mask.bits[i] { cel.pixels[i] = .clear }
+            s.cels[key] = cel.isEmpty ? nil : cel
+        }
+    }
+
+    /// Fills the selection (or the whole cel) with the primary color.
+    func fillSelection() {
+        guard activeLayerEditable else { return }
+        let mask = selection, key = activeCelKey, color = primary
+        let (w, h) = (storage.width, storage.height)
+        perform { s in
+            var cel = s.cels[key] ?? PixelImage(width: w, height: h)
+            for i in cel.pixels.indices where mask?.bits[i] ?? true { cel.pixels[i] = color }
+            s.cels[key] = cel
+        }
+    }
+
+    /// Copies the selected pixels of the active cel (or the whole cel) to the
+    /// app clipboard and, as a PNG, to the system pasteboard.
+    func copy() {
+        applyTransformIfNeeded()
+        guard let cel = storage.cels[activeCelKey] else { return }
+        let mask = selection ?? SelectionMask(width: storage.width, height: storage.height, filled: true)
+        guard let bounds = mask.bounds else { return }
+        var image = cel.cropped(to: bounds)
+        let local = mask.cropped(to: bounds)
+        for i in image.pixels.indices where !local.bits[i] { image.pixels[i] = .clear }
+        PixelClipboard.store(image, origin: PixelPoint(x: bounds.minX, y: bounds.minY))
+    }
+
+    func cut() {
+        copy()
+        if selection != nil { deleteSelection() } else { clearActiveCel() }
+    }
+
+    private func clearActiveCel() {
+        guard activeLayerEditable else { return }
+        let key = activeCelKey
+        perform { $0.cels[key] = nil }
+    }
+
+    /// Pastes as floating pixels on the active cel, at the copied position if it
+    /// fits, otherwise centred. Images from other apps can be pasted too.
+    func paste() {
+        guard let (image, origin) = PixelClipboard.read(maxSize: DocumentStore.maxImportSize) else {
+            notice = L10n.string("Nothing to paste")
+            return
+        }
+        applyTransformIfNeeded()
+        cancelStroke()
+        stopPlayback()
+        guard activeLayerEditable else { return }
+        let (w, h) = (storage.width, storage.height)
+        let fits = origin.x >= 0 && origin.y >= 0 && origin.x + image.width <= w && origin.y + image.height <= h
+        let at = fits ? origin : PixelPoint(x: (w - image.width) / 2, y: (h - image.height) / 2)
+        let key = activeCelKey
+        transformStart = DocumentSnapshot(sprite: storage, selection: selection)
+        floatingBase = storage.cels[key] ?? PixelImage(width: w, height: h)
+        var f = FloatingSelection(celKey: key, source: image, sourceMask: SelectionMask.opaquePixels(of: image), at: at)
+        f.algorithm = rotationAlgorithm
+        floating = f
+        floatingDirty = nil
+        isTransforming = true
+        if tool != .move {
+            previousTool = tool
+            tool = .move
+        }
+        renderFloating()
+    }
+
+    // MARK: Transform
+    // https://www.aseprite.org/docs/transformations/
+
+    /// Lifts the selected pixels (or the cel's content) so they can be moved,
+    /// scaled, rotated and flipped. With `copy`, the original pixels stay.
+    /// `wholeCanvas` lifts the full canvas when nothing is selected (flip, rotate).
+    func beginTransform(copy: Bool = false, wholeCanvas: Bool = false) {
+        guard !isTransforming, activeLayerEditable else { return }
+        cancelStroke()
+        stopPlayback()
+        let key = activeCelKey
+        let (w, h) = (storage.width, storage.height)
+        let cel = storage.cels[key] ?? PixelImage(width: w, height: h)
+        let mask: SelectionMask
+        if let selection {
+            mask = selection
+        } else if wholeCanvas {
+            mask = SelectionMask(width: w, height: h, filled: true)
+        } else {
+            mask = SelectionMask.opaquePixels(of: cel)
+        }
+        guard let bounds = mask.bounds else { return }
+        var source = cel.cropped(to: bounds)
+        let localMask = mask.cropped(to: bounds)
+        for i in source.pixels.indices where !localMask.bits[i] { source.pixels[i] = .clear }
+        var base = cel
+        if !copy { for i in base.pixels.indices where mask.bits[i] { base.pixels[i] = .clear } }
+
+        transformStart = DocumentSnapshot(sprite: storage, selection: selection)
+        floatingBase = base
+        var f = FloatingSelection(celKey: key, source: source, sourceMask: localMask, at: PixelPoint(x: bounds.minX, y: bounds.minY))
+        f.algorithm = rotationAlgorithm
+        floating = f
+        floatingDirty = bounds
+        isTransforming = true
+        renderFloating()
+    }
+
+    /// Draws the floating pixels over the cel they were lifted from.
+    private func renderFloating() {
+        guard var f = floating, var cel = floatingBase else { return }
+        let rendered = f.render(spriteWidth: storage.width, spriteHeight: storage.height)
+        floating = f
+        let o = rendered.origin
+        for y in 0..<rendered.image.height {
+            for x in 0..<rendered.image.width {
+                let p = rendered.image[x, y]
+                guard p.a != 0, rendered.mask[o.x + x, o.y + y] else { continue }
+                cel[o.x + x, o.y + y] = p.blended(over: cel[o.x + x, o.y + y])
+            }
+        }
+        storage.cels[f.celKey] = cel
+        selection = rendered.mask.isEmpty ? nil : rendered.mask
+        let newRect = rendered.mask.bounds
+        if let dirty = [floatingDirty, newRect].compactMap({ $0 }).reduce(nil as PixelRect?, { $0?.union($1) ?? $1 }) {
+            onCanvasChange?(dirty)
+        }
+        floatingDirty = newRect
+        transformInfo = TransformInfo(
+            width: Int(f.box.width.rounded()),
+            height: Int(f.box.height.rounded()),
+            degrees: Int((f.box.angle * 180 / .pi).rounded())
+        )
+        onOverlayChange?()
+    }
+
+    /// Drops the floating pixels into the cel as one undo step.
+    func applyTransform() {
+        guard isTransforming, let start = transformStart, let key = floating?.celKey else { return }
+        floating = nil
+        floatingBase = nil
+        transformStart = nil
+        floatingDirty = nil
+        transformDrag = nil
+        isTransforming = false
+        if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
+        if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
+        changed()
+    }
+
+    func cancelTransform() {
+        guard isTransforming, let start = transformStart else { return }
+        floating = nil
+        floatingBase = nil
+        transformStart = nil
+        floatingDirty = nil
+        transformDrag = nil
+        isTransforming = false
+        storage = start.sprite
+        selection = start.selection
+        changed()
+    }
+
+    func applyTransformIfNeeded() {
+        if isTransforming { applyTransform() }
+    }
+
+    func beginTransformDrag(_ handle: TransformHandle, at point: CGPoint) {
+        if !isTransforming { beginTransform() }
+        guard let box = floating?.box else { return }
+        transformDrag = (handle, point, box)
+    }
+
+    func continueTransformDrag(to point: CGPoint) {
+        guard let drag = transformDrag, var f = floating else { return }
+        var box = drag.box
+        switch drag.handle {
+        case .move:
+            box.translate(dx: (point.x - drag.start.x).rounded(), dy: (point.y - drag.start.y).rounded())
+        case .scale(let index):
+            box.drag(handle: index, to: point, keepAspect: keepAspect, aspect: f.aspect)
+        case .rotate:
+            let from = atan2(drag.start.y - box.pivot.y, drag.start.x - box.pivot.x)
+            let to = atan2(point.y - box.pivot.y, point.x - box.pivot.x)
+            var angle = drag.box.angle + (to - from)
+            if snapAngle {
+                let step = Double.pi / 12
+                angle = (angle / step).rounded() * step
+            }
+            box.angle = angle
+        case .pivot:
+            box.setPivot(CGPoint(x: (point.x * 2).rounded() / 2, y: (point.y * 2).rounded() / 2))
+        }
+        guard box != f.box else { return }
+        f.box = box
+        floating = f
+        if drag.handle == .pivot { onOverlayChange?() } else { renderFloating() }
+    }
+
+    func endTransformDrag() {
+        transformDrag = nil
+    }
+
+    /// Flips the selection, or the whole cel when nothing is selected.
+    func flip(horizontal: Bool) {
+        if !isTransforming { beginTransform(wholeCanvas: true) }
+        floating?.flip(horizontal: horizontal)
+        renderFloating()
+    }
+
+    /// Rotates the selection 90°, or the whole cel when nothing is selected.
+    func rotate90(clockwise: Bool) {
+        if !isTransforming { beginTransform(wholeCanvas: true) }
+        floating?.rotate90(clockwise: clockwise)
+        renderFloating()
+    }
+
+    // MARK: Canvas
+
+    private func performCanvasChange(_ change: (inout Sprite) -> Void) {
+        applyTransformIfNeeded()
+        stopPlayback()
+        let before = DocumentSnapshot(sprite: storage, selection: selection)
+        change(&storage)
+        guard storage != before.sprite else { return }
+        selection = nil
+        registerUndo(before)
+        changed()
+    }
+
+    /// Crops the canvas to the selection's bounds.
+    func cropToSelection() {
+        applyTransformIfNeeded()
+        guard let bounds = selection?.bounds else { return }
+        performCanvasChange { $0.crop(to: bounds) }
+    }
+
+    /// Crops the canvas to the non-transparent content of all cels.
+    func trimCanvas() {
+        guard let bounds = storage.contentBounds else { return }
+        performCanvasChange { $0.crop(to: bounds) }
+    }
+
+    func rotateCanvas(clockwise: Bool) { performCanvasChange { $0.rotateCanvas(clockwise: clockwise) } }
+
+    func rotateCanvas180() {
+        performCanvasChange { s in
+            s.rotateCanvas(clockwise: true)
+            s.rotateCanvas(clockwise: true)
+        }
+    }
+
+    func flipCanvas(horizontal: Bool) { performCanvasChange { $0.flipCanvas(horizontal: horizontal) } }
 }

@@ -30,6 +30,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Color**: color principal y secundario, selector de color del sistema y paleta editable.
 - **Exportar**: PNG del frame actual, hoja de sprites o GIF animado, a escala 1×–10× sin suavizado. La hoja de sprites y el GIF pueden limitarse a un tag; el GIF respeta su dirección y sus repeticiones. Se comparte con la hoja de compartir de iOS.
 - **Autoguardado** en `Documentos/Sprites` (visible desde la app Archivos), en un JSON `.openpixel` legible, en segundo plano.
+- **Selección y transformar** como en Aseprite: marco rectangular y elíptico, lazo y varita mágica; modos añadir, restar e intersecar; hormigas; cortar, copiar y pegar; mover, escalar, rotar con RotSprite y pivote, voltear, rotar 90° y recortar el lienzo.
 - **Preferencias**: inglés (por defecto) o español, y tema claro, oscuro o el del sistema.
 - Edición a pantalla completa, sin barra de estado.
 - **Rendimiento**: lienzo con capas de GPU y repintado parcial; los trazos van fluidos también en 256×256.
@@ -100,7 +101,6 @@ OpenPixelTests/
 ## Próximos pasos
 
 - Cels enlazadas y selección de rangos en el timeline
-- Selección, mover, voltear y rotar
 - Modos de color indexado y escala de grises
 - Abrir y guardar `.aseprite`
 

@@ -29,6 +29,11 @@ struct PixelCanvas: UIViewRepresentable {
         view.document = document
         controller.view = view
         document.onCanvasChange = { [weak view] rect in view?.render(rect) }
+        document.onOverlayChange = { [weak view] in view?.selectionChanged() }
+        view.onTransformBegan = { [weak document] in document?.beginTransformDrag($0, at: $1) }
+        view.onTransformMoved = { [weak document] in document?.continueTransformDrag(to: $0) }
+        view.onTransformEnded = { [weak document] in document?.endTransformDrag() }
+        view.onTransformOutsideTap = { [weak document] in document?.applyTransform() }
         view.onStrokeBegan = { [weak document] in document?.beginStroke(at: $0) }
         view.onStrokeMoved = { [weak document] in document?.continueStroke(through: $0) }
         view.onStrokeEnded = { [weak document] in document?.endStroke() }
@@ -53,5 +58,6 @@ struct PixelCanvas: UIViewRepresentable {
 
     static func dismantleUIView(_ view: PixelCanvasView, coordinator: ()) {
         view.document?.onCanvasChange = nil
+        view.document?.onOverlayChange = nil
     }
 }

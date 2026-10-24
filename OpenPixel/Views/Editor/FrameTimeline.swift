@@ -53,15 +53,15 @@ struct FrameTimeline: View {
             IconButton(systemImage: "backward.frame", label: "Previous frame", size: 40) {
                 document.goToFrame(document.activeFrameIndex - 1)
             }
-            .keyboardShortcut(.leftArrow, modifiers: [])
+            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.leftArrow, modifiers: []))
             IconButton(systemImage: document.isPlaying ? "pause.fill" : "play.fill", label: "Play or pause", isOn: document.isPlaying, size: 40) {
                 document.togglePlayback()
             }
-            .keyboardShortcut(.return, modifiers: [])
+            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.return, modifiers: []))
             IconButton(systemImage: "forward.frame", label: "Next frame", size: 40) {
                 document.goToFrame(document.activeFrameIndex + 1)
             }
-            .keyboardShortcut(.rightArrow, modifiers: [])
+            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.rightArrow, modifiers: []))
             Menu {
                 Picker("Speed", selection: $document.playbackSpeed) {
                     ForEach(Self.speeds, id: \.self) { Text(Self.speedLabel($0)).tag($0) }

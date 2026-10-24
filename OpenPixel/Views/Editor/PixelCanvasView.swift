@@ -36,6 +36,12 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onEyedropper: ((PixelPoint) -> Void)?
     var onPencilDoubleTap: (() -> Void)?
     var onZoomChanged: ((CGFloat) -> Void)?
+    /// Transform drags, in sprite coordinates with sub-pixel precision.
+    var onTransformBegan: ((TransformHandle, CGPoint) -> Void)?
+    var onTransformMoved: ((CGPoint) -> Void)?
+    var onTransformEnded: (() -> Void)?
+    /// A tap outside the transform box: drop the floating pixels.
+    var onTransformOutsideTap: (() -> Void)?
 
     /// Screen points per sprite pixel.
     private(set) var scale: CGFloat = 1
@@ -46,6 +52,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private var pencilOnly = false
     private weak var drawingTouch: UITouch?
     private var strokeActive = false
+    private weak var transformTouch: UITouch?
 
     /// What the document looked like the last time the whole image was rendered.
     private(set) var renderedRevision = -1
@@ -61,6 +68,13 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let imageLayer = CALayer()
     private let gridLayer = CAShapeLayer()
     private let mirrorLayer = CAShapeLayer()
+    /// Marching ants: a white line under black animated dashes, visible on any color.
+    private let antsBack = CAShapeLayer()
+    private let antsFront = CAShapeLayer()
+    private let boxLayer = CAShapeLayer()
+    private let handlesLayer = CAShapeLayer()
+    /// Selection edges in sprite coordinates, recomputed when the selection changes.
+    private var outline: [(PixelPoint, PixelPoint)] = []
     /// Cell size and grid of the current checker image; it's rebuilt when any changes.
     private var checkerKey: [Int] = []
 
@@ -68,6 +82,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private static let maxScale: CGFloat = 128
     /// Room kept free at the top for the floating tool options bar.
     private static let topInset: CGFloat = 72
+    private static let bottomInset: CGFloat = 72
     private var isDark: Bool { traitCollection.userInterfaceStyle == .dark }
     private var checkerLight: PixelColor { isDark ? PixelColor(r: 69, g: 69, b: 69) : PixelColor(r: 236, g: 236, b: 236) }
     private var checkerDark: PixelColor { isDark ? PixelColor(r: 54, g: 54, b: 54) : PixelColor(r: 212, g: 212, b: 212) }
@@ -95,6 +110,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         spriteLayer.borderColor = UIColor(Theme.border).resolvedColor(with: traits).cgColor
         gridLayer.strokeColor = (isDark ? UIColor(white: 1, alpha: 0.22) : UIColor(white: 0, alpha: 0.18)).cgColor
         mirrorLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
+        boxLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
+        handlesLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         shadowLayer.shadowOpacity = isDark ? 0.5 : 0.15
         checkerLayer.contents = nil
         updateChecker()
@@ -130,6 +147,26 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         layer.addSublayer(spriteLayer)
         layer.addSublayer(gridLayer)
         layer.addSublayer(mirrorLayer)
+
+        for l in [antsBack, antsFront, boxLayer, handlesLayer] {
+            l.actions = Self.noAnimations
+            l.fillColor = nil
+            layer.addSublayer(l)
+        }
+        antsBack.strokeColor = UIColor.white.cgColor
+        antsBack.lineWidth = 1
+        antsFront.strokeColor = UIColor.black.cgColor
+        antsFront.lineWidth = 1
+        antsFront.lineDashPattern = [4, 4]
+        let march = CABasicAnimation(keyPath: "lineDashPhase")
+        march.fromValue = 0
+        march.toValue = 8
+        march.duration = 0.6
+        march.repeatCount = .infinity
+        antsFront.add(march, forKey: "march")
+        boxLayer.lineWidth = 1.5
+        handlesLayer.fillColor = UIColor.white.cgColor
+        handlesLayer.lineWidth = 1.5
     }
 
     private func setUpGestures() {
@@ -188,6 +225,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         renderedRevision = document.revision
         renderedFrame = document.activeFrameIndex
         pushImage()
+        selectionChanged()
     }
 
     /// Recomposites only `rect` while a stroke is in progress.
@@ -253,8 +291,86 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         updateOverlays()
     }
 
+    /// The selection or the transform box changed.
+    func selectionChanged() {
+        outline = document?.selection?.outline() ?? []
+        updateSelectionOverlay()
+    }
+
+    private func toView(_ p: CGPoint) -> CGPoint {
+        CGPoint(x: origin.x + p.x * scale, y: origin.y + p.y * scale)
+    }
+
+    private func toSprite(_ p: CGPoint) -> CGPoint {
+        CGPoint(x: (p.x - origin.x) / scale, y: (p.y - origin.y) / scale)
+    }
+
+    /// Where the rotation knob sits: above the middle of the box's top edge.
+    private func knobPoint(_ box: TransformBox) -> (anchor: CGPoint, knob: CGPoint) {
+        let topMid = toView(box.handles[1])
+        let center = toView(box.toWorld(box.center))
+        var dx = topMid.x - center.x, dy = topMid.y - center.y
+        let length = max(0.001, (dx * dx + dy * dy).squareRoot())
+        if length < 0.01 { dx = 0; dy = -1 } else { dx /= length; dy /= length }
+        return (topMid, CGPoint(x: topMid.x + dx * 32, y: topMid.y + dy * 32))
+    }
+
+    private func updateSelectionOverlay() {
+        let ants = CGMutablePath()
+        for (a, b) in outline {
+            ants.move(to: toView(CGPoint(x: a.x, y: a.y)))
+            ants.addLine(to: toView(CGPoint(x: b.x, y: b.y)))
+        }
+        antsBack.frame = bounds
+        antsFront.frame = bounds
+        antsBack.path = ants
+        antsFront.path = ants
+
+        boxLayer.frame = bounds
+        handlesLayer.frame = bounds
+        guard let box = document?.isTransforming == true ? document?.transformBox : nil else {
+            boxLayer.path = nil
+            handlesLayer.path = nil
+            return
+        }
+        let corners = box.corners.map(toView)
+        let boxPath = CGMutablePath()
+        boxPath.addLines(between: corners + [corners[0]])
+        let knob = knobPoint(box)
+        boxPath.move(to: knob.anchor)
+        boxPath.addLine(to: knob.knob)
+        boxLayer.path = boxPath
+
+        let handles = CGMutablePath()
+        for p in box.handles.map(toView) {
+            handles.addRect(CGRect(x: p.x - 5, y: p.y - 5, width: 10, height: 10))
+        }
+        handles.addEllipse(in: CGRect(x: knob.knob.x - 7, y: knob.knob.y - 7, width: 14, height: 14))
+        let pivot = toView(box.pivot)
+        handles.addEllipse(in: CGRect(x: pivot.x - 5, y: pivot.y - 5, width: 10, height: 10))
+        handlesLayer.path = handles
+    }
+
+    /// What a touch at `location` (view coordinates) would grab on the transform box.
+    private func transformHandle(at location: CGPoint) -> TransformHandle? {
+        guard let box = document?.transformBox else { return nil }
+        func near(_ p: CGPoint, _ radius: CGFloat) -> Bool {
+            let dx = p.x - location.x, dy = p.y - location.y
+            return dx * dx + dy * dy <= radius * radius
+        }
+        if near(toView(box.pivot), 16) { return .pivot }
+        if near(knobPoint(box).knob, 24) { return .rotate }
+        let handles = box.handles.map(toView)
+        for i in [0, 2, 4, 6, 1, 3, 5, 7] where near(handles[i], 22) { return .scale(i) }
+        if box.contains(toSprite(location)) { return .move }
+        // Just outside a corner rotates, like Aseprite.
+        if box.corners.map(toView).contains(where: { near($0, 56) }) { return .rotate }
+        return nil
+    }
+
     /// Grid and symmetry lines are drawn in view coordinates, only over the visible part.
     private func updateOverlays() {
+        updateSelectionOverlay()
         gridLayer.frame = bounds
         mirrorLayer.frame = bounds
         let rect = spriteRect
@@ -316,7 +432,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     func fitToScreen() {
         let margin: CGFloat = 32
-        let available = CGSize(width: bounds.width - margin * 2, height: bounds.height - Self.topInset - margin)
+        // Leave room below for the floating selection and transform bars.
+        let available = CGSize(width: bounds.width - margin * 2, height: bounds.height - Self.topInset - Self.bottomInset)
         let fit = min(available.width / spriteSize.width, available.height / spriteSize.height)
         scale = max(Self.minScale, min(Self.maxScale, fit >= 1 ? fit.rounded(.down) : fit))
         origin = CGPoint(
@@ -437,6 +554,23 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if transformTouch != nil { return }
+        if let document, document.isTransforming || document.tool == .move,
+           let touch = touches.first(where: canDraw), drawingTouch == nil {
+            if touch.type == .pencil { pencilOnly = true }
+            if touch.type == .direct, (event?.allTouches?.filter { $0.type == .direct }.count ?? 1) > 1 { return }
+            let location = touch.location(in: self)
+            if let handle = transformHandle(at: location) {
+                transformTouch = touch
+                onTransformBegan?(handle, toSprite(location))
+            } else if document.isTransforming {
+                onTransformOutsideTap?()
+            } else {
+                transformTouch = touch
+                onTransformBegan?(.move, toSprite(location))
+            }
+            return
+        }
         if drawingTouch != nil {
             // A second finger joined a finger stroke: it's a gesture, not a drawing.
             if drawingTouch?.type == .direct, touches.contains(where: { $0.type == .direct }) {
@@ -455,6 +589,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let touch = transformTouch, touches.contains(touch) {
+            onTransformMoved?(toSprite(touch.location(in: self)))
+            return
+        }
         guard let touch = drawingTouch, touches.contains(touch) else { return }
         // The Pencil reports up to 240 samples per second; handle all of an
         // event's samples in one batch so the canvas updates once per event.
@@ -472,6 +610,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let touch = transformTouch, touches.contains(touch) {
+            transformTouch = nil
+            onTransformEnded?()
+            return
+        }
         guard let touch = drawingTouch, touches.contains(touch) else { return }
         if strokeActive { onStrokeEnded?() }
         drawingTouch = nil
@@ -479,6 +622,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let touch = transformTouch, touches.contains(touch) {
+            transformTouch = nil
+            onTransformEnded?()
+            return
+        }
         guard let touch = drawingTouch, touches.contains(touch) else { return }
         cancelActiveStroke()
     }

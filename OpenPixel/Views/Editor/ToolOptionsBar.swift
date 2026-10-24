@@ -36,6 +36,22 @@ struct ToolOptionsBar: View {
                     .foregroundStyle(Theme.muted)
                     .fixedSize()
             }
+            if document.tool.isSelection {
+                divider
+                selectionModes
+            }
+            if document.tool == .magicWand {
+                divider
+                tolerance
+                toggle("Contiguous", isOn: $document.wandContiguous)
+                toggle("All layers", isOn: $document.wandSampleAllLayers)
+            }
+            if document.tool == .move {
+                Text("Drag to move the selection or the layer content")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize()
+            }
         }
         .padding(.horizontal, 12)
         .frame(height: 44)
@@ -52,6 +68,62 @@ struct ToolOptionsBar: View {
             .opacity(0)
             .accessibilityHidden(true)
         }
+    }
+
+    /// Replace / add / subtract / intersect. On a keyboard-less iPad these
+    /// replace Aseprite's Shift and Alt modifiers.
+    private var selectionModes: some View {
+        HStack(spacing: 2) {
+            ForEach(SelectionMode.allCases) { mode in
+                Button { document.selectionMode = mode } label: {
+                    Image(systemName: icon(for: mode))
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: 36, height: 30)
+                        .foregroundStyle(document.selectionMode == mode ? Theme.onAccent : Theme.text)
+                        .background(document.selectionMode == mode ? Theme.accent : .clear, in: RoundedRectangle(cornerRadius: 7))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(title(for: mode)))
+                .accessibilityAddTraits(document.selectionMode == mode ? .isSelected : [])
+            }
+        }
+    }
+
+    private func icon(for mode: SelectionMode) -> String {
+        switch mode {
+        case .replace: "square.dashed"
+        case .add: "plus.square.dashed"
+        case .subtract: "minus.square"
+        case .intersect: "square.on.square.intersection.dashed"
+        }
+    }
+
+    private func title(for mode: SelectionMode) -> LocalizedStringKey {
+        switch mode {
+        case .replace: "Replace selection"
+        case .add: "Add to selection"
+        case .subtract: "Subtract from selection"
+        case .intersect: "Intersect selection"
+        }
+    }
+
+    private var tolerance: some View {
+        HStack(spacing: 2) {
+            Text("Tolerance").font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.text).fixedSize()
+            Button { document.wandTolerance = max(0, document.wandTolerance - 8) } label: {
+                Image(systemName: "minus").frame(width: 30, height: 34)
+            }
+            .accessibilityLabel(Text("Lower tolerance"))
+            Text(verbatim: "\(document.wandTolerance)")
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .frame(width: 34)
+            Button { document.wandTolerance = min(255, document.wandTolerance + 8) } label: {
+                Image(systemName: "plus").frame(width: 30, height: 34)
+            }
+            .accessibilityLabel(Text("Higher tolerance"))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.text)
     }
 
     private var divider: some View {

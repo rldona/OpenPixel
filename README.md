@@ -20,6 +20,17 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
     - filled or outlined shapes, previewed while you drag;
     - contiguous or global fill.
   - Pixel grid, whole-number zoom levels and fit to screen.
+- **Selection** (as in [Aseprite](https://www.aseprite.org/docs/selecting/))
+  - Rectangular and elliptical marquee, lasso and magic wand (tolerance, contiguous, current layer or all layers).
+  - Replace, add, subtract and intersect modes, chosen in the tool options instead of Shift/Alt.
+  - Select all, deselect, reselect, invert, select layer content, and expand, contract or border.
+  - Marching ants. Drawing, filling and erasing stay inside the selection.
+  - Cut, copy, paste (also images from other apps), delete and fill with the primary color.
+- **Transform** (as in [Aseprite](https://www.aseprite.org/docs/transformations/))
+  - Move, scale (drag past an edge to flip), rotate around a movable pivot, with RotSprite or fast rotation, keep aspect and 15° angle snapping.
+  - Flip and rotate 90° the selection or, with nothing selected, the whole cel. Duplicate and move.
+  - Apply, cancel, or tap outside to apply. The whole transform is one undo step.
+  - Canvas: crop to selection, trim empty space, rotate and flip.
   - Undo and redo (up to 100 steps).
 - **Aseprite-style timeline**
   - Layers: show/hide, lock, rename, opacity, delete and drag to reorder.
@@ -66,6 +77,16 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 | `L` | Line |
 | `U` / `⇧U` | Rectangle / ellipse |
 | `[` `]` | Brush size |
+| `M` / `⇧M` | Rectangular / elliptical marquee |
+| `Q` | Lasso |
+| `W` | Magic wand |
+| `V` | Move |
+| `⌘A` / `⌘D` / `⇧⌘D` | Select all / deselect / reselect |
+| `⇧⌘I` | Invert selection |
+| `⌘X` `⌘C` `⌘V` | Cut, copy, paste |
+| `⌘T` | Transform |
+| `⇧H` / `⇧V` | Flip horizontally / vertically |
+| `↩` / `⎋` / arrows | While transforming: apply / cancel / nudge 1 px |
 | `X` | Swap colors |
 | `⌥N` | New frame (duplicates the current one) |
 | `⌥⇧N` | New empty frame |
@@ -116,7 +137,6 @@ Contributions are welcome. Please write code, comments, commit messages, issues 
 
 ## Roadmap
 
-- Selection, move, flip and rotate
 - Linked cels and range selection in the timeline
 - Indexed and grayscale color modes
 - Opening and saving `.aseprite` files
