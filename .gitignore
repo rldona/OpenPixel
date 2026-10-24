@@ -1,0 +1,13 @@
+# Xcode (the project is generated from project.yml with XcodeGen)
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+build/
+*.xcresult
+
+# Local signing settings
+Config/Local.xcconfig
+
+# macOS
+.DS_Store

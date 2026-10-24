@@ -1,0 +1,4 @@
+// Copy to Config/Local.xcconfig (git-ignored) and fill in your Apple team ID.
+DEVELOPMENT_TEAM = YOURTEAMID
+// Optional: use your own bundle identifier if com.rldona.openpixel is taken on your team.
+// PRODUCT_BUNDLE_IDENTIFIER = com.example.openpixel
