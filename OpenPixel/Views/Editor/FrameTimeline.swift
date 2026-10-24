@@ -238,7 +238,8 @@ struct FrameTimeline: View {
                 Button("Duplicate current frame", systemImage: "plus.square.on.square") { document.addFrame() }
                 Button("Empty frame", systemImage: "square.dashed") { document.addFrame(empty: true) }
             } label: {
-                pill("Frame", systemImage: "plus", isOn: false, compact: compact)
+                // Always labelled, so it isn't mistaken for the other "+" buttons nearby.
+                pill("Frame", systemImage: "plus", isOn: false)
             } primaryAction: {
                 document.addFrame()
             }
@@ -597,11 +598,6 @@ struct FrameTimeline: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel(focusedBand == band ? Text("Show every tag band") : Text("Focus tag band \(band + 1)"))
                         .accessibilityHint(Text("Play only the tags of this band"))
-                    }
-                    if row == 0 {
-                        IconButton(systemImage: "plus", label: "New tag", size: 28) { editingTag = document.addTag() }
-                    } else {
-                        Color.clear.frame(width: 28)
                     }
                 }
                 .frame(height: tagLaneHeight)
