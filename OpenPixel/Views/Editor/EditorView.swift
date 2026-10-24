@@ -87,7 +87,7 @@ struct EditorView: View {
                         FrameTimeline(document: document)
                             .frame(height: CGFloat(timelineHeight))
                             // The grab bar floats over the timeline's top edge, taking no room from the canvas.
-                            .overlay(alignment: .top) { timelineResizeHandle.offset(y: -26) }
+                            .overlay(alignment: .top) { timelineResizeHandle.offset(y: -22) }
                         // While pulled past its smallest size it slides down and fades, to show it's about to hide.
                         .offset(y: timelinePull)
                         .opacity(1 - 0.5 * min(1, timelinePull / Self.collapsePull))
