@@ -293,10 +293,17 @@ struct FrameTimeline: View {
                     ForEach(Self.speeds, id: \.self) { Text(Self.speedLabel($0)).tag($0) }
                 }
             } label: {
-                Text(verbatim: Self.speedLabel(document.playbackSpeed))
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(document.playbackSpeed == 1 ? Theme.muted : Theme.accent)
-                    .frame(width: 40, height: 36)
+                HStack(spacing: 4) {
+                    Text(verbatim: Self.speedLabel(document.playbackSpeed))
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.muted)
+                }
+                .foregroundStyle(document.playbackSpeed == 1 ? Theme.text : Theme.accent)
+                .fixedSize()
+                .padding(.horizontal, 10)
+                .frame(height: 34)
+                .background(document.playbackSpeed == 1 ? Theme.chip : Theme.accentSoft, in: Capsule())
+                .contentShape(Capsule())
             }
             .padding(.leading, 4)
             .accessibilityLabel(Text("Playback speed"))
