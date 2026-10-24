@@ -1,18 +1,20 @@
 import SwiftUI
 
-/// Aseprite's Hue/Saturation window: floats over the editor (at first over the
-/// side panel) and can be dragged by its title; the canvas shows the result
-/// while the sliders move. Apply makes it one undo step.
+/// Aseprite's Hue/Saturation window: floats over the editor (at first at the
+/// canvas's top right) and can be dragged by its title; the canvas shows the
+/// result while the sliders move. Apply makes it one undo step.
 /// https://www.aseprite.org/docs/hue-saturation/
 struct HueSaturationPanel: View {
     let document: SpriteDocument
     /// The space it can be dragged in.
     let area: CGSize
+    /// How far its starting place is from the area's right edge.
+    let trailingInset: CGFloat
     @State private var adjustment = HueSaturation()
     @State private var everyCel = false
     /// Where it was dragged to, from its place at the top right; kept between uses.
-    @AppStorage("hueSaturationOffsetX") private var offsetX = 0.0
-    @AppStorage("hueSaturationOffsetY") private var offsetY = 0.0
+    @AppStorage("hueSaturationWindowX") private var offsetX = 0.0
+    @AppStorage("hueSaturationWindowY") private var offsetY = 0.0
     @GestureState private var drag = CGSize.zero
     private static let width: CGFloat = EditorView.panelWidth - 16
     private static let approximateHeight: CGFloat = 425
@@ -32,7 +34,7 @@ struct HueSaturationPanel: View {
             .frame(minHeight: 32)
             .contentShape(Rectangle())
             .gesture(dragGesture)
-            // Double tap the title to put it back over the side panel.
+            // Double tap the title to put it back at the canvas's top right.
             .onTapGesture(count: 2) { withAnimation(.snappy) { offsetX = 0; offsetY = 0 } }
             .accessibilityHint(Text("Drag to move the window"))
 
@@ -101,10 +103,11 @@ struct HueSaturationPanel: View {
             }
     }
 
-    /// Keeps it inside the editor: it starts at the top right, so it can go left and down.
+    /// Keeps it inside the editor.
     private func clamped(_ offset: CGSize) -> CGSize {
-        let maxLeft = max(0, area.width - Self.width - 16), maxDown = max(0, area.height - Self.approximateHeight)
-        return CGSize(width: min(0, max(-maxLeft, offset.width)), height: min(maxDown, max(0, offset.height)))
+        let maxLeft = max(0, area.width - Self.width - trailingInset - 8), maxRight = max(0, trailingInset - 8)
+        let maxDown = max(0, area.height - Self.approximateHeight - 24)
+        return CGSize(width: min(maxRight, max(-maxLeft, offset.width)), height: min(maxDown, max(-8, offset.height)))
     }
 
     private struct Preview: Hashable {

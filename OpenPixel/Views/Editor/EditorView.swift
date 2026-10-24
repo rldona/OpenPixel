@@ -90,13 +90,15 @@ struct EditorView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
-            // Over the side panel, like Aseprite's floating window; it can be dragged anywhere.
+            // A floating window like Aseprite's: it opens at the canvas's top right
+            // and can be dragged anywhere in the editor, side panel included.
             .overlay {
                 if document.isAdjustingHueSaturation {
                     GeometryReader { geometry in
-                        HueSaturationPanel(document: document, area: geometry.size)
-                            .padding(8)
-                            .padding(.top, focusMode ? 56 : 0)
+                        let inset: CGFloat = focusMode ? 16 : Self.panelWidth + 16
+                        HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
+                            .padding(.trailing, inset)
+                            .padding(.top, focusMode ? 72 : 16)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     }
                     .transition(.opacity)
