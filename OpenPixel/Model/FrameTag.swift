@@ -94,6 +94,7 @@ extension Sprite {
     mutating func removeFrame(at index: Int) {
         let id = frames.remove(at: index).id
         cels = cels.filter { $0.key.frame != id }
+        normalizeLinks()
         tags = tags.compactMap { tag in
             var tag = tag
             if index < tag.from {

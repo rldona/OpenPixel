@@ -14,6 +14,29 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
     var isVisible = true
     var isLocked = false
     var opacity: Double = 1
+    /// New frames link this layer's cel instead of copying it (Aseprite's continuous layers).
+    var isContinuous = false
+
+    init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false) {
+        self.id = id
+        self.name = name
+        self.isVisible = isVisible
+        self.isLocked = isLocked
+        self.opacity = opacity
+        self.isContinuous = isContinuous
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        isVisible = try c.decode(Bool.self, forKey: .isVisible)
+        isLocked = try c.decode(Bool.self, forKey: .isLocked)
+        opacity = try c.decode(Double.self, forKey: .opacity)
+        isContinuous = try c.decodeIfPresent(Bool.self, forKey: .isContinuous) ?? false
+    }
 }
 
 struct Frame: Identifiable, Codable, Equatable, Sendable {
@@ -38,6 +61,9 @@ struct Sprite: Equatable, Sendable {
     var cels: [CelKey: PixelImage]
     var palette: [PixelColor]
     var tags: [FrameTag] = []
+    /// Linked cels: cels with the same group share one image, and editing
+    /// one changes all of them. https://www.aseprite.org/docs/linked-cels/
+    var links: [CelKey: UUID] = [:]
 
     static func blank(width: Int, height: Int, background: PixelColor?, palette: [PixelColor]) -> Sprite {
         let frame = Frame()
@@ -93,6 +119,46 @@ struct Sprite: Equatable, Sendable {
     }
 
     var totalDuration: Int { frames.reduce(0) { $0 + $1.duration } }
+
+    // MARK: Linked cels
+
+    func isLinked(_ key: CelKey) -> Bool { links[key] != nil }
+
+    /// Copies `key`'s image to every cel linked with it. Images are
+    /// copy-on-write, so linked cels share storage until one is edited.
+    mutating func syncLinks(from key: CelKey) {
+        guard let group = links[key] else { return }
+        let image = cels[key]
+        for (other, g) in links where g == group && other != key {
+            cels[other] = image
+        }
+    }
+
+    /// Links `keys` into one group sharing the image of the first key.
+    mutating func link(_ keys: [CelKey]) {
+        guard let first = keys.first, keys.count > 1 else { return }
+        let group = links[first] ?? UUID()
+        for key in keys {
+            links[key] = group
+            cels[key] = cels[first]
+        }
+        normalizeLinks()
+    }
+
+    mutating func unlink(_ keys: [CelKey]) {
+        for key in keys { links[key] = nil }
+        normalizeLinks()
+    }
+
+    /// Drops links to deleted layers or frames, and groups left with one cel.
+    mutating func normalizeLinks() {
+        guard !links.isEmpty else { return }
+        let layerIDs = Set(layers.map(\.id)), frameIDs = Set(frames.map(\.id))
+        links = links.filter { layerIDs.contains($0.key.layer) && frameIDs.contains($0.key.frame) }
+        var counts: [UUID: Int] = [:]
+        for g in links.values { counts[g, default: 0] += 1 }
+        links = links.filter { counts[$0.value, default: 0] > 1 }
+    }
 }
 
 extension Sprite: Codable {
@@ -102,7 +168,13 @@ extension Sprite: Codable {
         var image: PixelImage
     }
 
-    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags }
+    private struct Link: Codable {
+        var layer: UUID
+        var frame: UUID
+        var group: UUID
+    }
+
+    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags, links }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -113,6 +185,8 @@ extension Sprite: Codable {
         frames = try c.decode([Frame].self, forKey: .frames)
         palette = try c.decode([PixelColor].self, forKey: .palette)
         tags = try c.decodeIfPresent([FrameTag].self, forKey: .tags) ?? []
+        let linkList = try c.decodeIfPresent([Link].self, forKey: .links) ?? []
+        links = Dictionary(linkList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.group) }, uniquingKeysWith: { a, _ in a })
         let list = try c.decode([Cel].self, forKey: .cels)
         cels = Dictionary(list.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.image) }, uniquingKeysWith: { a, _ in a })
     }
@@ -126,6 +200,9 @@ extension Sprite: Codable {
         try c.encode(frames, forKey: .frames)
         try c.encode(palette, forKey: .palette)
         try c.encode(tags, forKey: .tags)
+        let linkList = links.map { Link(layer: $0.key.layer, frame: $0.key.frame, group: $0.value) }
+            .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
+        try c.encode(linkList, forKey: .links)
         let list = cels.map { Cel(layer: $0.key.layer, frame: $0.key.frame, image: $0.value) }
             .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
         try c.encode(list, forKey: .cels)

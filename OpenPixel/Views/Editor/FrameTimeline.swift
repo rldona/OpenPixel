@@ -48,7 +48,73 @@ struct FrameTimeline: View {
 
     // MARK: Controls
 
+    @ViewBuilder
     private var controls: some View {
+        if document.isSelectingRange {
+            rangeControls
+        } else {
+            playbackControls
+        }
+    }
+
+    /// Shown while selecting cels: what can be done with the selected block.
+    private var rangeControls: some View {
+        HStack(spacing: 4) {
+            Group {
+                if let range = document.timelineRange {
+                    (range.frames.count == 1 ? Text("1 frame") : Text("\(range.frames.count) frames"))
+                        + Text(verbatim: " × ")
+                        + (range.layers.count == 1 ? Text("1 layer") : Text("\(range.layers.count) layers"))
+                } else {
+                    Text("Tap cels or frame numbers to select")
+                }
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(Theme.muted)
+            .fixedSize()
+            .padding(.horizontal, 8)
+
+            Spacer(minLength: 8)
+            Group {
+                rangeButton("Link cels", "link") { document.linkRange() }
+                rangeButton("Unlink cels", "personalhotspot.slash") { document.unlinkRange() }
+                rangeButton("Clear cels", "eraser") { document.clearRange() }
+                Rectangle().fill(Theme.border).frame(width: 1, height: 24).padding(.horizontal, 4)
+                rangeButton("Duplicate frames", "plus.square.on.square") { document.duplicateRangeFrames() }
+                rangeButton("Reverse frames", "arrow.left.arrow.right") { document.reverseRangeFrames() }
+                rangeButton("Delete frames", "trash") { document.deleteRangeFrames() }
+            }
+            .disabled(document.timelineRange == nil)
+            .opacity(document.timelineRange == nil ? 0.4 : 1)
+
+            Button { document.endRangeSelection() } label: {
+                Text("Done")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.onAccent)
+                    .fixedSize()
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 9))
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 4)
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 50)
+    }
+
+    private func rangeButton(_ title: LocalizedStringKey, _ systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 40, height: 36)
+                .foregroundStyle(Theme.text)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+    }
+
+    private var playbackControls: some View {
         HStack(spacing: 4) {
             IconButton(systemImage: "backward.frame", label: "Previous frame", size: 40) {
                 document.goToFrame(document.activeFrameIndex - 1)
@@ -102,6 +168,12 @@ struct FrameTimeline: View {
                 document.deleteFrame(at: document.activeFrameIndex)
             }
             .opacity(document.sprite.frames.count > 1 ? 1 : 0.35)
+
+            Button { document.isSelectingRange = true } label: {
+                pill("Select", systemImage: "checkmark.rectangle.stack", isOn: false)
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 4)
 
             Button { editingTag = document.addTag() } label: {
                 pill("Tag", systemImage: "tag", isOn: false)
@@ -256,6 +328,15 @@ struct FrameTimeline: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isLocked ? Text("Unlock \(layer.name)") : Text("Lock \(layer.name)"))
+            Button { document.toggleContinuous(layer.id) } label: {
+                Image(systemName: "link")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 26, height: 34)
+                    .foregroundStyle(layer.isContinuous ? Theme.accent : Theme.muted.opacity(0.35))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
+            .accessibilityHint(Text("New frames link this layer's cel instead of copying it"))
             Button { document.activeLayerID = layer.id } label: {
                 Text(verbatim: layer.name)
                     .font(.system(size: 13, weight: .medium))
@@ -277,6 +358,9 @@ struct FrameTimeline: View {
                 renaming = layer
             }
             Button(layer.isLocked ? LocalizedStringKey("Unlock") : LocalizedStringKey("Lock"), systemImage: "lock") { document.toggleLock(layer.id) }
+            Toggle(isOn: Binding(get: { layer.isContinuous }, set: { _ in document.toggleContinuous(layer.id) })) {
+                Label("Continuous", systemImage: "link")
+            }
             Menu("Opacity") {
                 ForEach([100, 75, 50, 25], id: \.self) { pct in
                     Button(String("\(pct) %")) { document.setOpacity(Double(pct) / 100, layer: layer.id) }
@@ -378,7 +462,9 @@ struct FrameTimeline: View {
 
     private func frameHeader(_ index: Int, count: Int, inActiveTag: Bool) -> some View {
         let isActive = index == document.activeFrameIndex
-        return Button { document.goToFrame(index) } label: {
+        return Button {
+            if document.isSelectingRange { document.extendRange(frameIndex: index) } else { document.goToFrame(index) }
+        } label: {
             Text(verbatim: "\(index + 1)")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundStyle(isActive ? Theme.accentText : (inActiveTag ? Theme.text : Theme.muted))
@@ -426,11 +512,32 @@ struct FrameTimeline: View {
         let filled = document.sprite.cel(layer: layer.id, frame: frame.id) != nil
         let isActive = layer.id == document.activeLayerID && frameIndex == document.activeFrameIndex
         let isActiveFrame = frameIndex == document.activeFrameIndex
-        let dot = isActive ? Theme.onAccent : Theme.dot
-        return Button { document.selectCel(layer: layer.id, frameIndex: frameIndex) } label: {
+        let inRange = document.timelineRange.map { $0.layers.contains(layer.id) && $0.frames.contains(frameIndex) } ?? false
+        let dot = isActive && !document.isSelectingRange ? Theme.onAccent : Theme.dot
+        let links = linkNeighbours(layer: layer, frameIndex: frameIndex)
+        let background: Color = document.isSelectingRange
+            ? (inRange ? Theme.accentSoft : Theme.raised)
+            : (isActive ? Theme.accent : (isActiveFrame ? Theme.columnActive : Theme.raised))
+        return Button {
+            if document.isSelectingRange {
+                document.extendRange(layer: layer.id, frameIndex: frameIndex)
+            } else {
+                document.selectCel(layer: layer.id, frameIndex: frameIndex)
+            }
+        } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 7)
-                    .fill(isActive ? Theme.accent : (isActiveFrame ? Theme.columnActive : Theme.raised))
+                    .fill(background)
+                    .overlay {
+                        if inRange { RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.accent, lineWidth: 2) }
+                    }
+                // Linked cels are joined by a line, as in Aseprite's timeline.
+                HStack(spacing: 0) {
+                    Rectangle().fill(links.before ? dot : .clear).frame(height: 2)
+                    Color.clear.frame(width: 10)
+                    Rectangle().fill(links.after ? dot : .clear).frame(height: 2)
+                }
+                .padding(.horizontal, -2)
                 if filled {
                     Circle().fill(dot).frame(width: 10, height: 10)
                 } else {
@@ -443,6 +550,27 @@ struct FrameTimeline: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(filled ? Text("Cel \(layer.name), frame \(frameIndex + 1)") : Text("Cel \(layer.name), frame \(frameIndex + 1), empty"))
+        .accessibilityValue(document.sprite.isLinked(CelKey(layer: layer.id, frame: frame.id)) ? Text("Linked") : Text(verbatim: ""))
+        .contextMenu {
+            if document.sprite.isLinked(CelKey(layer: layer.id, frame: frame.id)) {
+                Button("Unlink cel", systemImage: "personalhotspot.slash") { document.unlinkCel(layer: layer.id, frameIndex: frameIndex) }
+            }
+            Button("Select cels", systemImage: "checkmark.rectangle.stack") {
+                document.isSelectingRange = true
+                document.extendRange(layer: layer.id, frameIndex: frameIndex)
+            }
+        }
+    }
+
+    /// Whether this cel is linked with the cel in the previous / next frame of its layer.
+    private func linkNeighbours(layer: Layer, frameIndex: Int) -> (before: Bool, after: Bool) {
+        let sprite = document.sprite
+        func group(_ i: Int) -> UUID? {
+            guard sprite.frames.indices.contains(i) else { return nil }
+            return sprite.links[CelKey(layer: layer.id, frame: sprite.frames[i].id)]
+        }
+        guard let g = group(frameIndex) else { return (false, false) }
+        return (group(frameIndex - 1) == g, group(frameIndex + 1) == g)
     }
 }
 

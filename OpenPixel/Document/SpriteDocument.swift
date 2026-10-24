@@ -93,6 +93,11 @@ final class SpriteDocument {
     var wandTolerance = 0
     var wandContiguous = true
     var wandSampleAllLayers = false
+    // Timeline range selection
+    var isSelectingRange = false
+    var timelineRange: TimelineRange?
+    @ObservationIgnored var rangeAnchor: (layer: UUID, frame: Int)?
+
     /// Called when the selection outline or the transform box changes.
     @ObservationIgnored var onOverlayChange: (() -> Void)?
 
@@ -153,7 +158,10 @@ final class SpriteDocument {
 
     // MARK: - History
 
+    /// Commits a change. Edits always land in the active cel, so its linked
+    /// cels are brought up to date here.
     private func changed() {
+        if storage.frames.indices.contains(activeFrameIndex) { storage.syncLinks(from: activeCelKey) }
         revision &+= 1
         hasUnsavedChanges = true
     }
@@ -494,6 +502,7 @@ final class SpriteDocument {
         perform { s in
             s.layers.remove(at: index)
             s.cels = s.cels.filter { $0.key.layer != id }
+            s.normalizeLinks()
         }
     }
 
@@ -543,6 +552,7 @@ final class SpriteDocument {
 
     /// Inserts a frame after the active one. Like Aseprite's "New Frame",
     /// it duplicates the active frame unless `empty` is set.
+    /// In continuous layers the new cel is linked to the source cel instead of copied.
     func addFrame(empty: Bool = false) {
         let source = activeFrame
         let frame = Frame(duration: source.duration)
@@ -551,12 +561,25 @@ final class SpriteDocument {
             s.insertFrame(frame, at: index + 1)
             guard !empty else { return }
             for layer in s.layers {
-                if let image = s.cel(layer: layer.id, frame: source.id) {
-                    s.cels[CelKey(layer: layer.id, frame: frame.id)] = image
+                let from = CelKey(layer: layer.id, frame: source.id), to = CelKey(layer: layer.id, frame: frame.id)
+                if layer.isContinuous {
+                    s.link([from, to])
+                } else if let image = s.cels[from] {
+                    s.cels[to] = image
                 }
             }
         }
         activeFrameIndex = index + 1
+    }
+
+    func toggleContinuous(_ id: UUID) {
+        updateLayer(id) { $0.isContinuous.toggle() }
+    }
+
+    func unlinkCel(layer: UUID, frameIndex: Int) {
+        guard sprite.frames.indices.contains(frameIndex) else { return }
+        let key = CelKey(layer: layer, frame: sprite.frames[frameIndex].id)
+        perform { $0.unlink([key]) }
     }
 
     func deleteFrame(at index: Int) {
@@ -1033,4 +1056,119 @@ extension SpriteDocument {
     }
 
     func flipCanvas(horizontal: Bool) { performCanvasChange { $0.flipCanvas(horizontal: horizontal) } }
+}
+
+// MARK: - Timeline ranges
+
+/// A block of cels selected in the timeline: some layers × a run of frames.
+struct TimelineRange: Equatable {
+    var layers: Set<UUID>
+    var frames: ClosedRange<Int>
+}
+
+extension SpriteDocument {
+    /// Tap on a cel while selecting: the first tap anchors, the next ones
+    /// extend the block from the anchor to the tapped cel.
+    func extendRange(layer: UUID, frameIndex: Int) {
+        guard let anchor = rangeAnchor, timelineRange != nil else {
+            rangeAnchor = (layer, frameIndex)
+            timelineRange = TimelineRange(layers: [layer], frames: frameIndex...frameIndex)
+            return
+        }
+        let ids = sprite.layers.map(\.id)
+        guard let a = ids.firstIndex(of: anchor.layer), let b = ids.firstIndex(of: layer) else { return }
+        timelineRange = TimelineRange(
+            layers: Set(ids[min(a, b)...max(a, b)]),
+            frames: min(anchor.frame, frameIndex)...max(anchor.frame, frameIndex)
+        )
+    }
+
+    /// Tap on a frame number while selecting: whole columns, every layer.
+    func extendRange(frameIndex: Int) {
+        let all = Set(sprite.layers.map(\.id))
+        let start = timelineRange.map { _ in rangeAnchor?.frame ?? frameIndex } ?? frameIndex
+        if timelineRange == nil { rangeAnchor = (sprite.layers.last!.id, frameIndex) }
+        timelineRange = TimelineRange(layers: all, frames: min(start, frameIndex)...max(start, frameIndex))
+    }
+
+    func endRangeSelection() {
+        isSelectingRange = false
+        timelineRange = nil
+        rangeAnchor = nil
+    }
+
+    private func rangeKeys(_ range: TimelineRange) -> [[CelKey]] {
+        sprite.layers.filter { range.layers.contains($0.id) }.map { layer in
+            range.frames.compactMap { f in
+                sprite.frames.indices.contains(f) ? CelKey(layer: layer.id, frame: sprite.frames[f].id) : nil
+            }
+        }
+    }
+
+    /// Links the cels of each selected layer to the cel in the first selected frame.
+    func linkRange() {
+        guard let range = timelineRange else { return }
+        let rows = rangeKeys(range)
+        perform { s in for row in rows { s.link(row) } }
+    }
+
+    func unlinkRange() {
+        guard let range = timelineRange else { return }
+        let keys = rangeKeys(range).flatMap { $0 }
+        perform { $0.unlink(keys) }
+    }
+
+    /// Empties the selected cels.
+    func clearRange() {
+        guard let range = timelineRange else { return }
+        let keys = rangeKeys(range).flatMap { $0 }
+        perform { s in
+            for key in keys { s.cels[key] = nil }
+            s.unlink(keys)
+        }
+    }
+
+    /// Deletes the selected frames from every layer (at least one frame stays).
+    func deleteRangeFrames() {
+        guard let range = timelineRange, range.frames.count < sprite.frames.count else {
+            notice = L10n.string("A sprite needs at least one frame")
+            return
+        }
+        perform { s in
+            for index in range.frames.reversed() where s.frames.indices.contains(index) { s.removeFrame(at: index) }
+        }
+        activeFrameIndex = min(range.frames.lowerBound, sprite.frames.count - 1)
+        endRangeSelection()
+    }
+
+    /// Inserts copies of the selected frames right after them.
+    func duplicateRangeFrames() {
+        guard let range = timelineRange else { return }
+        let sources = range.frames.compactMap { sprite.frames.indices.contains($0) ? sprite.frames[$0] : nil }
+        perform { s in
+            var insertAt = range.frames.upperBound + 1
+            for source in sources {
+                let frame = Frame(duration: source.duration)
+                s.insertFrame(frame, at: insertAt)
+                for layer in s.layers {
+                    if let image = s.cel(layer: layer.id, frame: source.id) {
+                        s.cels[CelKey(layer: layer.id, frame: frame.id)] = image
+                    }
+                }
+                insertAt += 1
+            }
+        }
+        let count = range.frames.count
+        timelineRange = TimelineRange(layers: Set(sprite.layers.map(\.id)), frames: (range.frames.upperBound + 1)...(range.frames.upperBound + count))
+        rangeAnchor = (sprite.layers.last!.id, range.frames.upperBound + 1)
+    }
+
+    /// Reverses the order of the selected frames (Aseprite's Frame > Reverse Frames).
+    func reverseRangeFrames() {
+        guard let range = timelineRange, range.frames.count > 1 else { return }
+        perform { s in
+            let reversed = Array(s.frames[range.frames].reversed())
+            s.frames.replaceSubrange(range.frames, with: reversed)
+        }
+    }
 }

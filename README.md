@@ -37,6 +37,8 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - Frames: “+ Frame” duplicates the current frame; touch and hold for an empty one. Drag a frame number to reorder, delete, and set each frame's duration in ms.
   - **Tags**: named, colored frame ranges with a direction (forward, reverse, ping-pong, ping-pong reverse) and a repeat count.
   - **Playback** of the current frame's tag (or all frames) at 0.25× to 3× speed.
+  - **Linked cels**: cels that share one image, so editing one changes all of them, joined by a line in the timeline. Mark a layer as **continuous** (chain icon) and new frames link its cel instead of copying it. Unlink from the cel's menu.
+  - **Range selection**: tap “Select”, then cels or frame numbers to select a block, and link, unlink, clear, duplicate, reverse or delete it.
   - Configurable **onion skin**: 0–3 frames before and after, opacity, red/blue tint, and an option to stay inside the tag.
 - **Color**: primary and secondary colors, the system color picker and an editable palette.
 - **Export**: PNG of the current frame, sprite sheet or animated GIF, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.
@@ -139,7 +141,6 @@ Contributions are welcome. Please write code, comments, commit messages, issues 
 
 ## Roadmap
 
-- Linked cels and range selection in the timeline
 - Indexed and grayscale color modes
 - Opening and saving `.aseprite` files
 

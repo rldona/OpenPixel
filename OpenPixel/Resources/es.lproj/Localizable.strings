@@ -247,3 +247,21 @@
 /* Focus mode */
 "Focus mode" = "Modo enfoque";
 "Exit focus mode" = "Salir del modo enfoque";
+
+/* Linked cels and timeline ranges */
+"Select" = "Seleccionar";
+"Select cels" = "Seleccionar cels";
+"Tap cels or frame numbers to select" = "Toca cels o números de frame para seleccionar";
+"Link cels" = "Enlazar cels";
+"Unlink cels" = "Desenlazar cels";
+"Unlink cel" = "Desenlazar cel";
+"Clear cels" = "Vaciar cels";
+"Duplicate frames" = "Duplicar frames";
+"Reverse frames" = "Invertir frames";
+"Delete frames" = "Eliminar frames";
+"A sprite needs at least one frame" = "Un sprite necesita al menos un frame";
+"Continuous" = "Continua";
+"%@ is continuous" = "%@ es continua";
+"Make %@ continuous" = "Hacer %@ continua";
+"New frames link this layer's cel instead of copying it" = "Los frames nuevos enlazan la cel de esta capa en lugar de copiarla";
+"Linked" = "Enlazada";
