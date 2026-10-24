@@ -36,6 +36,17 @@ struct ToolOptionsBar: View {
                 .foregroundStyle(Theme.text)
                 .fixedSize()
 
+            if document.activeLayer?.isTilemap == true, [.pencil, .eraser, .bucket, .eyedropper].contains(document.tool) {
+                divider
+                // Tilemaps: draw pixels or place whole tiles.
+                Picker("Draw", selection: $document.tileDrawMode) {
+                    Image(systemName: "pencil").tag(TileDrawMode.pixels).accessibilityLabel(Text("Pixels"))
+                    Image(systemName: "square.grid.2x2").tag(TileDrawMode.tiles).accessibilityLabel(Text("Tiles"))
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 96)
+            }
+
             if document.tool.usesBrush {
                 divider
                 if !usingCustomBrush { brushSize }

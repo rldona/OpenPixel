@@ -440,6 +440,7 @@ struct FrameTimeline: View {
                 Menu {
                     Button("New layer", systemImage: "square.3.layers.3d") { document.addLayer() }
                     Button("New group", systemImage: "folder.badge.plus") { document.groupActiveLayer() }
+                    Button("New tilemap layer", systemImage: "square.grid.3x3.fill") { document.addTilemapLayer() }
                     Section("New reference layer") {
                         Button("From Photos", systemImage: "photo.on.rectangle") { pickingReferencePhoto = true }
                         Button("From Files", systemImage: "folder") { importingReferenceFile = true }
@@ -596,6 +597,9 @@ struct FrameTimeline: View {
                     if layer.isGroup {
                         Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(Theme.muted)
                     }
+                    if layer.isTilemap {
+                        Image(systemName: "square.grid.3x3.fill").font(.system(size: 11)).foregroundStyle(Theme.muted)
+                    }
                     if layer.isReference {
                         Image(systemName: "photo").font(.system(size: 11)).foregroundStyle(Theme.muted)
                     }
@@ -674,6 +678,11 @@ struct FrameTimeline: View {
                         Button(String("\(pct) %")) { document.setOpacity(Double(pct) / 100, layer: layer.id) }
                     }
                 }
+            }
+            if layer.isTilemap {
+                Button("Convert to layer", systemImage: "square.3.layers.3d") { document.convertToNormalLayer(layer.id) }
+            } else if !layer.isBackground, !layer.isGroup, !layer.isReference {
+                Button("Convert to tilemap", systemImage: "square.grid.3x3.fill") { document.convertToTilemap(layer.id) }
             }
             if layer.isBackground {
                 Button("Convert to layer", systemImage: "square.3.layers.3d.top.filled") { document.convertToLayer(layer.id) }

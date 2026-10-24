@@ -222,6 +222,14 @@ final class SpriteDocument {
     /// over the same pixel twice in one stroke doesn't build up opacity or shading.
     @ObservationIgnored private var strokeCoverage: [UInt8] = []
     @ObservationIgnored private var strokePressure: Double = 1
+    /// What drawing pixels on a tilemap does to its tiles.
+    var tilesetMode = TilesetMode.auto
+    /// On a tilemap, paint pixels or place whole tiles.
+    var tileDrawMode = TileDrawMode.pixels
+    /// The tile placed in tiles mode.
+    var selectedTile = 1
+    /// The stroke in progress places tiles instead of pixels.
+    @ObservationIgnored private var tileStroke = false
     /// The slice the slice tool works on.
     var activeSliceID: UUID? { didSet { onOverlayChange?() } }
     /// A slice being drawn, moved or resized: which edges follow the drag
@@ -271,6 +279,8 @@ final class SpriteDocument {
     /// cels are brought up to date here.
     private func changed() {
         if storage.frames.indices.contains(activeFrameIndex) { storage.syncLinks(from: activeCelKey) }
+        // Tilemaps follow whatever was drawn on them.
+        if storage.layers.contains(where: \.isTilemap) || !storage.tilemaps.isEmpty { storage.syncTilemaps(mode: tilesetMode) }
         revision &+= 1
         hasUnsavedChanges = true
     }
@@ -399,6 +409,7 @@ final class SpriteDocument {
         stopPlayback()
         if tool == .slice { return beginSliceDrag(at: p) }
         if tool == .eyedropper {
+            if activeLayer?.isTilemap == true, tileDrawMode == .tiles { return pickTile(at: p) }
             pickColor(at: p)
             return
         }
@@ -417,6 +428,15 @@ final class SpriteDocument {
             return
         }
 
+        if layer.isTilemap, tileDrawMode == .tiles, [.pencil, .eraser, .bucket].contains(tool) {
+            strokeStart = storage
+            tileStroke = true
+            if tool == .bucket {
+                fillTiles(at: p)
+                return endStroke()
+            }
+            return placeTile(at: p)
+        }
         strokeStart = storage
         strokeCoverage = [UInt8](repeating: 0, count: storage.width * storage.height)
         strokePressure = pressure
@@ -458,6 +478,10 @@ final class SpriteDocument {
     func continueStroke(through points: [PixelPoint], pressures: [Double]? = nil) {
         if selectionDrag != nil { return updateSelection(through: points) }
         if sliceDrag != nil, let p = points.last { return continueSliceDrag(to: p) }
+        if tileStroke {
+            for p in points { placeTile(at: p) }
+            return
+        }
         guard strokeStart != nil, let target = points.last else { return }
         if pendingDragging {
             movePendingPoint(to: target)
@@ -555,6 +579,7 @@ final class SpriteDocument {
         strokeCoverage = []
         strokePressure = 1
         contourPath = []
+        tileStroke = false
         gradientRegion = nil
     }
 
@@ -2596,6 +2621,94 @@ extension SpriteDocument {
         let scale = fill ? max(w / size.width, h / size.height) : min(w / size.width, h / size.height)
         let fw = size.width * scale, fh = size.height * scale
         return CGRect(x: (w - fw) / 2, y: (h - fh) / 2, width: fw, height: fh)
+    }
+
+    // MARK: Tilemaps
+
+    /// Layer > New > New Tilemap Layer, with the sprite grid's cell size as the tile size.
+    func addTilemapLayer() {
+        let names = Set(sprite.layers.map(\.name))
+        var n = sprite.layers.filter(\.isTilemap).count + 1
+        while names.contains(L10n.string("Tilemap %d", n)) { n += 1 }
+        var layer = Layer(name: L10n.string("Tilemap %d", n))
+        layer.tileset = Tileset(tileWidth: max(1, storage.grid.width), tileHeight: max(1, storage.grid.height))
+        let index = sprite.layers.firstIndex { $0.id == activeLayerID } ?? sprite.layers.count - 1
+        layer.parent = sprite.layers.indices.contains(index) ? sprite.layers[index].parent : nil
+        perform { $0.layers.insert(layer, at: index + 1) }
+        activeLayerID = layer.id
+        selectedTile = 1
+    }
+
+    /// Layer > Convert To > Tilemap: its pixels are cut into grid-sized tiles,
+    /// identical ones shared.
+    func convertToTilemap(_ id: UUID) {
+        guard let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
+        let layer = sprite.layers[index]
+        guard !layer.isTilemap, !layer.isGroup, !layer.isReference, !layer.isBackground else { return }
+        let tileset = Tileset(tileWidth: max(1, storage.grid.width), tileHeight: max(1, storage.grid.height))
+        perform { s in
+            s.layers[index].tileset = tileset
+            s.layers[index].isContinuous = false
+            s.syncTilemaps(mode: .auto)
+        }
+    }
+
+    /// Layer > Convert To > Layer: keeps the pixels, forgets the tiles.
+    func convertToNormalLayer(_ id: UUID) {
+        updateLayer(id) { $0.tileset = nil }
+    }
+
+    /// The cell under `p` on the active tilemap.
+    private func tileCell(at p: PixelPoint) -> (column: Int, row: Int, tileset: Tileset)? {
+        guard let tileset = activeLayer?.tileset, p.x >= 0, p.y >= 0, p.x < storage.width, p.y < storage.height else { return nil }
+        return (p.x / tileset.tileWidth, p.y / tileset.tileHeight, tileset)
+    }
+
+    /// Tiles mode: the pencil places the selected tile, the eraser the empty one.
+    private func placeTile(at p: PixelPoint) {
+        guard let (column, row, tileset) = tileCell(at: p) else { return }
+        let index = tool == .eraser ? 0 : min(max(0, selectedTile), tileset.tiles.count - 1)
+        setTiles([(column, row)], to: index, tileset: tileset)
+    }
+
+    /// Tiles mode bucket: the connected cells showing the same tile take the selected one.
+    private func fillTiles(at p: PixelPoint) {
+        guard let (column, row, tileset) = tileCell(at: p) else { return }
+        let map = storage.tilemaps[activeCelKey]
+            ?? TileMap(columns: tileset.columns(width: storage.width), rows: tileset.rows(height: storage.height))
+        let target = map[column, row]
+        let index = min(max(0, selectedTile), tileset.tiles.count - 1)
+        guard target != index else { return }
+        var seen: Set<Int> = [], cells: [(Int, Int)] = [], stack = [(column, row)]
+        while let (c, r) = stack.popLast() {
+            guard c >= 0, r >= 0, c < map.columns, r < map.rows, !seen.contains(r * map.columns + c), map[c, r] == target else { continue }
+            seen.insert(r * map.columns + c)
+            cells.append((c, r))
+            stack += [(c + 1, r), (c - 1, r), (c, r + 1), (c, r - 1)]
+        }
+        setTiles(cells, to: index, tileset: tileset)
+    }
+
+    private func setTiles(_ cells: [(Int, Int)], to index: Int, tileset: Tileset) {
+        let key = activeCelKey
+        var map = storage.tilemaps[key]
+            ?? TileMap(columns: tileset.columns(width: storage.width), rows: tileset.rows(height: storage.height))
+        let changedCells = cells.filter { map[$0.0, $0.1] != index }
+        guard !changedCells.isEmpty else { return }
+        for (c, r) in changedCells { map[c, r] = index }
+        storage.tilemaps[key] = map
+        let rects = changedCells.map { PixelRect(minX: $0.0 * tileset.tileWidth, minY: $0.1 * tileset.tileHeight,
+                                                 maxX: ($0.0 + 1) * tileset.tileWidth - 1, maxY: ($0.1 + 1) * tileset.tileHeight - 1) }
+        let dirty = rects.dropFirst().reduce(rects[0]) { $0.union($1) }.clipped(width: storage.width, height: storage.height)
+        mutateActiveCel(dirty: dirty) { image in
+            for (c, r) in changedCells { Sprite.draw(tileset.tiles[index], into: &image, column: c, row: r) }
+        }
+    }
+
+    /// Tiles mode eyedropper: picks the tile under the finger.
+    private func pickTile(at p: PixelPoint) {
+        guard let (column, row, _) = tileCell(at: p), let map = sprite.tilemaps[activeCelKey] else { return }
+        selectedTile = map[column, row]
     }
 
     /// Layer > Merge Down: the layer is drawn onto the one below it, frame by

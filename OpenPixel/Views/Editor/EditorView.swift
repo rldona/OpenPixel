@@ -50,7 +50,9 @@ struct EditorView: View {
                                 references: referenceOverlays(sprite),
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
-                                tileGrid: document.showTileGrid ? sprite.grid : nil,
+                                // A tilemap shows its tiles' grid; otherwise the sprite grid when it's on.
+                                tileGrid: document.activeLayer?.tileset.map { GridSettings(width: $0.tileWidth, height: $0.tileHeight) }
+                                    ?? (document.showTileGrid ? sprite.grid : nil),
                                 symmetry: document.symmetry,
                                 tiledMode: document.tiledMode,
                                 onZoomChanged: { zoom = $0 },

@@ -577,3 +577,23 @@
 "Each slice as a PNG" = "Cada slice en un PNG";
 "Include JSON data" = "Incluir datos JSON";
 "Frames, durations, tags and slices, in Aseprite's format, for game engines." = "Frames, duraciones, tags y slices, en el formato de Aseprite, para motores de juego.";
+
+/* Tilemaps */
+"Tilemap %d" = "Tilemap %d";
+"New tilemap layer" = "Nueva capa de tilemap";
+"Convert to tilemap" = "Convertir en tilemap";
+"Tileset" = "Tileset";
+"Export tileset" = "Exportar el tileset";
+"Draw" = "Dibujar";
+"Pixels" = "Píxeles";
+"Tiles" = "Tiles";
+"Tileset mode" = "Modo del tileset";
+"Manual" = "Manual";
+"Auto" = "Auto";
+"Stack" = "Apilar";
+"Empty tile" = "Tile vacío";
+"Tile %lld" = "Tile %lld";
+"Editing a cell edits its tile, so every copy changes." = "Editar una celda edita su tile, así que cambian todas sus copias.";
+"Each edited cell gets a matching tile, new or reused; unused tiles go away." = "Cada celda editada recibe un tile igual, nuevo o reutilizado; los que no se usan desaparecen.";
+"Each edited cell gets a new tile; existing tiles never change." = "Cada celda editada recibe un tile nuevo; los existentes no cambian.";
+"The pencil places the selected tile, the eraser clears cells, the bucket fills connected cells and the eyedropper picks a tile." = "El lápiz pone el tile elegido, la goma vacía celdas, el cubo rellena celdas conectadas y el cuentagotas elige un tile.";

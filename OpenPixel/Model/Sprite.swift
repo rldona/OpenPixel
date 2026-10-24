@@ -41,6 +41,9 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
     var parent: UUID?
     /// Whether the timeline shows the group's children.
     var isExpanded = true
+    /// Aseprite's tilemap layer: its cels are made of tiles from this set.
+    var tileset: Tileset?
+    var isTilemap: Bool { tileset != nil }
 
     init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false, isBackground: Bool = false, reference: ReferenceImage? = nil) {
         self.id = id
@@ -53,7 +56,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         self.reference = reference
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground, reference, blendMode, isGroup, parent, isExpanded }
+    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground, reference, blendMode, isGroup, parent, isExpanded, tileset }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -69,6 +72,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         isGroup = try c.decodeIfPresent(Bool.self, forKey: .isGroup) ?? false
         parent = try c.decodeIfPresent(UUID.self, forKey: .parent)
         isExpanded = try c.decodeIfPresent(Bool.self, forKey: .isExpanded) ?? true
+        tileset = try c.decodeIfPresent(Tileset.self, forKey: .tileset)
     }
 }
 
@@ -102,6 +106,8 @@ struct Sprite: Equatable, Sendable {
     /// The grid for snapping, the bucket and tilemaps (Aseprite keeps it per sprite).
     var grid = GridSettings()
     var slices: [Slice] = []
+    /// The tiles each tilemap cel shows. Cel images stay the rendered result.
+    var tilemaps: [CelKey: TileMap] = [:]
 
     static func blank(width: Int, height: Int, background: PixelColor?, palette: [PixelColor]) -> Sprite {
         let frame = Frame()
@@ -305,13 +311,19 @@ extension Sprite: Codable {
         var group: UUID
     }
 
+    private struct CelTileMap: Codable {
+        var layer: UUID
+        var frame: UUID
+        var map: TileMap
+    }
+
     private struct CelOpacity: Codable {
         var layer: UUID
         var frame: UUID
         var opacity: Double
     }
 
-    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags, links, celOpacity, grid, slices }
+    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags, links, celOpacity, grid, slices, tilemaps }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -328,6 +340,8 @@ extension Sprite: Codable {
         celOpacity = Dictionary(opacityList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.opacity) }, uniquingKeysWith: { a, _ in a })
         grid = try c.decodeIfPresent(GridSettings.self, forKey: .grid) ?? GridSettings()
         slices = try c.decodeIfPresent([Slice].self, forKey: .slices) ?? []
+        let mapList = try c.decodeIfPresent([CelTileMap].self, forKey: .tilemaps) ?? []
+        tilemaps = Dictionary(mapList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.map) }, uniquingKeysWith: { a, _ in a })
         let list = try c.decode([Cel].self, forKey: .cels)
         cels = Dictionary(list.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.image) }, uniquingKeysWith: { a, _ in a })
     }
@@ -343,6 +357,9 @@ extension Sprite: Codable {
         try c.encode(tags, forKey: .tags)
         try c.encode(grid, forKey: .grid)
         try c.encode(slices, forKey: .slices)
+        let mapList = tilemaps.map { CelTileMap(layer: $0.key.layer, frame: $0.key.frame, map: $0.value) }
+            .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
+        try c.encode(mapList, forKey: .tilemaps)
         let linkList = links.map { Link(layer: $0.key.layer, frame: $0.key.frame, group: $0.value) }
             .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
         try c.encode(linkList, forKey: .links)

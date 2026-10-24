@@ -27,6 +27,9 @@ struct SidePanel: View {
                 }
 
                 colorSection
+                if let tileset = document.activeLayer?.tileset {
+                    TilesetPanel(document: document, tileset: tileset)
+                }
                 paletteSection
 
                 VStack(spacing: 8) {
