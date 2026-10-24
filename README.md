@@ -45,6 +45,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - **Loop section**, new tags over the selected frames and duration for several frames at once. **Focus a tag band** so playback stays inside its tags.
   - **Cel opacity** (shared by linked cels), duplicate layer, double tap to rename, first frame numbered 0 or 1, and Aseprite's keys: `,` `.` for previous/next frame and ⇧X to show or hide the layer.
   - Configurable **onion skin**: 0–3 frames before and after, opacity, red/blue tint, and an option to stay inside the tag.
+- **Text tool** (T): tap the canvas and type. Two built-in pixel fonts (5×7 with lowercase and accents, and 3×5 capitals) at whole-pixel scales, or system fonts drawn without smoothing. Letter and line spacing, alignment and a 1 px outline in the secondary color. The text lands as floating pixels you can move, scale or rotate before applying.
 - **Color and palettes**, as in Aseprite:
   - Color editor with a spectrum, RGB and HSB sliders, hex, opacity, shades and harmonies (complementary, analogous, triadic…), and a warning with “add to palette” when the color isn't in it.
   - Primary and secondary colors (marked on the palette), swap, and **Replace color** (⇧R) with tolerance, in the current cel or every cel, inside the selection.

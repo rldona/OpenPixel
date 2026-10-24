@@ -363,3 +363,24 @@
 "Game Boy" = "Game Boy";
 "Edit colors" = "Editar";
 "Replace…" = "Reemplazar…";
+
+/* Text tool */
+"Text" = "Texto";
+"Font" = "Fuente";
+"Letter spacing" = "Espacio entre letras";
+"Line spacing" = "Espacio entre líneas";
+"Alignment" = "Alineación";
+"Outline in the secondary color" = "Contorno con el color secundario";
+"Place" = "Colocar";
+"The text has no visible pixels" = "El texto no tiene píxeles visibles";
+"Type to see the text in pixels" = "Escribe para ver el texto en píxeles";
+"Pixel fonts" = "Fuentes de píxel";
+"System fonts, no smoothing" = "Fuentes del sistema, sin suavizado";
+"Size" = "Tamaño";
+"Align left" = "Alinear a la izquierda";
+"Center" = "Centrar";
+"Align right" = "Alinear a la derecha";
+"Smaller text" = "Texto más pequeño";
+"Bigger text" = "Texto más grande";
+"Outline" = "Contorno";
+"Tap the canvas to write" = "Toca el lienzo para escribir";

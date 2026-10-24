@@ -98,6 +98,12 @@ final class SpriteDocument {
     var timelineRange: TimelineRange?
     /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
     var isReplacingColor = false
+    /// Text tool settings, shared by every sprite while the app runs.
+    var textStyle = TextStyle()
+    /// Where the text tool was tapped; set while the text is being typed.
+    var textAnchor: PixelPoint?
+    /// The tool to come back to when the floating text is applied or cancelled.
+    @ObservationIgnored private var toolAfterTransform: Tool?
     /// Dragging a selected block copies it instead of moving it.
     var dragCopies = false
     /// The tag band (row) the timeline focuses; playback stays inside its tags.
@@ -287,6 +293,10 @@ final class SpriteDocument {
         guard let layer = activeLayer else { return }
         if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return }
         if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return }
+        if tool == .text {
+            textAnchor = p
+            return
+        }
 
         strokeStart = storage
         switch tool {
@@ -1005,11 +1015,17 @@ extension SpriteDocument {
         guard activeLayerEditable else { return }
         let (w, h) = (storage.width, storage.height)
         let fits = origin.x >= 0 && origin.y >= 0 && origin.x + image.width <= w && origin.y + image.height <= h
-        let at = fits ? origin : PixelPoint(x: (w - image.width) / 2, y: (h - image.height) / 2)
+        beginFloating(image, at: fits ? origin : PixelPoint(x: (w - image.width) / 2, y: (h - image.height) / 2))
+    }
+
+    /// Puts `image` on the active cel as floating pixels, ready to move,
+    /// scale or rotate; tapping outside applies it.
+    private func beginFloating(_ image: PixelImage, at origin: PixelPoint) {
+        let (w, h) = (storage.width, storage.height)
         let key = activeCelKey
         transformStart = DocumentSnapshot(sprite: storage, selection: selection)
         floatingBase = storage.cels[key] ?? PixelImage(width: w, height: h)
-        var f = FloatingSelection(celKey: key, source: image, sourceMask: SelectionMask.opaquePixels(of: image), at: at)
+        var f = FloatingSelection(celKey: key, source: image, sourceMask: SelectionMask.opaquePixels(of: image), at: origin)
         f.algorithm = rotationAlgorithm
         floating = f
         floatingDirty = nil
@@ -1019,6 +1035,34 @@ extension SpriteDocument {
             tool = .move
         }
         renderFloating()
+    }
+
+    // MARK: Text
+
+    /// Writes `text` at the tapped point with the primary color (outline in
+    /// the secondary), as floating pixels like a paste. Returns false when
+    /// nothing visible would be written.
+    @discardableResult
+    func placeText(_ text: String) -> Bool {
+        let anchor = textAnchor
+        textAnchor = nil
+        guard let anchor, activeLayerEditable else { return false }
+        var outlineColor = secondary
+        outlineColor.a = 255
+        guard let image = TextRenderer.render(text, style: textStyle, color: primary, outlineColor: outlineColor) else { return false }
+        applyTransformIfNeeded()
+        cancelStroke()
+        stopPlayback()
+        let at = PixelPoint(x: anchor.x - (textStyle.outline ? 1 : 0), y: anchor.y - (textStyle.outline ? 1 : 0))
+        beginFloating(image, at: at)
+        toolAfterTransform = .text
+        return true
+    }
+
+    private func restoreToolAfterTransform() {
+        guard let next = toolAfterTransform else { return }
+        toolAfterTransform = nil
+        tool = next
     }
 
     // MARK: Transform
@@ -1099,6 +1143,7 @@ extension SpriteDocument {
         isTransforming = false
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
         if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
+        restoreToolAfterTransform()
         changed()
     }
 
@@ -1112,6 +1157,7 @@ extension SpriteDocument {
         isTransforming = false
         storage = start.sprite
         selection = start.selection
+        restoreToolAfterTransform()
         changed()
     }
 

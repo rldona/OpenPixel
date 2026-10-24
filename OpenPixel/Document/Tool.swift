@@ -2,7 +2,7 @@ import SwiftUI
 
 enum Tool: String, CaseIterable, Identifiable {
     case pencil, eraser, bucket, eyedropper, line, rectangle, ellipse
-    case selectRectangle, selectEllipse, lasso, magicWand, move
+    case selectRectangle, selectEllipse, lasso, magicWand, move, text
 
     var id: String { rawValue }
 
@@ -20,6 +20,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .lasso: "Lasso"
         case .magicWand: "Magic wand"
         case .move: "Move"
+        case .text: "Text"
         }
     }
 
@@ -37,6 +38,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .lasso: "lasso"
         case .magicWand: "wand.and.stars"
         case .move: "arrow.up.and.down.and.arrow.left.and.right"
+        case .text: "textformat"
         }
     }
 
@@ -53,6 +55,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .lasso: "q"
         case .magicWand: "w"
         case .move: "v"
+        case .text: "t"
         }
     }
 
@@ -76,7 +79,7 @@ enum Tool: String, CaseIterable, Identifiable {
 /// Tools that share one slot in the tool rail: tap uses the group's current
 /// tool, touch and hold lists the others.
 enum ToolGroup: CaseIterable, Identifiable {
-    case pencil, eraser, bucket, eyedropper, shapes, select, move
+    case pencil, eraser, bucket, eyedropper, shapes, text, select, move
 
     var id: Self { self }
 
@@ -87,6 +90,7 @@ enum ToolGroup: CaseIterable, Identifiable {
         case .bucket: [.bucket]
         case .eyedropper: [.eyedropper]
         case .shapes: [.line, .rectangle, .ellipse]
+        case .text: [.text]
         case .select: [.selectRectangle, .selectEllipse, .lasso, .magicWand]
         case .move: [.move]
         }

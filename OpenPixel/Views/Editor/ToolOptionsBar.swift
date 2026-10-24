@@ -46,6 +46,10 @@ struct ToolOptionsBar: View {
                 toggle("Contiguous", isOn: $document.wandContiguous)
                 toggle("All layers", isOn: $document.wandSampleAllLayers)
             }
+            if document.tool == .text {
+                divider
+                textOptions
+            }
             if document.tool == .move {
                 Text("Drag to move the selection or the layer content")
                     .font(.system(size: 13))
@@ -124,6 +128,48 @@ struct ToolOptionsBar: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Theme.text)
+    }
+
+    /// Font, size and outline; the rest is in the sheet that opens on tapping the canvas.
+    private var textOptions: some View {
+        HStack(spacing: 10) {
+            Menu {
+                TextFontPicker(style: $document.textStyle)
+            } label: {
+                HStack(spacing: 4) {
+                    Text(verbatim: document.textStyle.fontName)
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 10, weight: .semibold))
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.text)
+                .fixedSize()
+            }
+            .accessibilityLabel(Text("Font"))
+            HStack(spacing: 2) {
+                Button { adjustTextSize(-1) } label: { Image(systemName: "minus").frame(width: 30, height: 34) }
+                    .accessibilityLabel(Text("Smaller text"))
+                Text(verbatim: document.textStyle.sizeLabel)
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .frame(minWidth: 40)
+                Button { adjustTextSize(1) } label: { Image(systemName: "plus").frame(width: 30, height: 34) }
+                    .accessibilityLabel(Text("Bigger text"))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.text)
+            toggle("Outline", isOn: $document.textStyle.outline)
+            Text("Tap the canvas to write")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.muted)
+                .fixedSize()
+        }
+    }
+
+    private func adjustTextSize(_ direction: Int) {
+        if case .pixel = document.textStyle.font {
+            document.textStyle.scale = min(8, max(1, document.textStyle.scale + direction))
+        } else {
+            document.textStyle.pointSize = min(128, max(6, document.textStyle.pointSize + 2 * direction))
+        }
     }
 
     private var divider: some View {
