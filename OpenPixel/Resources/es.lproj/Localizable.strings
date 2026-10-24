@@ -305,3 +305,4 @@
 "Custom…" = "Personalizada…";
 "Milliseconds" = "Milisegundos";
 "In milliseconds: 1000 ms is 1 second." = "En milisegundos: 1000 ms es 1 segundo.";
+"Frame %lld" = "Frame %lld";

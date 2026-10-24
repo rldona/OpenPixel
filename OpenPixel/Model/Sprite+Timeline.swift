@@ -141,6 +141,18 @@ extension Sprite {
         return copy
     }
 
+    // MARK: Frame durations
+
+    /// The duration most frames share (ties go to the earliest frame), or nil
+    /// when every frame lasts the same. Frames that differ get marked in the timeline.
+    var usualFrameDuration: Int? {
+        guard let first = frames.first?.duration, frames.contains(where: { $0.duration != first }) else { return nil }
+        var counts: [Int: Int] = [:]
+        for frame in frames { counts[frame.duration, default: 0] += 1 }
+        let top = counts.values.max() ?? 0
+        return frames.first { counts[$0.duration] == top }?.duration
+    }
+
     // MARK: Tag bands
 
     /// Tags stacked in bands (rows) so overlapping ranges don't cover each other.

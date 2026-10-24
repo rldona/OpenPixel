@@ -248,6 +248,18 @@ final class TimelineAdvancedTests: XCTestCase {
         XCTAssertEqual(doc.sprite.frames.map(\.duration), [100, 250, 250, 100])
     }
 
+    func testUsualFrameDurationFindsTheOddOnesOut() {
+        var sprite = makeDocument().sprite
+        XCTAssertNil(sprite.usualFrameDuration, "all frames last the same: nothing to mark")
+        sprite.frames[2].duration = 4000
+        XCTAssertEqual(sprite.usualFrameDuration, 100)
+        sprite.frames[0].duration = 4000
+        sprite.frames[1].duration = 4000
+        XCTAssertEqual(sprite.usualFrameDuration, 4000, "the most common duration wins")
+        sprite.frames[1].duration = 100
+        XCTAssertEqual(sprite.usualFrameDuration, 4000, "a tie goes to the first frame's duration")
+    }
+
     func testLongFrameDurations() {
         let doc = makeDocument()
         doc.setDuration(4000, frameIndex: 1)

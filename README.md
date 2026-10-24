@@ -35,7 +35,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 - **Aseprite-style timeline**
   - Layers: show/hide, lock, rename, opacity, delete and drag to reorder. The eye, lock and continuity icons in the header act on every layer at once.
   - **Background layer**, as in Aseprite: opaque, underlined, always at the bottom, and erasing or clearing leaves the secondary color. Convert a layer to the background and back from its menu.
-  - Frames: “+ Frame” duplicates the current frame; touch and hold for an empty one. Drag a frame number to reorder, delete, and set each frame's duration: −/+, presets up to 4 s, or type any value up to 65 535 ms.
+  - Frames: “+ Frame” duplicates the current frame; touch and hold for an empty one. Drag a frame number to reorder, delete, and set each frame's duration: −/+, presets up to 4 s, or type any value up to 65 535 ms. Frames that last longer or shorter than most show their duration under the frame number.
   - **Tags**: named, colored frame ranges with a direction (forward, reverse, ping-pong, ping-pong reverse) and a repeat count.
   - **Playback** of the current frame's tag (or all frames) at 0.25× to 3× speed, with first, previous, next and last frame buttons (Home and End on a keyboard).
   - **Linked cels**: cels that share one image, so editing one changes all of them, drawn as one long pill in the timeline. Mark a layer as **continuous** (●● turns into ▬) and new frames link its cel instead of copying it. Unlink from the cel's menu.

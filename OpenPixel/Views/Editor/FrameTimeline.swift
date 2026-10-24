@@ -14,7 +14,8 @@ struct FrameTimeline: View {
     private let nameColumn: CGFloat = 250
     private let celWidth: CGFloat = 38
     private let rowHeight: CGFloat = 36
-    private let headerHeight: CGFloat = 28
+    /// Frame numbers grow a second line when some frame's duration differs.
+    private var headerHeight: CGFloat { document.sprite.usualFrameDuration == nil ? 28 : 38 }
     private let tagLaneHeight: CGFloat = 24
     private static let durationPresets = [50, 80, 100, 150, 200, 300, 500, 1000, 2000, 4000]
     /// The duration being typed: for the active frame, or for every selected frame.
@@ -368,6 +369,12 @@ struct FrameTimeline: View {
         speed == speed.rounded() ? "\(Int(speed))×" : "\(speed.formatted(.number.precision(.fractionLength(0...2))))×"
     }
 
+    /// "250ms", "4s", "1.5s": fits under a frame number.
+    private static func shortDuration(_ ms: Int) -> String {
+        guard ms >= 1000 else { return "\(ms)ms" }
+        return ms % 1000 == 0 ? "\(ms / 1000)s" : "\((Double(ms) / 1000).formatted(.number.precision(.fractionLength(0...1))))s"
+    }
+
     /// Long frames change in bigger steps.
     private var durationStep: Int { document.activeFrame.duration >= 1000 ? 100 : 10 }
 
@@ -708,11 +715,13 @@ struct FrameTimeline: View {
     private var celGrid: some View {
         let frames = document.sprite.frames
         let activeTag = document.activeTag
+        let usualDuration = document.sprite.usualFrameDuration
         return VStack(alignment: .leading, spacing: 0) {
             tagRow
             HStack(spacing: 0) {
                 ForEach(frames.indices, id: \.self) { index in
-                    frameHeader(index, count: frames.count, inActiveTag: activeTag?.contains(index) ?? false)
+                    frameHeader(index, count: frames.count, inActiveTag: activeTag?.contains(index) ?? false,
+                                duration: usualDuration.flatMap { frames[index].duration != $0 ? frames[index].duration : nil })
                 }
                 if showsDropColumn {
                     Image(systemName: "plus")
@@ -770,7 +779,8 @@ struct FrameTimeline: View {
         return true
     }
 
-    private func frameHeader(_ index: Int, count: Int, inActiveTag: Bool) -> some View {
+    /// `duration` is set when this frame lasts longer or shorter than most.
+    private func frameHeader(_ index: Int, count: Int, inActiveTag: Bool, duration: Int?) -> some View {
         let isActive = index == document.activeFrameIndex
         let range = document.timelineRange
         let inRange = range.map { $0.kind == .frames && $0.frames.contains(index) } ?? false
@@ -778,14 +788,27 @@ struct FrameTimeline: View {
         return Button {
             if document.isSelectingRange { document.extendRange(frameIndex: index) } else { document.goToFrame(index) }
         } label: {
-            Text(verbatim: "\(index + firstFrame)")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            VStack(spacing: 1) {
+                Text(verbatim: "\(index + firstFrame)")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                if let duration {
+                    Text(verbatim: Self.shortDuration(duration))
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 3)
+                        .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 3))
+                        .foregroundStyle(Theme.accentText)
+                }
+            }
                 .foregroundStyle(inRange || isActive ? Theme.accentText : (inActiveTag ? Theme.text : Theme.muted))
                 .frame(width: celWidth, height: headerHeight)
                 .background(inRange ? Theme.accentSoft : .clear)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(Text("Frame \(index + firstFrame)"))
+        .accessibilityValue(duration.map { Text(verbatim: "\($0) ms") } ?? Text(verbatim: ""))
         .draggable(payload) {
             dragPreview(inRange && range!.frames.count > 1
                 ? Text(verbatim: "\(range!.frames.lowerBound + firstFrame)–\(range!.frames.upperBound + firstFrame)")
