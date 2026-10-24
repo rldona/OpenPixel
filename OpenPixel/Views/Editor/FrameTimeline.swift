@@ -24,7 +24,7 @@ struct FrameTimeline: View {
                 }
             }
         }
-        .background(Theme.panel)
+        .background(Theme.panel.ignoresSafeArea(edges: .bottom))
         .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
         .alert("Renombrar capa", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Nombre", text: $renameText)

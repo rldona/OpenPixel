@@ -70,8 +70,14 @@ struct SidePanel: View {
             }
             .padding(16)
         }
-        .background(Theme.panel)
-        .overlay(alignment: .leading) { Rectangle().fill(Theme.border).frame(width: 1) }
+        // Background and divider run under the home indicator; the content stays in the safe area.
+        .background {
+            HStack(spacing: 0) {
+                Rectangle().fill(Theme.border).frame(width: 1)
+                Theme.panel
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
     }
 
     private func swatch(_ color: PixelColor, index: Int) -> some View {
