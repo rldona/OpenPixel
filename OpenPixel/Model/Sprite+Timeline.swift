@@ -119,6 +119,7 @@ extension Sprite {
         layers.removeAll { ids.contains($0.id) }
         let start = target > high ? target - block.count + 1 : target
         layers.insert(contentsOf: block, at: start)
+        keepBackgroundAtBottom()
         return block.map(\.id)
     }
 
@@ -127,6 +128,7 @@ extension Sprite {
         var copy = layer
         copy.id = UUID()
         copy.name = L10n.string("%@ copy", layer.name)
+        copy.isBackground = false
         var groups: [UUID: UUID] = [:]
         for frame in frames {
             let from = CelKey(layer: layer.id, frame: frame.id), to = CelKey(layer: copy.id, frame: frame.id)

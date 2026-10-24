@@ -291,3 +291,14 @@
 "%@ copy" = "%@ copia";
 "Copied to the timeline" = "Copiado en el timeline";
 "A sprite needs at least one layer" = "Un sprite necesita al menos una capa";
+"First frame" = "Primer frame";
+"Last frame" = "Último frame";
+"Hide all layers" = "Ocultar todas las capas";
+"Show all layers" = "Mostrar todas las capas";
+"Lock all layers" = "Bloquear todas las capas";
+"Unlock all layers" = "Desbloquear todas las capas";
+"Make all layers continuous" = "Hacer continuas todas las capas";
+"Make all layers discontinuous" = "Hacer discontinuas todas las capas";
+"Convert to layer" = "Convertir en capa";
+"Convert to background" = "Convertir en fondo";
+"The sprite already has a background layer" = "El sprite ya tiene una capa de fondo";

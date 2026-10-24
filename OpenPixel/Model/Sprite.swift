@@ -16,17 +16,21 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
     var opacity: Double = 1
     /// New frames link this layer's cel instead of copying it (Aseprite's continuous layers).
     var isContinuous = false
+    /// Aseprite's background layer: opaque, always at the bottom, erased to the
+    /// secondary color. https://www.aseprite.org/docs/layers/#background-layer
+    var isBackground = false
 
-    init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false) {
+    init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false, isBackground: Bool = false) {
         self.id = id
         self.name = name
         self.isVisible = isVisible
         self.isLocked = isLocked
         self.opacity = opacity
         self.isContinuous = isContinuous
+        self.isBackground = isBackground
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous }
+    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -36,6 +40,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         isLocked = try c.decode(Bool.self, forKey: .isLocked)
         opacity = try c.decode(Double.self, forKey: .opacity)
         isContinuous = try c.decodeIfPresent(Bool.self, forKey: .isContinuous) ?? false
+        isBackground = try c.decodeIfPresent(Bool.self, forKey: .isBackground) ?? false
     }
 }
 
@@ -69,7 +74,7 @@ struct Sprite: Equatable, Sendable {
 
     static func blank(width: Int, height: Int, background: PixelColor?, palette: [PixelColor]) -> Sprite {
         let frame = Frame()
-        let layer = Layer(name: background == nil ? L10n.string("Layer %d", 1) : L10n.string("Background"))
+        let layer = Layer(name: background == nil ? L10n.string("Layer %d", 1) : L10n.string("Background"), isBackground: background != nil)
         var cels: [CelKey: PixelImage] = [:]
         if let background {
             cels[CelKey(layer: layer.id, frame: frame.id)] = PixelImage(width: width, height: height, fill: background)
@@ -124,6 +129,12 @@ struct Sprite: Equatable, Sendable {
     }
 
     var totalDuration: Int { frames.reduce(0) { $0 + $1.duration } }
+
+    /// A sprite has at most one background layer, and it stays at the bottom.
+    mutating func keepBackgroundAtBottom() {
+        guard let index = layers.firstIndex(where: \.isBackground), index > 0 else { return }
+        layers.insert(layers.remove(at: index), at: 0)
+    }
 
     // MARK: Linked cels
 

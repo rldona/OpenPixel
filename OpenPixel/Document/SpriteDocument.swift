@@ -364,7 +364,16 @@ final class SpriteDocument {
         strokePath = []
     }
 
-    var strokeColor: PixelColor { tool == .eraser ? .clear : primary }
+    var strokeColor: PixelColor { tool == .eraser ? eraseColor : primary }
+
+    /// What erasing leaves behind: transparency, or on the background layer
+    /// the secondary color, as in Aseprite.
+    var eraseColor: PixelColor {
+        guard activeLayer?.isBackground == true else { return .clear }
+        var color = secondary
+        color.a = 255
+        return color
+    }
 
     /// Area covered by stamping the brush on `points`, including its mirror.
     private func dirtyRect(for points: some Sequence<PixelPoint>) -> PixelRect? {
@@ -524,8 +533,62 @@ final class SpriteDocument {
         updateLayer(id) { $0.name = trimmed }
     }
 
+    /// The background layer is always opaque.
     func setOpacity(_ opacity: Double, layer id: UUID) {
-        updateLayer(id) { $0.opacity = min(1, max(0, opacity)) }
+        updateLayer(id) { if !$0.isBackground { $0.opacity = min(1, max(0, opacity)) } }
+    }
+
+    // Header buttons: one tap for every layer (Aseprite's timeline header).
+
+    /// Shows every layer, or hides them all when they're all visible.
+    func toggleAllVisibility() {
+        let show = sprite.layers.contains { !$0.isVisible }
+        perform { s in for i in s.layers.indices { s.layers[i].isVisible = show } }
+    }
+
+    func toggleAllLocks() {
+        let lock = sprite.layers.contains { !$0.isLocked }
+        perform { s in for i in s.layers.indices { s.layers[i].isLocked = lock } }
+    }
+
+    func toggleAllContinuous() {
+        let on = sprite.layers.contains { !$0.isContinuous }
+        perform { s in for i in s.layers.indices { s.layers[i].isContinuous = on } }
+    }
+
+    /// Layer > Convert To > Background: transparent pixels take the secondary
+    /// color, every frame gets a cel and the layer goes to the bottom.
+    func convertToBackground(_ id: UUID) {
+        guard !sprite.layers.contains(where: \.isBackground) else {
+            notice = L10n.string("The sprite already has a background layer")
+            return
+        }
+        guard let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
+        var fill = secondary
+        fill.a = 255
+        let (w, h) = (storage.width, storage.height)
+        perform { s in
+            for frame in s.frames {
+                let key = CelKey(layer: id, frame: frame.id)
+                var cel = PixelImage(width: w, height: h, fill: fill)
+                if let image = s.cels[key] {
+                    let opacity = s.layers[index].opacity * (s.celOpacity[key] ?? 1)
+                    for i in cel.pixels.indices where image.pixels[i].a != 0 {
+                        cel.pixels[i] = image.pixels[i].blended(over: fill, opacity: opacity)
+                    }
+                }
+                s.cels[key] = cel
+                s.celOpacity[key] = nil
+            }
+            s.layers[index].isBackground = true
+            s.layers[index].opacity = 1
+            s.keepBackgroundAtBottom()
+        }
+    }
+
+    /// Layer > Convert To > Layer: the background becomes a regular transparent layer.
+    func convertToLayer(_ id: UUID) {
+        updateLayer(id) { $0.isBackground = false }
     }
 
     /// Positive `offset` moves the layer up (towards the top of the stack).
@@ -533,7 +596,10 @@ final class SpriteDocument {
         guard let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
         let target = index + offset
         guard sprite.layers.indices.contains(target) else { return }
-        perform { $0.layers.swapAt(index, target) }
+        perform { s in
+            s.layers.swapAt(index, target)
+            s.keepBackgroundAtBottom()
+        }
     }
 
     /// Moves a layer to the stack position currently held by `target` (drag and drop).
@@ -544,6 +610,7 @@ final class SpriteDocument {
         perform { s in
             let layer = s.layers.remove(at: from)
             s.layers.insert(layer, at: to)
+            s.keepBackgroundAtBottom()
         }
     }
 
@@ -792,10 +859,10 @@ extension SpriteDocument {
     /// Clears the selected pixels of the active cel.
     func deleteSelection() {
         guard let mask = selection, activeLayerEditable else { return }
-        let key = activeCelKey
+        let key = activeCelKey, erase = eraseColor
         perform { s in
             guard var cel = s.cels[key] else { return }
-            for i in cel.pixels.indices where mask.bits[i] { cel.pixels[i] = .clear }
+            for i in cel.pixels.indices where mask.bits[i] { cel.pixels[i] = erase }
             s.cels[key] = cel.isEmpty ? nil : cel
         }
     }
@@ -832,8 +899,8 @@ extension SpriteDocument {
 
     private func clearActiveCel() {
         guard activeLayerEditable else { return }
-        let key = activeCelKey
-        perform { $0.cels[key] = nil }
+        let key = activeCelKey, erase = eraseColor, (w, h) = (storage.width, storage.height)
+        perform { $0.cels[key] = erase == .clear ? nil : PixelImage(width: w, height: h, fill: erase) }
     }
 
     /// Pastes as floating pixels on the active cel, at the copied position if it
@@ -891,7 +958,8 @@ extension SpriteDocument {
         let localMask = mask.cropped(to: bounds)
         for i in source.pixels.indices where !localMask.bits[i] { source.pixels[i] = .clear }
         var base = cel
-        if !copy { for i in base.pixels.indices where mask.bits[i] { base.pixels[i] = .clear } }
+        let erase = eraseColor
+        if !copy { for i in base.pixels.indices where mask.bits[i] { base.pixels[i] = erase } }
 
         transformStart = DocumentSnapshot(sprite: storage, selection: selection)
         floatingBase = base
@@ -1281,6 +1349,7 @@ extension SpriteDocument {
             for (offset, item) in copied.enumerated() {
                 var layer = item.layer
                 layer.id = UUID()
+                layer.isBackground = false
                 newIDs.append(layer.id)
                 s.layers.insert(layer, at: index + 1 + offset)
                 for (f, cel) in item.cels.enumerated() {

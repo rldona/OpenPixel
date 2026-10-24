@@ -22,10 +22,11 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.
   - Deshacer y rehacer (hasta 100 pasos).
 - **Timeline** al estilo Aseprite
-  - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, eliminar y reordenar arrastrando.
+  - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, eliminar y reordenar arrastrando. Los iconos de ojo, candado y continuidad de la cabecera actúan sobre todas las capas.
+  - **Capa de fondo** como en Aseprite: opaca, subrayada, siempre abajo, y al borrar o vaciar deja el color secundario. Se convierte en capa normal (y al revés) desde su menú.
   - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden reordenar arrastrando su número, eliminar y fijar la duración en ms de cada uno.
   - **Tags**: rangos de frames con nombre y color, dirección (adelante, atrás, ping-pong, ping-pong inverso) y repeticiones.
-  - **Reproducción**: reproduce el tag del frame actual (o todos los frames), a velocidad de 0,25× a 3×.
+  - **Reproducción**: reproduce el tag del frame actual (o todos los frames), a velocidad de 0,25× a 3×, con botones de primer, anterior, siguiente y último frame (Inicio y Fin en teclado).
   - **Onion skin** configurable: de 0 a 3 frames antes y después, opacidad, tinte rojo/azul y opción de limitarlo al tag.
 - **Color**: color principal y secundario, selector de color del sistema y paleta editable.
 - **Exportar**: PNG del frame actual, hoja de sprites o GIF animado, a escala 1×–10× sin suavizado. La hoja de sprites y el GIF pueden limitarse a un tag; el GIF respeta su dirección y sus repeticiones. Se comparte con la hoja de compartir de iOS.

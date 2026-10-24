@@ -270,4 +270,71 @@ final class TimelineAdvancedTests: XCTestCase {
         doc.clearRange()
         XCTAssertNil(doc.sprite.celOpacity[CelKey(layer: topID, frame: doc.sprite.frames[0].id)], "empty cels drop their opacity")
     }
+
+    // MARK: Background layer and header toggles
+
+    private func makeBackgroundDocument() -> SpriteDocument {
+        let doc = SpriteDocument(name: "Bg", sprite: .blank(width: 4, height: 4, background: .white, palette: []))
+        doc.primary = .black
+        doc.secondary = PixelColor(r: 255, g: 0, b: 0, a: 255)
+        return doc
+    }
+
+    func testNewOpaqueSpriteHasABackgroundThatErasesToSecondary() {
+        let doc = makeBackgroundDocument()
+        XCTAssertTrue(doc.sprite.layers[0].isBackground)
+        doc.select(.eraser)
+        doc.beginStroke(at: PixelPoint(x: 1, y: 1))
+        doc.endStroke()
+        XCTAssertEqual(doc.sprite.composite(frameIndex: 0)[1, 1], doc.secondary)
+        doc.selectAll()
+        doc.deleteSelection()
+        XCTAssertEqual(doc.sprite.composite(frameIndex: 0)[3, 3], doc.secondary, "clearing leaves the secondary color")
+    }
+
+    func testBackgroundStaysAtTheBottom() {
+        let doc = makeBackgroundDocument()
+        let bg = doc.sprite.layers[0].id
+        doc.addLayer()
+        let top = doc.sprite.layers[1].id
+        doc.moveLayer(bg, by: 1)
+        doc.moveLayer(top, to: bg)
+        XCTAssertEqual(doc.sprite.layers.map(\.id), [bg, top])
+        XCTAssertFalse(doc.canRedo)
+        doc.setOpacity(0.5, layer: bg)
+        XCTAssertEqual(doc.sprite.layers[0].opacity, 1)
+    }
+
+    func testConvertBetweenLayerAndBackground() {
+        let doc = makeBackgroundDocument()
+        let bg = doc.sprite.layers[0].id
+        doc.addLayer()
+        let layer = doc.sprite.layers[1].id
+        doc.convertToBackground(layer)
+        XCTAssertNotNil(doc.notice, "only one background")
+        doc.convertToLayer(bg)
+        XCTAssertFalse(doc.sprite.layers[0].isBackground)
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.endStroke()
+        doc.addFrame(empty: true)
+        doc.convertToBackground(layer)
+        XCTAssertEqual(doc.sprite.layers.map(\.id), [layer, bg], "the new background goes to the bottom")
+        let frames = doc.sprite.frames
+        XCTAssertEqual(doc.sprite.cel(layer: layer, frame: frames[0].id)?[0, 0], .black)
+        XCTAssertEqual(doc.sprite.cel(layer: layer, frame: frames[0].id)?[2, 2], doc.secondary, "transparent pixels take the secondary color")
+        XCTAssertEqual(doc.sprite.cel(layer: layer, frame: frames[1].id)?[0, 0], doc.secondary, "empty frames get a cel")
+    }
+
+    func testHeaderTogglesActOnEveryLayer() {
+        let doc = makeDocument()
+        doc.toggleVisibility(doc.sprite.layers[0].id)
+        doc.toggleAllVisibility()
+        XCTAssertTrue(doc.sprite.layers.allSatisfy(\.isVisible), "some hidden: show all")
+        doc.toggleAllVisibility()
+        XCTAssertTrue(doc.sprite.layers.allSatisfy { !$0.isVisible })
+        doc.toggleAllLocks()
+        XCTAssertTrue(doc.sprite.layers.allSatisfy(\.isLocked))
+        doc.toggleAllContinuous()
+        XCTAssertTrue(doc.sprite.layers.allSatisfy(\.isContinuous))
+    }
 }

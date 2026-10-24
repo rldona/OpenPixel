@@ -11,7 +11,7 @@ struct FrameTimeline: View {
     @AppStorage("timelineFirstFrame") private var firstFrame = 1
     private let clipboard = TimelineClipboard.shared
 
-    private let nameColumn: CGFloat = 230
+    private let nameColumn: CGFloat = 250
     private let celWidth: CGFloat = 38
     private let rowHeight: CGFloat = 36
     private let headerHeight: CGFloat = 28
@@ -72,7 +72,11 @@ struct FrameTimeline: View {
         if document.isSelectingRange {
             rangeControls
         } else {
-            playbackControls
+            // Labels give way to icons when the timeline is narrow.
+            ViewThatFits(in: .horizontal) {
+                playbackControls(compact: false)
+                playbackControls(compact: true)
+            }
         }
     }
 
@@ -193,8 +197,12 @@ struct FrameTimeline: View {
         .accessibilityLabel(Text(title))
     }
 
-    private var playbackControls: some View {
+    private func playbackControls(compact: Bool) -> some View {
         HStack(spacing: 4) {
+            IconButton(systemImage: "backward.end", label: "First frame", size: 40) {
+                document.goToFrame(0)
+            }
+            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.home, modifiers: []))
             IconButton(systemImage: "backward.frame", label: "Previous frame", size: 40) {
                 document.goToFrame(document.activeFrameIndex - 1)
             }
@@ -207,6 +215,10 @@ struct FrameTimeline: View {
                 document.goToFrame(document.activeFrameIndex + 1)
             }
             .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.rightArrow, modifiers: []))
+            IconButton(systemImage: "forward.end", label: "Last frame", size: 40) {
+                document.goToFrame(document.sprite.frames.count - 1)
+            }
+            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.end, modifiers: []))
             Menu {
                 Picker("Speed", selection: $document.playbackSpeed) {
                     ForEach(Self.speeds, id: \.self) { Text(Self.speedLabel($0)).tag($0) }
@@ -226,7 +238,7 @@ struct FrameTimeline: View {
                 Button("Duplicate current frame", systemImage: "plus.square.on.square") { document.addFrame() }
                 Button("Empty frame", systemImage: "square.dashed") { document.addFrame(empty: true) }
             } label: {
-                pill("Frame", systemImage: "plus", isOn: false)
+                pill("Frame", systemImage: "plus", isOn: false, compact: compact)
             } primaryAction: {
                 document.addFrame()
             }
@@ -249,19 +261,19 @@ struct FrameTimeline: View {
             .opacity(document.sprite.frames.count > 1 ? 1 : 0.35)
 
             Button { document.isSelectingRange = true } label: {
-                pill("Select", systemImage: "checkmark.rectangle.stack", isOn: false)
+                pill("Select", systemImage: "checkmark.rectangle.stack", isOn: false, compact: compact)
             }
             .buttonStyle(.plain)
             .padding(.leading, 4)
 
             Button { editingTag = document.addTag() } label: {
-                pill("Tag", systemImage: "tag", isOn: false)
+                pill("Tag", systemImage: "tag", isOn: false, compact: compact)
             }
             .buttonStyle(.plain)
             .keyboardShortcut("t", modifiers: [.command, .option])
             .padding(.leading, 4)
 
-            onionMenu
+            onionMenu(compact: compact)
                 .padding(.leading, 4)
 
             Spacer(minLength: 8)
@@ -298,7 +310,7 @@ struct FrameTimeline: View {
     }
 
     /// Tap toggles onion skin; long press opens its settings.
-    private var onionMenu: some View {
+    private func onionMenu(compact: Bool) -> some View {
         Menu {
             Picker("Previous frames", selection: $document.onionSettings.previous) {
                 ForEach(0...3, id: \.self) { Text(verbatim: "\($0)").tag($0) }
@@ -315,7 +327,7 @@ struct FrameTimeline: View {
             Toggle("Tint (red before, blue after)", isOn: $document.onionSettings.tint)
             Toggle("Only inside the tag", isOn: $document.onionSettings.onlyInTag)
         } label: {
-            pill("Onion skin", systemImage: "square.on.square.dashed", isOn: document.onionSkin)
+            pill("Onion skin", systemImage: "square.on.square.dashed", isOn: document.onionSkin, compact: compact)
         } primaryAction: {
             document.onionSkin.toggle()
         }
@@ -323,8 +335,9 @@ struct FrameTimeline: View {
         .accessibilityHint(Text("Touch and hold for settings"))
     }
 
-    private func pill(_ title: LocalizedStringKey, systemImage: String, isOn: Bool) -> some View {
+    private func pill(_ title: LocalizedStringKey, systemImage: String, isOn: Bool, compact: Bool = false) -> some View {
         Label(title, systemImage: systemImage)
+            .labelStyle(PillLabelStyle(compact: compact))
             .font(.system(size: 13, weight: .medium))
             .foregroundStyle(isOn ? Theme.accentText : Theme.text)
             .fixedSize()
@@ -347,16 +360,18 @@ struct FrameTimeline: View {
         VStack(spacing: 0) {
             tagBandHeaders
 
-            HStack(spacing: 4) {
+            HStack(spacing: 0) {
+                columnHeaders
                 SectionLabel("Layers")
-                Spacer()
+                    .padding(.leading, 6)
+                Spacer(minLength: 4)
                 timelineOptions
                 IconButton(systemImage: "plus", label: "New layer", size: 28) { document.addLayer() }
                     .keyboardShortcut("n", modifiers: .shift)
                 IconButton(systemImage: "trash", label: "Delete layer", size: 28) { document.deleteLayer(document.activeLayerID) }
                     .opacity(document.sprite.layers.count > 1 ? 1 : 0.35)
             }
-            .padding(.leading, 14)
+            .padding(.leading, 6)
             .padding(.trailing, 8)
             .frame(height: headerHeight)
 
@@ -376,6 +391,34 @@ struct FrameTimeline: View {
             }
         }
         .frame(width: nameColumn)
+    }
+
+    /// Above the layer buttons, the same icons act on every layer at once.
+    private var columnHeaders: some View {
+        let layers = document.sprite.layers
+        let allVisible = layers.allSatisfy(\.isVisible), allLocked = layers.allSatisfy(\.isLocked)
+        let allContinuous = layers.allSatisfy(\.isContinuous)
+        return HStack(spacing: 0) {
+            Button { document.toggleAllVisibility() } label: {
+                Image(systemName: allVisible ? "eye" : "eye.slash")
+                    .font(.system(size: 13))
+                    .frame(width: 34, height: headerHeight)
+            }
+            .accessibilityLabel(allVisible ? Text("Hide all layers") : Text("Show all layers"))
+            Button { document.toggleAllLocks() } label: {
+                Image(systemName: allLocked ? "lock.fill" : "lock.open")
+                    .font(.system(size: 12))
+                    .frame(width: 30, height: headerHeight)
+            }
+            .accessibilityLabel(allLocked ? Text("Unlock all layers") : Text("Lock all layers"))
+            Button { document.toggleAllContinuous() } label: {
+                ContinuityIcon(isOn: allContinuous, color: Theme.muted)
+                    .frame(width: 26, height: headerHeight)
+            }
+            .accessibilityLabel(allContinuous ? Text("Make all layers discontinuous") : Text("Make all layers continuous"))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.muted)
     }
 
     /// Timeline preferences (Aseprite's Configure Timeline button).
@@ -443,10 +486,8 @@ struct FrameTimeline: View {
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isLocked ? Text("Unlock \(layer.name)") : Text("Lock \(layer.name)"))
             Button { document.toggleContinuous(layer.id) } label: {
-                Image(systemName: "link")
-                    .font(.system(size: 12, weight: .semibold))
+                ContinuityIcon(isOn: layer.isContinuous, color: layer.isContinuous ? Theme.accent : Theme.muted)
                     .frame(width: 26, height: 34)
-                    .foregroundStyle(layer.isContinuous ? Theme.accent : Theme.muted.opacity(0.35))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
@@ -456,6 +497,8 @@ struct FrameTimeline: View {
             } label: {
                 Text(verbatim: layer.name)
                     .font(.system(size: 13, weight: .medium))
+                    // Underlined like Aseprite's background layer.
+                    .underline(layer.isBackground)
                     .foregroundStyle(layer.isVisible ? Theme.text : Theme.muted)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -482,12 +525,19 @@ struct FrameTimeline: View {
             }
             Button(layer.isLocked ? LocalizedStringKey("Unlock") : LocalizedStringKey("Lock"), systemImage: "lock") { document.toggleLock(layer.id) }
             Toggle(isOn: Binding(get: { layer.isContinuous }, set: { _ in document.toggleContinuous(layer.id) })) {
-                Label("Continuous", systemImage: "link")
+                Label("Continuous", systemImage: "capsule")
             }
-            Menu("Opacity") {
-                ForEach([100, 75, 50, 25], id: \.self) { pct in
-                    Button(String("\(pct) %")) { document.setOpacity(Double(pct) / 100, layer: layer.id) }
+            if !layer.isBackground {
+                Menu("Opacity") {
+                    ForEach([100, 75, 50, 25], id: \.self) { pct in
+                        Button(String("\(pct) %")) { document.setOpacity(Double(pct) / 100, layer: layer.id) }
+                    }
                 }
+            }
+            if layer.isBackground {
+                Button("Convert to layer", systemImage: "square.3.layers.3d.top.filled") { document.convertToLayer(layer.id) }
+            } else if !document.sprite.layers.contains(where: \.isBackground) {
+                Button("Convert to background", systemImage: "square.3.layers.3d.bottom.filled") { document.convertToBackground(layer.id) }
             }
             Divider()
             Button("Duplicate layer", systemImage: "plus.square.on.square") { document.duplicateLayer(layer.id) }
@@ -503,7 +553,9 @@ struct FrameTimeline: View {
             }
             Divider()
             Button("Move up", systemImage: "arrow.up") { document.moveLayer(layer.id, by: 1) }
+                .disabled(layer.isBackground)
             Button("Move down", systemImage: "arrow.down") { document.moveLayer(layer.id, by: -1) }
+                .disabled(layer.isBackground || document.sprite.layers.first.map { $0.isBackground && document.sprite.layers.count > 1 && document.sprite.layers[1].id == layer.id } == true)
             Divider()
             Button("Delete layer", systemImage: "trash", role: .destructive) { document.deleteLayer(layer.id) }
                 .disabled(document.sprite.layers.count <= 1)
@@ -636,6 +688,7 @@ struct FrameTimeline: View {
                         .dropDestination(for: String.self) { items, _ in dropRange(items, layer: nil, frame: frames.count) }
                 }
             }
+            VStack(alignment: .leading, spacing: 0) {
             ForEach(layersTopFirst) { layer in
                 HStack(spacing: 0) {
                     ForEach(frames.indices, id: \.self) { index in
@@ -654,8 +707,26 @@ struct FrameTimeline: View {
                 .frame(height: rowHeight)
                 .background(layer.id == document.activeLayerID && !document.isSelectingRange ? Theme.rowActive : .clear)
             }
+            }
+            .overlay(alignment: .topLeading) { rangeOutline }
         }
         .padding(.trailing, 16)
+    }
+
+    /// One border around the whole selected block, like Aseprite's range.
+    @ViewBuilder
+    private var rangeOutline: some View {
+        let rows = layersTopFirst.map(\.id)
+        if let range = document.timelineRange,
+           let top = rows.firstIndex(where: range.layers.contains),
+           let bottom = rows.lastIndex(where: range.layers.contains) {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Theme.accent, lineWidth: 2.5)
+                .frame(width: CGFloat(range.frames.count) * celWidth, height: CGFloat(bottom - top + 1) * rowHeight - 2)
+                .offset(x: CGFloat(range.frames.lowerBound) * celWidth, y: CGFloat(top) * rowHeight + 1)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 
     /// Drops a dragged block on (`layer`, `frame`); a nil layer keeps the block's layers (drops on frame numbers).
@@ -733,7 +804,7 @@ struct FrameTimeline: View {
         let isActive = layer.id == document.activeLayerID && frameIndex == document.activeFrameIndex
         let isActiveFrame = frameIndex == document.activeFrameIndex
         let inRange = document.timelineRange.map { $0.layers.contains(layer.id) && $0.frames.contains(frameIndex) } ?? false
-        let dot = (isActive && !document.isSelectingRange ? Theme.onAccent : Theme.dot).opacity(0.35 + 0.65 * opacity)
+        let dot = isActive && !document.isSelectingRange ? Theme.onAccent : Theme.dot
         let links = linkNeighbours(layer: layer, frameIndex: frameIndex)
         let background: Color = document.isSelectingRange
             ? (inRange ? Theme.accentSoft : Theme.raised)
@@ -746,21 +817,28 @@ struct FrameTimeline: View {
             }
         } label: {
             ZStack {
-                RoundedRectangle(cornerRadius: 7)
-                    .fill(background)
-                    .overlay {
-                        if inRange { RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.accent, lineWidth: 2) }
-                    }
-                // Linked cels are joined by a line, as in Aseprite's timeline.
-                HStack(spacing: 0) {
-                    Rectangle().fill(links.before ? dot : .clear).frame(height: 2)
-                    Color.clear.frame(width: 10)
-                    Rectangle().fill(links.after ? dot : .clear).frame(height: 2)
-                }
-                .padding(.horizontal, -2)
+                RoundedRectangle(cornerRadius: 7).fill(background)
                 if filled {
-                    Circle().fill(dot).frame(width: 10, height: 10)
+                    // Linked cels join into one long pill, as in Aseprite's timeline.
+                    ZStack {
+                        HStack(spacing: 0) {
+                            Rectangle().fill(links.before ? dot : .clear)
+                            Rectangle().fill(links.after ? dot : .clear)
+                        }
+                        .frame(height: 10)
+                        .padding(.horizontal, -2)
+                        Circle().fill(dot).frame(width: 10, height: 10)
+                    }
+                    .compositingGroup()
+                    // Translucent cels show a fainter dot.
+                    .opacity(0.35 + 0.65 * opacity)
                 } else {
+                    HStack(spacing: 0) {
+                        Rectangle().fill(links.before ? dot : .clear).frame(height: 2)
+                        Color.clear.frame(width: 10)
+                        Rectangle().fill(links.after ? dot : .clear).frame(height: 2)
+                    }
+                    .padding(.horizontal, -2)
                     Circle().strokeBorder(dot, lineWidth: 1.5).frame(width: 10, height: 10)
                 }
             }
@@ -903,5 +981,39 @@ struct TagEditor: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+}
+
+/// Aseprite's continuity icon: two separate dots for a regular layer, one
+/// joined bar for a continuous layer (new frames link its cel).
+struct ContinuityIcon: View {
+    let isOn: Bool
+    var color: Color
+
+    var body: some View {
+        Group {
+            if isOn {
+                Capsule().fill(color).frame(width: 15, height: 7)
+            } else {
+                HStack(spacing: 3) {
+                    Circle().fill(color.opacity(0.5)).frame(width: 6, height: 6)
+                    Circle().fill(color.opacity(0.5)).frame(width: 6, height: 6)
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Icon and title, or just the icon when space is short (the title stays for VoiceOver).
+private struct PillLabelStyle: LabelStyle {
+    let compact: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        if compact {
+            Label(configuration).labelStyle(.iconOnly)
+        } else {
+            Label(configuration)
+        }
     }
 }
