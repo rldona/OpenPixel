@@ -68,7 +68,7 @@ struct EditorView: View {
                                 }
                                 // Also in focus mode, so the animation can be played and scrubbed full screen.
                                 if focusMode || timelineCollapsed {
-                                    TimelineCapsule(document: document, expand: expandTimeline)
+                                    TimelineCapsule(document: document, exitsFocusMode: focusMode, expand: focusMode ? toggleFocus : expandTimeline)
                                         .padding(.bottom, 14)
                                         .transition(.move(edge: .bottom).combined(with: .opacity))
                                 }
@@ -219,12 +219,9 @@ struct EditorView: View {
             }
     }
 
-    /// The capsule's arrow brings the timeline back, leaving focus mode if needed.
+    /// The capsule's arrow brings the timeline back.
     private func expandTimeline() {
-        withAnimation(.easeOut(duration: 0.25)) {
-            timelineCollapsed = false
-            focusMode = false
-        }
+        withAnimation(.easeOut(duration: 0.25)) { timelineCollapsed = false }
     }
 
     private var topBar: some View {

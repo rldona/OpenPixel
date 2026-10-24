@@ -2,9 +2,11 @@ import SwiftUI
 
 /// What's left of the timeline when it's pushed down out of the way (as in
 /// Calco): play, the frame number and a scrubber. Tap the chevron, or drag
-/// the capsule up, to bring the timeline back.
+/// the capsule up, to bring the timeline back. In focus mode the button
+/// leaves focus mode instead, with the same icon as the exit button.
 struct TimelineCapsule: View {
     @Bindable var document: SpriteDocument
+    var exitsFocusMode = false
     let expand: () -> Void
     @AppStorage("timelineFirstFrame") private var firstFrame = 1
 
@@ -34,14 +36,14 @@ struct TimelineCapsule: View {
             }
 
             Button(action: expand) {
-                Image(systemName: "chevron.up")
+                Image(systemName: exitsFocusMode ? "arrow.down.right.and.arrow.up.left" : "chevron.up")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.text)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text("Show timeline"))
+            .accessibilityLabel(exitsFocusMode ? Text("Exit focus mode") : Text("Show timeline"))
         }
         .padding(.horizontal, 10)
         .background(Theme.panel.opacity(0.95), in: Capsule())
