@@ -5,15 +5,15 @@ enum Tool: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var title: LocalizedStringKey {
         switch self {
-        case .pencil: "Lápiz"
-        case .eraser: "Goma"
-        case .bucket: "Cubo de pintura"
-        case .eyedropper: "Cuentagotas"
-        case .line: "Línea"
-        case .rectangle: "Rectángulo"
-        case .ellipse: "Elipse"
+        case .pencil: "Pencil"
+        case .eraser: "Eraser"
+        case .bucket: "Paint bucket"
+        case .eyedropper: "Eyedropper"
+        case .line: "Line"
+        case .rectangle: "Rectangle"
+        case .ellipse: "Ellipse"
         }
     }
 

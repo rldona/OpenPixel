@@ -41,7 +41,7 @@ struct Sprite: Equatable, Sendable {
 
     static func blank(width: Int, height: Int, background: PixelColor?, palette: [PixelColor]) -> Sprite {
         let frame = Frame()
-        let layer = Layer(name: background == nil ? "Capa 1" : "Fondo")
+        let layer = Layer(name: background == nil ? L10n.string("Layer %d", 1) : L10n.string("Background"))
         var cels: [CelKey: PixelImage] = [:]
         if let background {
             cels[CelKey(layer: layer.id, frame: frame.id)] = PixelImage(width: width, height: height, fill: background)

@@ -61,16 +61,16 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let imageLayer = CALayer()
     private let gridLayer = CAShapeLayer()
     private let mirrorLayer = CAShapeLayer()
-    private var checkerPixelsPerCell = 0
+    /// Cell size and grid of the current checker image; it's rebuilt when any changes.
+    private var checkerKey: [Int] = []
 
     private static let minScale: CGFloat = 1
     private static let maxScale: CGFloat = 128
     /// Room kept free at the top for the floating tool options bar.
     private static let topInset: CGFloat = 72
-    private static let background = UIColor(red: 0x0F / 255, green: 0x0F / 255, blue: 0x12 / 255, alpha: 1)
-    private static let checkerLight = PixelColor(r: 69, g: 69, b: 69)
-    private static let checkerDark = PixelColor(r: 54, g: 54, b: 54)
-    private static let accent = UIColor(red: 1, green: 0x7A / 255, blue: 0x59 / 255, alpha: 1)
+    private var isDark: Bool { traitCollection.userInterfaceStyle == .dark }
+    private var checkerLight: PixelColor { isDark ? PixelColor(r: 69, g: 69, b: 69) : PixelColor(r: 236, g: 236, b: 236) }
+    private var checkerDark: PixelColor { isDark ? PixelColor(r: 54, g: 54, b: 54) : PixelColor(r: 212, g: 212, b: 212) }
     /// Layer properties we change every frame must not animate.
     private static let noAnimations: [String: CAAction] = [
         "contents": NSNull(), "position": NSNull(), "bounds": NSNull(), "frame": NSNull(),
@@ -79,10 +79,25 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = Self.background
+        backgroundColor = UIColor(Theme.background)
         isMultipleTouchEnabled = true
         setUpLayers()
         setUpGestures()
+        applyAppearance()
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: PixelCanvasView, _) in
+            view.applyAppearance()
+        }
+    }
+
+    /// Layer colors are CGColors, which don't follow light/dark by themselves.
+    private func applyAppearance() {
+        let traits = traitCollection
+        spriteLayer.borderColor = UIColor(Theme.border).resolvedColor(with: traits).cgColor
+        gridLayer.strokeColor = (isDark ? UIColor(white: 1, alpha: 0.22) : UIColor(white: 0, alpha: 0.18)).cgColor
+        mirrorLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
+        shadowLayer.shadowOpacity = isDark ? 0.5 : 0.15
+        checkerLayer.contents = nil
+        updateChecker()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -98,7 +113,6 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
         spriteLayer.masksToBounds = true
         spriteLayer.borderWidth = 1
-        spriteLayer.borderColor = UIColor(white: 1, alpha: 0.12).cgColor
         for l in [checkerLayer, imageLayer] {
             l.magnificationFilter = .nearest
             l.minificationFilter = .nearest
@@ -108,9 +122,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         spriteLayer.addSublayer(imageLayer)
 
         gridLayer.fillColor = nil
-        gridLayer.strokeColor = UIColor(white: 1, alpha: 0.22).cgColor
         mirrorLayer.fillColor = nil
-        mirrorLayer.strokeColor = Self.accent.cgColor
         mirrorLayer.lineWidth = 2
         mirrorLayer.lineDashPattern = [6, 5]
 
@@ -211,13 +223,14 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         while scale * CGFloat(pixelsPerCell) < 8 { pixelsPerCell *= 2 }
         let columns = Int((spriteSize.width / CGFloat(pixelsPerCell)).rounded(.up))
         let rows = Int((spriteSize.height / CGFloat(pixelsPerCell)).rounded(.up))
-        if pixelsPerCell != checkerPixelsPerCell || checkerLayer.contents == nil {
-            var tile = PixelImage(width: columns, height: rows, fill: Self.checkerLight)
+        let key = [pixelsPerCell, columns, rows]
+        if key != checkerKey || checkerLayer.contents == nil {
+            var tile = PixelImage(width: columns, height: rows, fill: checkerLight)
             for y in 0..<rows {
-                for x in 0..<columns where (x + y) % 2 == 0 { tile[x, y] = Self.checkerDark }
+                for x in 0..<columns where (x + y) % 2 == 0 { tile[x, y] = checkerDark }
             }
             checkerLayer.contents = tile.makeCGImage()
-            checkerPixelsPerCell = pixelsPerCell
+            checkerKey = key
         }
         let cell = scale * CGFloat(pixelsPerCell)
         checkerLayer.frame = CGRect(x: 0, y: 0, width: CGFloat(columns) * cell, height: CGFloat(rows) * cell)

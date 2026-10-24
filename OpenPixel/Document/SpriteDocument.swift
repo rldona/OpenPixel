@@ -182,8 +182,8 @@ final class SpriteDocument {
             return
         }
         guard let layer = activeLayer else { return }
-        if !layer.isVisible { notice = "La capa «\(layer.name)» está oculta"; return }
-        if layer.isLocked { notice = "La capa «\(layer.name)» está bloqueada"; return }
+        if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return }
+        if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return }
 
         strokeStart = storage
         switch tool {
@@ -377,8 +377,9 @@ final class SpriteDocument {
     func addLayer() {
         let names = Set(sprite.layers.map(\.name))
         var n = sprite.layers.count + 1
-        while names.contains("Capa \(n)") { n += 1 }
-        let layer = Layer(name: "Capa \(n)")
+        func layerName(_ n: Int) -> String { L10n.string("Layer %d", n) }
+        while names.contains(layerName(n)) { n += 1 }
+        let layer = Layer(name: layerName(n))
         let index = sprite.layers.firstIndex { $0.id == activeLayerID } ?? sprite.layers.count - 1
         perform { $0.layers.insert(layer, at: index + 1) }
         activeLayerID = layer.id
@@ -492,7 +493,7 @@ final class SpriteDocument {
     func addTag() -> FrameTag {
         let index = activeFrameIndex
         let tag = FrameTag(
-            name: "Tag \(sprite.tags.count + 1)",
+            name: L10n.string("Tag %d", sprite.tags.count + 1),
             from: index,
             to: index,
             color: FrameTag.colors[sprite.tags.count % FrameTag.colors.count]

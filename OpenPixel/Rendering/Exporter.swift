@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -7,19 +8,19 @@ enum ExportFormat: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var title: LocalizedStringKey {
         switch self {
         case .png: "PNG"
-        case .spriteSheet: "Hoja de sprites"
-        case .gif: "GIF animado"
+        case .spriteSheet: "Sprite sheet"
+        case .gif: "Animated GIF"
         }
     }
 
-    var subtitle: String {
+    var subtitle: LocalizedStringKey {
         switch self {
-        case .png: "Frame actual"
-        case .spriteSheet: "Todos los frames en fila"
-        case .gif: "Con la duración de cada frame"
+        case .png: "Current frame"
+        case .spriteSheet: "All frames in a row"
+        case .gif: "With each frame's duration"
         }
     }
 
@@ -29,7 +30,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
 enum ExportError: LocalizedError {
     case encodingFailed
 
-    var errorDescription: String? { "No se pudo generar la imagen." }
+    var errorDescription: String? { L10n.string("Couldn't create the image.") }
 }
 
 enum Exporter {

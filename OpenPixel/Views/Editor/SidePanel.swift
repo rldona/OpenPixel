@@ -9,7 +9,7 @@ struct SidePanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Vista previa")
+                    SectionLabel("Preview")
                     // Updates when a stroke is committed, not on every stroke sample.
                     PixelThumbnail(image: document.sprite.composite(frameIndex: document.activeFrameIndex).makeCGImage())
                         .frame(height: 180)
@@ -21,7 +21,7 @@ struct SidePanel: View {
                     SectionLabel("Color")
                     HStack(spacing: 12) {
                         ColorPicker(
-                            "Color principal",
+                            "Primary color",
                             selection: Binding(get: { document.primary.color }, set: { document.primary = PixelColor($0) }),
                             supportsOpacity: true
                         )
@@ -34,35 +34,35 @@ struct SidePanel: View {
                             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.15)))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(document.primary.hex).font(.system(size: 15, weight: .medium, design: .monospaced))
-                            Text("Secundario \(document.secondary.hex)").font(.system(size: 12)).foregroundStyle(Theme.muted)
+                            Text("Secondary \(document.secondary.hex)").font(.system(size: 12)).foregroundStyle(Theme.muted)
                         }
                         Spacer(minLength: 0)
                     }
                     HStack {
-                        Button("Intercambiar", systemImage: "arrow.left.arrow.right") { document.swapColors() }
+                        Button("Swap", systemImage: "arrow.left.arrow.right") { document.swapColors() }
                         Spacer()
-                        Button("A la paleta", systemImage: "plus") { document.addToPalette(document.primary) }
+                        Button("Add to palette", systemImage: "plus") { document.addToPalette(document.primary) }
                             .disabled(document.sprite.palette.contains(document.primary))
                     }
                     .font(.system(size: 13, weight: .medium))
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Paleta")
+                    SectionLabel("Palette")
                     LazyVGrid(columns: columns, spacing: 5) {
                         ForEach(Array(document.sprite.palette.enumerated()), id: \.offset) { index, color in
                             swatch(color, index: index)
                         }
                     }
-                    Text("Toca un color para usarlo. Mantén pulsado para más opciones.")
+                    Text("Tap a color to use it. Touch and hold for more options.")
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.muted)
                 }
 
                 VStack(spacing: 8) {
-                    infoRow("Cel activa", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)")
-                    infoRow("Opacidad de capa", "\(Int((document.activeLayer?.opacity ?? 1) * 100)) %")
-                    infoRow("Animación", "\(document.sprite.totalDuration) ms")
+                    infoRow("Active cel", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)")
+                    infoRow("Layer opacity", "\(Int((document.activeLayer?.opacity ?? 1) * 100)) %")
+                    infoRow("Animation", "\(document.sprite.totalDuration) ms")
                 }
                 .padding(14)
                 .background(Theme.field, in: RoundedRectangle(cornerRadius: 12))
@@ -94,18 +94,18 @@ struct SidePanel: View {
                 )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Color \(color.hex)")
+        .accessibilityLabel(Text("Color \(color.hex)"))
         .contextMenu {
-            Button("Usar como secundario", systemImage: "square.2.layers.3d.bottom.filled") { document.secondary = color }
-            Button("Eliminar de la paleta", systemImage: "trash", role: .destructive) { document.removeFromPalette(at: index) }
+            Button("Use as secondary", systemImage: "square.2.layers.3d.bottom.filled") { document.secondary = color }
+            Button("Remove from palette", systemImage: "trash", role: .destructive) { document.removeFromPalette(at: index) }
         }
     }
 
-    private func infoRow(_ title: String, _ value: String) -> some View {
+    private func infoRow(_ title: LocalizedStringKey, _ value: String) -> some View {
         HStack {
             Text(title).foregroundStyle(Theme.muted)
             Spacer()
-            Text(value)
+            Text(verbatim: value)
         }
         .font(.system(size: 13))
     }

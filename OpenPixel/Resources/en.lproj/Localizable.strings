@@ -1,0 +1,3 @@
+/* English is the development language: keys are already the English text.
+   This file exists so English is a real localization and is used even when
+   the device language is Spanish. Translations live in es.lproj. */

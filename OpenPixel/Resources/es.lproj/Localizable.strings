@@ -1,0 +1,192 @@
+/* Spanish translation. Keys are the English UI strings.
+   SwiftUI interpolations become %@ (text) and %lld (integers). */
+
+/* Gallery */
+"Projects" = "Proyectos";
+"All" = "Todos";
+"Animations" = "Animaciones";
+"Still" = "Estáticos";
+"Search" = "Buscar";
+"Search projects" = "Buscar proyectos";
+"Close search" = "Cerrar búsqueda";
+"Preferences" = "Preferencias";
+"Import" = "Importar";
+"New sprite" = "Nuevo sprite";
+"custom" = "personalizado";
+"1 frame" = "1 frame";
+"%lld frames" = "%lld frames";
+"Rename project" = "Renombrar proyecto";
+"Rename" = "Renombrar";
+"Duplicate" = "Duplicar";
+"Delete" = "Eliminar";
+"Delete “%@”?" = "¿Eliminar «%@»?";
+"This can't be undone." = "No se puede deshacer.";
+"Something went wrong" = "Algo ha fallado";
+"OK" = "Aceptar";
+"Couldn't open the project" = "No se pudo abrir el proyecto";
+"Name" = "Nombre";
+"Cancel" = "Cancelar";
+"Save" = "Guardar";
+"Create" = "Crear";
+"Close" = "Cerrar";
+"Done" = "Listo";
+
+/* Preferences */
+"Language" = "Idioma";
+"Appearance" = "Apariencia";
+"System" = "Sistema";
+"Light" = "Claro";
+"Dark" = "Oscuro";
+"About" = "Acerca de";
+"Version" = "Versión";
+"Source code on GitHub" = "Código fuente en GitHub";
+"OpenPixel is open source under the MIT license." = "OpenPixel es software libre con licencia MIT.";
+
+/* New sprite */
+"Untitled" = "Sin título";
+"Size (pixels)" = "Tamaño (píxeles)";
+"Width" = "Ancho";
+"Height" = "Alto";
+"Background" = "Fondo";
+"Transparent" = "Transparente";
+"White" = "Blanco";
+"Black" = "Negro";
+"Starting palette" = "Paleta inicial";
+"Grays" = "Grises";
+"Preview" = "Vista previa";
+"1 layer · 1 frame of 100 ms" = "1 capa · 1 frame de 100 ms";
+
+/* Editor */
+"Back to projects" = "Volver a proyectos";
+"1 layer" = "1 capa";
+"%lld layers" = "%lld capas";
+"Undo" = "Deshacer";
+"Redo" = "Rehacer";
+"Pixel grid" = "Cuadrícula de píxeles";
+"Zoom out" = "Alejar";
+"Zoom in" = "Acercar";
+"Fit to screen" = "Ajustar a pantalla";
+"Export" = "Exportar";
+" + symmetry" = " + simetría";
+"frame %lld/%lld" = "frame %lld/%lld";
+"Horizontal symmetry" = "Simetría horizontal";
+"Swap primary and secondary colors" = "Intercambiar color principal y secundario";
+"Layer “%@” is hidden" = "La capa «%@» está oculta";
+"Layer “%@” is locked" = "La capa «%@» está bloqueada";
+"Layer %d" = "Capa %d";
+"Image" = "Imagen";
+" (copy)" = " (copia)";
+
+/* Tools */
+"Pencil" = "Lápiz";
+"Eraser" = "Goma";
+"Paint bucket" = "Cubo de pintura";
+"Eyedropper" = "Cuentagotas";
+"Line" = "Línea";
+"Rectangle" = "Rectángulo";
+"Ellipse" = "Elipse";
+"Pixel-perfect" = "Pixel-perfect";
+"Fill" = "Relleno";
+"Contiguous" = "Contiguo";
+"Tap the canvas to pick a color" = "Toca el lienzo para tomar un color";
+"Smaller brush" = "Pincel más pequeño";
+"Bigger brush" = "Pincel más grande";
+"Brush size: %lld pixels" = "Tamaño del pincel: %lld píxeles";
+"Square brush" = "Pincel cuadrado";
+"Round brush" = "Pincel redondo";
+
+/* Side panel */
+"Color" = "Color";
+"Primary color" = "Color principal";
+"Secondary %@" = "Secundario %@";
+"Swap" = "Intercambiar";
+"Add to palette" = "A la paleta";
+"Palette" = "Paleta";
+"Tap a color to use it. Touch and hold for more options." = "Toca un color para usarlo. Mantén pulsado para más opciones.";
+"Color %@" = "Color %@";
+"Use as secondary" = "Usar como secundario";
+"Remove from palette" = "Eliminar de la paleta";
+"Active cel" = "Cel activa";
+"Layer opacity" = "Opacidad de capa";
+"Animation" = "Animación";
+
+/* Timeline */
+"Previous frame" = "Frame anterior";
+"Next frame" = "Frame siguiente";
+"Play or pause" = "Reproducir o pausar";
+"Speed" = "Velocidad";
+"Playback speed" = "Velocidad de reproducción";
+"Frame" = "Frame";
+"Duplicate current frame" = "Duplicar frame actual";
+"Empty frame" = "Frame vacío";
+"Touch and hold to add an empty frame" = "Mantén pulsado para crear un frame vacío";
+"New frame" = "Nuevo frame";
+"New empty frame" = "Nuevo frame vacío";
+"Delete frame" = "Eliminar frame";
+"Tag" = "Tag";
+"Onion skin" = "Onion skin";
+"Touch and hold for settings" = "Mantén pulsado para configurarlo";
+"Previous frames" = "Frames anteriores";
+"Next frames" = "Frames siguientes";
+"Opacity" = "Opacidad";
+"Tint (red before, blue after)" = "Teñir (rojo antes, azul después)";
+"Only inside the tag" = "Solo dentro del tag";
+"Frame duration" = "Duración del frame";
+"Shorter duration" = "Reducir duración";
+"Longer duration" = "Aumentar duración";
+"Tags" = "Tags";
+"New tag" = "Nuevo tag";
+"Tag %d" = "Tag %d";
+"Layers" = "Capas";
+"New layer" = "Nueva capa";
+"Delete layer" = "Eliminar capa";
+"Rename layer" = "Renombrar capa";
+"Hide %@" = "Ocultar %@";
+"Show %@" = "Mostrar %@";
+"Lock %@" = "Bloquear %@";
+"Unlock %@" = "Desbloquear %@";
+"Lock" = "Bloquear";
+"Unlock" = "Desbloquear";
+"Move up" = "Subir";
+"Move down" = "Bajar";
+"Tag %@, frames %lld to %lld" = "Tag %@, frames %lld a %lld";
+"Edit tag" = "Editar tag";
+"Play tag" = "Reproducir tag";
+"Delete tag" = "Eliminar tag";
+"Duplicate frame" = "Duplicar frame";
+"Empty frame after" = "Frame vacío después";
+"New tag here" = "Nuevo tag aquí";
+"Move left" = "Mover a la izquierda";
+"Move right" = "Mover a la derecha";
+"Cel %@, frame %lld" = "Cel %@, frame %lld";
+"Cel %@, frame %lld, empty" = "Cel %@, frame %lld, vacía";
+
+/* Tag editor */
+"Frames" = "Frames";
+"From" = "Desde";
+"To" = "Hasta";
+"Playback" = "Reproducción";
+"Direction" = "Dirección";
+"Repeat" = "Repeticiones";
+"Forever" = "Infinitas";
+"Forward" = "Adelante";
+"Reverse" = "Atrás";
+"Ping-pong" = "Ping-pong";
+"Ping-pong reverse" = "Ping-pong inverso";
+
+/* Export */
+"Export “%@”" = "Exportar «%@»";
+"PNG" = "PNG";
+"Sprite sheet" = "Hoja de sprites";
+"Animated GIF" = "GIF animado";
+"Current frame" = "Frame actual";
+"All frames in a row" = "Todos los frames en fila";
+"With each frame's duration" = "Con la duración de cada frame";
+"loops forever" = "bucle infinito";
+"plays %lld times" = "se reproduce %lld veces";
+"Scale" = "Escala";
+"Nearest-neighbor scaling keeps pixels sharp." = "Escalado por vecino más cercano: los píxeles siguen nítidos.";
+"Share or save…" = "Compartir o guardar…";
+"Couldn't create the image." = "No se pudo generar la imagen.";
+"Couldn't read the image." = "No se pudo leer la imagen.";
+"The image is too large (maximum %d × %d px)." = "La imagen es demasiado grande (máximo %d × %d px).";

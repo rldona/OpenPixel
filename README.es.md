@@ -1,0 +1,113 @@
+# OpenPixel
+
+Editor de pixel art y animación **open source** para iPad, pensado para Apple Pencil.
+
+[English](README.md) · La documentación principal está en inglés; esta es una traducción.
+
+Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo de [Aseprite](https://www.aseprite.org/docs/): un sprite tiene **capas** y **frames**, y la imagen en cada cruce capa × frame es una **cel**.
+
+> Estado: primera versión (0.1). Cubre los [Basics de Aseprite](https://www.aseprite.org/docs/basics/).
+
+## Qué hace ya
+
+- **Proyectos**: galería con miniaturas, búsqueda, filtros (todos, animaciones, estáticos), renombrar, duplicar, eliminar e importar PNG/GIF/JPEG.
+- **Nuevo sprite**: tamaños rápidos (16–256) o personalizado hasta 1024 px, fondo transparente, blanco o negro, y paleta inicial (PICO-8, Sweetie 16, DawnBringer 16, grises).
+- **Editor**
+  - Lápiz, goma, cubo de pintura, cuentagotas, línea, rectángulo y elipse, más simetría horizontal.
+  - Barra de opciones flotante según la herramienta:
+    - pincel cuadrado o redondo de 1 a 8 px;
+    - pixel-perfect para trazos de 1 px sin esquinas dobles;
+    - formas con o sin relleno, con vista previa mientras arrastras;
+    - cubo contiguo o global (sustituye el color en toda la cel).
+  - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.
+  - Deshacer y rehacer (hasta 100 pasos).
+- **Timeline** al estilo Aseprite
+  - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, eliminar y reordenar arrastrando.
+  - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden reordenar arrastrando su número, eliminar y fijar la duración en ms de cada uno.
+  - **Tags**: rangos de frames con nombre y color, dirección (adelante, atrás, ping-pong, ping-pong inverso) y repeticiones.
+  - **Reproducción**: reproduce el tag del frame actual (o todos los frames), a velocidad de 0,25× a 3×.
+  - **Onion skin** configurable: de 0 a 3 frames antes y después, opacidad, tinte rojo/azul y opción de limitarlo al tag.
+- **Color**: color principal y secundario, selector de color del sistema y paleta editable.
+- **Exportar**: PNG del frame actual, hoja de sprites o GIF animado, a escala 1×–10× sin suavizado. La hoja de sprites y el GIF pueden limitarse a un tag; el GIF respeta su dirección y sus repeticiones. Se comparte con la hoja de compartir de iOS.
+- **Autoguardado** en `Documentos/Sprites` (visible desde la app Archivos), en un JSON `.openpixel` legible, en segundo plano.
+- **Preferencias**: inglés (por defecto) o español, y tema claro, oscuro o el del sistema.
+- Edición a pantalla completa, sin barra de estado.
+- **Rendimiento**: lienzo con capas de GPU y repintado parcial; los trazos van fluidos también en 256×256.
+
+## Gestos
+
+| Gesto | Acción |
+|---|---|
+| Apple Pencil | Dibuja con la herramienta activa |
+| Un dedo | Dibuja, hasta que se usa el Pencil. Desde entonces, los dedos solo navegan |
+| Pellizcar / dos dedos | Zoom y desplazamiento |
+| Toque con dos dedos | Deshacer |
+| Toque con tres dedos | Rehacer |
+| Mantener un dedo (con Pencil) | Cuentagotas rápido |
+| Doble toque en el Pencil | Alterna la goma y la herramienta anterior |
+
+Con teclado se usan los atajos de Aseprite:
+
+| Tecla | Acción |
+|---|---|
+| `B` | Lápiz |
+| `E` | Goma |
+| `G` | Cubo |
+| `I` | Cuentagotas |
+| `L` | Línea |
+| `U` / `⇧U` | Rectángulo / elipse |
+| `[` `]` | Tamaño del pincel |
+| `X` | Intercambiar colores |
+| `⌥N` | Nuevo frame (duplica el actual) |
+| `⌥⇧N` | Nuevo frame vacío |
+| `⇧N` | Nueva capa |
+| `↩` | Reproducir |
+| `⌥⌘T` | Nuevo tag |
+| `←` `→` | Frame anterior / siguiente |
+| `⌘Z` / `⇧⌘Z` | Deshacer / rehacer |
+
+## Compilar
+
+Requisitos: Xcode 16 o superior, [XcodeGen](https://github.com/yonaskolb/XcodeGen) e iPadOS 17 o superior.
+
+```bash
+brew install xcodegen
+cp Config/Local.xcconfig.example Config/Local.xcconfig   # pon tu DEVELOPMENT_TEAM
+xcodegen generate
+open OpenPixel.xcodeproj
+```
+
+El `.xcodeproj` se genera a partir de `project.yml` y no se versiona.
+
+Tests:
+
+```bash
+xcodebuild test -project OpenPixel.xcodeproj -scheme OpenPixel -destination 'platform=iOS Simulator,name=iPad Pro 11-inch (M5)'
+```
+
+## Estructura
+
+```
+OpenPixel/
+  App/         Punto de entrada y tema visual
+  Model/       Sprite, capas, frames, cels, colores, paletas, rasterizado
+  Document/    SpriteDocument (estado de edición + deshacer) y almacenamiento
+  Rendering/   Conversión a CGImage y exportación PNG/GIF
+  Views/       Galería, nuevo sprite, editor (lienzo UIKit, timeline, panel) y exportar
+OpenPixelTests/
+```
+
+## Próximos pasos
+
+- Cels enlazadas y selección de rangos en el timeline
+- Selección, mover, voltear y rotar
+- Modos de color indexado y escala de grises
+- Abrir y guardar `.aseprite`
+
+## Contribuir
+
+El código, los comentarios, los commits, las issues y los pull requests se escriben en **inglés**. Los textos nuevos de la interfaz usan una clave en inglés y su traducción en `OpenPixel/Resources/es.lproj/Localizable.strings`.
+
+## Licencia
+
+[MIT](LICENSE)

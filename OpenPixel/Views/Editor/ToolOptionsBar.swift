@@ -24,14 +24,14 @@ struct ToolOptionsBar: View {
             }
             if document.tool == .rectangle || document.tool == .ellipse {
                 divider
-                toggle("Relleno", isOn: $document.shapeFilled)
+                toggle("Fill", isOn: $document.shapeFilled)
             }
             if document.tool == .bucket {
                 divider
-                toggle("Contiguo", isOn: $document.fillContiguous)
+                toggle("Contiguous", isOn: $document.fillContiguous)
             }
             if document.tool == .eyedropper {
-                Text("Toca el lienzo para tomar un color")
+                Text("Tap the canvas to pick a color")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
                     .fixedSize()
@@ -44,9 +44,9 @@ struct ToolOptionsBar: View {
         .background {
             // Common shortcut for brush size in drawing apps.
             Group {
-                Button("Pincel más pequeño") { document.setBrushSize(document.brushSize - 1) }
+                Button("Smaller brush") { document.setBrushSize(document.brushSize - 1) }
                     .keyboardShortcut("[", modifiers: [])
-                Button("Pincel más grande") { document.setBrushSize(document.brushSize + 1) }
+                Button("Bigger brush") { document.setBrushSize(document.brushSize + 1) }
                     .keyboardShortcut("]", modifiers: [])
             }
             .opacity(0)
@@ -64,16 +64,16 @@ struct ToolOptionsBar: View {
                 Image(systemName: "minus").frame(width: 32, height: 34)
             }
             .disabled(document.brushSize <= 1)
-            .accessibilityLabel("Pincel más pequeño")
+            .accessibilityLabel(Text("Smaller brush"))
             Text(verbatim: "\(document.brushSize) px")
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .frame(width: 44)
-                .accessibilityLabel("Tamaño del pincel: \(document.brushSize) píxeles")
+                .accessibilityLabel(Text("Brush size: \(document.brushSize) pixels"))
             Button { document.setBrushSize(document.brushSize + 1) } label: {
                 Image(systemName: "plus").frame(width: 32, height: 34)
             }
             .disabled(document.brushSize >= SpriteDocument.maxBrushSize)
-            .accessibilityLabel("Pincel más grande")
+            .accessibilityLabel(Text("Bigger brush"))
         }
         .buttonStyle(.plain)
         .foregroundStyle(Theme.text)
@@ -90,13 +90,13 @@ struct ToolOptionsBar: View {
                         .background(document.brushShape == shape ? Theme.accent : .clear, in: RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(shape == .square ? "Pincel cuadrado" : "Pincel redondo")
+                .accessibilityLabel(shape == .square ? Text("Square brush") : Text("Round brush"))
                 .accessibilityAddTraits(document.brushShape == shape ? .isSelected : [])
             }
         }
     }
 
-    private func toggle(_ title: String, isOn: Binding<Bool>) -> some View {
+    private func toggle(_ title: LocalizedStringKey, isOn: Binding<Bool>) -> some View {
         Button { isOn.wrappedValue.toggle() } label: {
             HStack(spacing: 6) {
                 Image(systemName: isOn.wrappedValue ? "checkmark.square.fill" : "square")

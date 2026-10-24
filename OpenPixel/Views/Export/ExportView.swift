@@ -24,7 +24,7 @@ struct ExportView: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
                             .padding(.horizontal, 16)
-                            .background(format == f ? Color(hex: 0x2A211E) : Theme.field, in: RoundedRectangle(cornerRadius: 14))
+                            .background(format == f ? Theme.accentSoft : Theme.field, in: RoundedRectangle(cornerRadius: 14))
                             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(format == f ? Theme.accent : Theme.border, lineWidth: 2))
                         }
                         .buttonStyle(.plain)
@@ -35,14 +35,14 @@ struct ExportView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         SectionLabel("Frames")
                         Picker("Frames", selection: $tagID) {
-                            Text("Todos").tag(UUID?.none)
+                            Text("All").tag(UUID?.none)
                             ForEach(document.sprite.tags) { tag in
-                                Text(tag.name).tag(Optional(tag.id))
+                                Text(verbatim: tag.name).tag(Optional(tag.id))
                             }
                         }
                         .pickerStyle(.segmented)
                         if let tag, format == .gif {
-                            Text("\(tag.direction.title) · \(tag.repeatCount == 0 ? "bucle infinito" : "\(tag.repeatCount) \(tag.repeatCount == 1 ? "vez" : "veces")")")
+                            (Text(tag.direction.title) + Text(verbatim: " · ") + (tag.repeatCount == 0 ? Text("loops forever") : Text("plays \(tag.repeatCount) times")))
                                 .font(.footnote)
                                 .foregroundStyle(Theme.muted)
                         }
@@ -50,26 +50,26 @@ struct ExportView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Escala")
-                    Picker("Escala", selection: $scale) {
-                        ForEach(scales, id: \.self) { Text("\($0)×").tag($0) }
+                    SectionLabel("Scale")
+                    Picker("Scale", selection: $scale) {
+                        ForEach(scales, id: \.self) { Text(verbatim: "\($0)×").tag($0) }
                     }
                     .pickerStyle(.segmented)
-                    Text("Escalado por vecino más cercano: los píxeles siguen nítidos.")
+                    Text("Nearest-neighbor scaling keeps pixels sharp.")
                         .font(.footnote)
                         .foregroundStyle(Theme.muted)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Vista previa")
+                    SectionLabel("Preview")
                     PixelThumbnail(image: previewImage)
                         .frame(height: 240)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border))
                     HStack {
-                        Text(fileURL?.lastPathComponent ?? "…")
+                        Text(verbatim: fileURL?.lastPathComponent ?? "…")
                         Spacer()
-                        Text(outputSize)
+                        Text(verbatim: outputSize)
                     }
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(Theme.muted)
@@ -78,11 +78,11 @@ struct ExportView: View {
                 Spacer()
 
                 HStack {
-                    if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+                    if let errorMessage { Text(verbatim: errorMessage).foregroundStyle(.red) }
                     Spacer()
                     if let fileURL {
                         ShareLink(item: fileURL) {
-                            Label("Compartir o guardar…", systemImage: "square.and.arrow.up")
+                            Label("Share or save…", systemImage: "square.and.arrow.up")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Theme.onAccent)
                                 .padding(.horizontal, 20)
@@ -93,11 +93,11 @@ struct ExportView: View {
                 }
             }
             .padding(28)
-            .background(Color(hex: 0x1A1A1F))
-            .navigationTitle("Exportar «\(document.name)»")
+            .background(Theme.card)
+            .navigationTitle(Text("Export “\(document.name)”"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
             }
             .task(id: "\(format.rawValue)-\(scale)-\(tagID?.uuidString ?? "all")") { render() }
         }

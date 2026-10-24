@@ -124,7 +124,7 @@ final class DocumentStore {
 
     func duplicate(_ id: UUID) throws {
         var file = try read(url(for: id))
-        file.name += " (copia)"
+        file.name += L10n.string(" (copy)")
         try write(file, id: UUID())
     }
 
@@ -146,7 +146,7 @@ final class DocumentStore {
             throw ImportError.tooLarge
         }
         var sprite = Sprite.blank(width: image.width, height: image.height, background: nil, palette: Palette.pico8.colors)
-        sprite.layers[0].name = "Imagen"
+        sprite.layers[0].name = L10n.string("Image")
         sprite.cels[CelKey(layer: sprite.layers[0].id, frame: sprite.frames[0].id)] = image
         return try create(name: fileURL.deletingPathExtension().lastPathComponent, sprite: sprite)
     }
@@ -157,8 +157,8 @@ enum ImportError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unreadable: "No se pudo leer la imagen."
-        case .tooLarge: "La imagen es demasiado grande (máximo \(DocumentStore.maxImportSize) × \(DocumentStore.maxImportSize) px)."
+        case .unreadable: L10n.string("Couldn't read the image.")
+        case .tooLarge: L10n.string("The image is too large (maximum %d × %d px).", DocumentStore.maxImportSize, DocumentStore.maxImportSize)
         }
     }
 }

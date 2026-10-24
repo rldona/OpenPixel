@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Loop direction of a tag, as in Aseprite.
 /// https://www.aseprite.org/docs/tags/
@@ -7,12 +8,12 @@ enum AnimationDirection: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    var title: String {
+    var title: LocalizedStringKey {
         switch self {
-        case .forward: "Adelante"
-        case .reverse: "Atrás"
+        case .forward: "Forward"
+        case .reverse: "Reverse"
         case .pingPong: "Ping-pong"
-        case .pingPongReverse: "Ping-pong inverso"
+        case .pingPongReverse: "Ping-pong reverse"
         }
     }
 

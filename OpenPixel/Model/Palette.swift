@@ -25,7 +25,7 @@ struct Palette: Identifiable, Hashable {
         "#597DCE", "#D27D2C", "#8595A1", "#6DAA2C", "#D2AA99", "#6DC2CA", "#DAD45E", "#DEEED6"
     ])
 
-    static let grays = Palette("Grises", (0..<16).map { i in
+    static let grays = Palette("Grays", (0..<16).map { i in
         let v = i * 17
         return String(format: "#%02X%02X%02X", v, v, v)
     })

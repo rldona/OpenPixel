@@ -50,10 +50,10 @@ struct EditorView: View {
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) { ExportView(document: document) }
-        .alert("Renombrar sprite", isPresented: $showingRename) {
-            TextField("Nombre", text: $renameText)
-            Button("Cancelar", role: .cancel) {}
-            Button("Guardar") {
+        .alert("Rename project", isPresented: $showingRename) {
+            TextField("Name", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
                 let trimmed = renameText.trimmingCharacters(in: .whitespaces)
                 if !trimmed.isEmpty { document.name = trimmed }
             }
@@ -114,14 +114,17 @@ struct EditorView: View {
 
     private var topBar: some View {
         HStack(spacing: 6) {
-            IconButton(systemImage: "chevron.left", label: "Volver a la galería") { dismiss() }
+            IconButton(systemImage: "chevron.left", label: "Back to projects") { dismiss() }
             Button {
                 renameText = document.name
                 showingRename = true
             } label: {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(document.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text)
-                    Text("\(document.sprite.width) × \(document.sprite.height) · RGBA · \(document.sprite.frames.count) frames · \(document.sprite.layers.count) capas")
+                    (Text(verbatim: "\(document.sprite.width) × \(document.sprite.height) · RGBA · ")
+                        + (document.sprite.frames.count == 1 ? Text("1 frame") : Text("\(document.sprite.frames.count) frames"))
+                        + Text(verbatim: " · ")
+                        + (document.sprite.layers.count == 1 ? Text("1 layer") : Text("\(document.sprite.layers.count) layers")))
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.muted)
                 }
@@ -129,19 +132,19 @@ struct EditorView: View {
             .buttonStyle(.plain)
             .padding(.trailing, 12)
 
-            IconButton(systemImage: "arrow.uturn.backward", label: "Deshacer") { document.undo() }
+            IconButton(systemImage: "arrow.uturn.backward", label: "Undo") { document.undo() }
                 .keyboardShortcut("z", modifiers: .command)
                 .opacity(document.canUndo ? 1 : 0.35)
-            IconButton(systemImage: "arrow.uturn.forward", label: "Rehacer") { document.redo() }
+            IconButton(systemImage: "arrow.uturn.forward", label: "Redo") { document.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .opacity(document.canRedo ? 1 : 0.35)
 
             Spacer()
 
-            IconButton(systemImage: "grid", label: "Cuadrícula de píxeles", isOn: document.showGrid) { document.showGrid.toggle() }
+            IconButton(systemImage: "grid", label: "Pixel grid", isOn: document.showGrid) { document.showGrid.toggle() }
                 .keyboardShortcut("'", modifiers: .command)
             HStack(spacing: 0) {
-                IconButton(systemImage: "minus", label: "Alejar", size: 40) { canvas.zoomOut() }
+                IconButton(systemImage: "minus", label: "Zoom out", size: 40) { canvas.zoomOut() }
                     .keyboardShortcut("-", modifiers: .command)
                 Button { canvas.fit() } label: {
                     Text(verbatim: "\(Int(zoom * 100))%")
@@ -150,9 +153,9 @@ struct EditorView: View {
                         .frame(width: 64, height: 40)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Ajustar a pantalla")
+                .accessibilityLabel(Text("Fit to screen"))
                 .keyboardShortcut("0", modifiers: .command)
-                IconButton(systemImage: "plus", label: "Acercar", size: 40) { canvas.zoomIn() }
+                IconButton(systemImage: "plus", label: "Zoom in", size: 40) { canvas.zoomIn() }
                     .keyboardShortcut("+", modifiers: .command)
             }
             .background(Theme.field, in: RoundedRectangle(cornerRadius: 10))
@@ -160,7 +163,7 @@ struct EditorView: View {
             .padding(.horizontal, 6)
 
             Button { showingExport = true } label: {
-                Label("Exportar", systemImage: "square.and.arrow.up")
+                Label("Export", systemImage: "square.and.arrow.up")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.onAccent)
                     .padding(.horizontal, 16)
@@ -178,7 +181,12 @@ struct EditorView: View {
 
     private var statusPills: some View {
         HStack(spacing: 8) {
-            Text(verbatim: "\(document.tool.title)\(document.tool.usesBrush ? " \(document.brushSize) px" : "")\(document.mirrorX ? " + simetría" : "") · \(document.activeLayer?.name ?? "") · frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)\(document.activeTag.map { " · \($0.name)" } ?? "")")
+            (Text(document.tool.title)
+                + Text(verbatim: document.tool.usesBrush ? " \(document.brushSize) px" : "")
+                + (document.mirrorX ? Text(" + symmetry") : Text(verbatim: ""))
+                + Text(verbatim: " · \(document.activeLayer?.name ?? "") · ")
+                + Text("frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)")
+                + Text(verbatim: document.activeTag.map { " · \($0.name)" } ?? ""))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 10)
@@ -193,7 +201,7 @@ struct EditorView: View {
     @ViewBuilder
     private var noticeBanner: some View {
         if let notice = document.notice {
-            Label(notice, systemImage: "lock.fill")
+            Label { Text(verbatim: notice) } icon: { Image(systemName: "lock.fill") }
                 .font(.system(size: 14, weight: .medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -218,7 +226,7 @@ struct ToolRail: View {
                 .keyboardShortcut(tool.shortcut, modifiers: tool.shortcutModifiers)
             }
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
-            IconButton(systemImage: "square.split.2x1", label: "Simetría horizontal", isOn: document.mirrorX, size: 48) {
+            IconButton(systemImage: "square.split.2x1", label: "Horizontal symmetry", isOn: document.mirrorX, size: 48) {
                 document.mirrorX.toggle()
             }
             Spacer()
@@ -226,18 +234,18 @@ struct ToolRail: View {
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 7).fill(document.secondary.color)
                         .frame(width: 26, height: 26)
-                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color(hex: 0x3A3A43)))
+                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.strongBorder))
                         .offset(x: 14, y: 14)
                     RoundedRectangle(cornerRadius: 7).fill(document.primary.color)
                         .frame(width: 26, height: 26)
-                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color(hex: 0x3A3A43)))
+                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.strongBorder))
                 }
                 .frame(width: 48, height: 48, alignment: .topLeading)
                 .padding(.leading, 6)
             }
             .buttonStyle(.plain)
             .keyboardShortcut("x", modifiers: [])
-            .accessibilityLabel("Intercambiar color principal y secundario")
+            .accessibilityLabel(Text("Swap primary and secondary colors"))
         }
         .padding(.vertical, 12)
         .frame(width: 68)
