@@ -326,8 +326,12 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         }
     }
 
+    /// Checker squares are a whole number of sprite pixels (1, 2, 4…) so they line up
+    /// with the pixel grid; at high zoom each square is exactly one pixel.
     private func drawCheckerboard(in visible: CGRect, spriteRect: CGRect, ctx: CGContext) {
-        let cell: CGFloat = 12
+        var pixelsPerCell: CGFloat = 1
+        while scale * pixelsPerCell < 8 { pixelsPerCell *= 2 }
+        let cell = scale * pixelsPerCell
         ctx.setFillColor(Self.checkerDark.cgColor)
         let firstCol = Int(((visible.minX - spriteRect.minX) / cell).rounded(.down))
         let lastCol = Int(((visible.maxX - spriteRect.minX) / cell).rounded(.up))
@@ -343,7 +347,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     private func drawGrid(in visible: CGRect, spriteRect: CGRect, ctx: CGContext) {
         let pixel = 1 / max(1, traitCollection.displayScale)
-        ctx.setStrokeColor(UIColor(white: 1, alpha: 0.14).cgColor)
+        ctx.setStrokeColor(UIColor(white: 1, alpha: 0.22).cgColor)
         ctx.setLineWidth(pixel)
         let firstX = max(1, Int(((visible.minX - spriteRect.minX) / scale).rounded(.down)))
         let lastX = min(Int(spriteSize.width) - 1, Int(((visible.maxX - spriteRect.minX) / scale).rounded(.up)))
