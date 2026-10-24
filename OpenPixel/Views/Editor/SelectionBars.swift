@@ -133,6 +133,8 @@ struct EditMenu: View {
                     .disabled(!document.hasSelection)
                 Button("Fill with primary color", systemImage: "paintbrush.pointed.fill") { document.fillSelection() }
                 Button("Replace color…", systemImage: "drop.halffull") { document.isReplacingColor = true }
+                Button("New brush from selection", systemImage: "paintbrush.pointed") { document.newBrushFromSelection() }
+                    .disabled(!document.hasSelection)
             }
             Section {
                 Button("Select all", systemImage: "rectangle.dashed") { document.selectAll() }
@@ -199,6 +201,7 @@ struct EditorShortcuts: View {
             shortcut("d", [.command, .shift]) { document.reselect() }
             shortcut("i", [.command, .shift]) { document.invertSelection() }
             shortcut("t", .command) { document.beginTransform() }
+            shortcut("b", .command) { document.newBrushFromSelection() }
             shortcut("h", .shift) { document.flip(horizontal: true) }
             shortcut("v", .shift) { document.flip(horizontal: false) }
             shortcut(.delete, []) { document.deleteSelection() }

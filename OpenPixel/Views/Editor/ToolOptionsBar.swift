@@ -38,9 +38,18 @@ struct ToolOptionsBar: View {
 
             if document.tool.usesBrush {
                 divider
-                brushSize
-                // The tip's shape only shows from 2 px up.
-                if document.brushSize > 1 { brushShape }
+                if !usingCustomBrush { brushSize }
+                // The tip's shape only shows from 2 px up (or when there's a custom brush to pick).
+                if document.brushSize > 1 || document.customBrush != nil { brushShape }
+                if document.brushShape == .line && !usingCustomBrush && document.brushSize > 1 { brushAngle }
+                if usingCustomBrush && document.tool != .eraser {
+                    toggle("Use color", isOn: $document.customBrushUsesColor)
+                }
+            }
+            if document.tool == .spray {
+                divider
+                stepper(value: $document.sprayWidth, range: 1...32, label: "Width", unit: "px")
+                stepper(value: $document.spraySpeed, range: 1...32, label: "Speed", unit: nil)
             }
             if document.tool.usesInk || document.tool == .eraser {
                 divider
@@ -348,22 +357,100 @@ struct ToolOptionsBar: View {
         .foregroundStyle(Theme.text)
     }
 
+    private var usingCustomBrush: Bool { document.useCustomBrush && document.customBrush != nil }
+
     private var brushShape: some View {
         HStack(spacing: 2) {
             ForEach(BrushShape.allCases) { shape in
-                Button { document.brushShape = shape } label: {
-                    Image(systemName: shape == .square ? "square.fill" : "circle.fill")
+                let isOn = !usingCustomBrush && document.brushShape == shape
+                Button {
+                    document.brushShape = shape
+                    document.useCustomBrush = false
+                } label: {
+                    Image(systemName: icon(for: shape))
                         .accessibilityHidden(true)
-                        .font(.system(size: 12))
+                        .font(.system(size: 12, weight: .semibold))
                         .frame(width: 32, height: 30)
-                        .foregroundStyle(document.brushShape == shape ? Theme.onAccent : Theme.muted)
-                        .background(document.brushShape == shape ? Theme.accent : .clear, in: RoundedRectangle(cornerRadius: 7))
+                        .foregroundStyle(isOn ? Theme.onAccent : Theme.muted)
+                        .background(isOn ? Theme.accent : .clear, in: RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(shape == .square ? Text("Square brush") : Text("Round brush"))
-                .accessibilityAddTraits(document.brushShape == shape ? .isSelected : [])
+                .accessibilityLabel(title(for: shape))
+                .accessibilityAddTraits(isOn ? .isSelected : [])
+            }
+            if let brush = document.customBrush, let image = brush.makeCGImage() {
+                Button { document.useCustomBrush = true } label: {
+                    Image(decorative: image, scale: 1)
+                        .interpolation(.none)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 20, height: 20)
+                        .frame(width: 32, height: 30)
+                        .background(usingCustomBrush ? Theme.accentSoft : .clear, in: RoundedRectangle(cornerRadius: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(usingCustomBrush ? Theme.accent : .clear, lineWidth: 2))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Custom brush"))
+                .accessibilityAddTraits(usingCustomBrush ? .isSelected : [])
             }
         }
+    }
+
+    private func icon(for shape: BrushShape) -> String {
+        switch shape {
+        case .square: "square.fill"
+        case .circle: "circle.fill"
+        case .line: "line.diagonal"
+        }
+    }
+
+    private func title(for shape: BrushShape) -> Text {
+        switch shape {
+        case .square: Text("Square brush")
+        case .circle: Text("Round brush")
+        case .line: Text("Line brush")
+        }
+    }
+
+    private var brushAngle: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "angle").font(.system(size: 13, weight: .medium)).accessibilityHidden(true)
+            Button { document.brushAngle = (document.brushAngle + 165) % 180 } label: {
+                Image(systemName: "minus").frame(width: 30, height: 34)
+            }
+            .accessibilityLabel(Text("Rotate the brush left"))
+            Text(verbatim: "\(document.brushAngle)°")
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .frame(width: 40)
+                .accessibilityLabel(Text("Brush angle: \(document.brushAngle) degrees"))
+            Button { document.brushAngle = (document.brushAngle + 15) % 180 } label: {
+                Image(systemName: "plus").frame(width: 30, height: 34)
+            }
+            .accessibilityLabel(Text("Rotate the brush right"))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.text)
+    }
+
+    private func stepper(value: Binding<Int>, range: ClosedRange<Int>, label: LocalizedStringKey, unit: String?) -> some View {
+        HStack(spacing: 2) {
+            Text(label).font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.text).fixedSize()
+            Button { value.wrappedValue = max(range.lowerBound, value.wrappedValue - 1) } label: {
+                Image(systemName: "minus").frame(width: 30, height: 34)
+            }
+            .disabled(value.wrappedValue <= range.lowerBound)
+            .accessibilityLabel(Text("Less"))
+            Text(verbatim: unit.map { "\(value.wrappedValue) \($0)" } ?? "\(value.wrappedValue)")
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .frame(minWidth: 34)
+            Button { value.wrappedValue = min(range.upperBound, value.wrappedValue + 1) } label: {
+                Image(systemName: "plus").frame(width: 30, height: 34)
+            }
+            .disabled(value.wrappedValue >= range.upperBound)
+            .accessibilityLabel(Text("More"))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.text)
     }
 
     /// An on/off option as a pill: the whole label is the touch target, and

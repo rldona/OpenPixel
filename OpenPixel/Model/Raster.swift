@@ -1,7 +1,8 @@
 import Foundation
 
 enum BrushShape: String, CaseIterable, Identifiable {
-    case square, circle
+    /// `line` is a thin stroke at the brush angle, like a calligraphy pen.
+    case square, circle, line
     var id: String { rawValue }
 }
 
@@ -25,8 +26,15 @@ enum Raster {
 
     /// Pixels covered by a brush of `size` centred on the origin. Even sizes lean
     /// towards the bottom-right, like Aseprite. Circles of size ≤ 3 are full squares.
-    static func brushOffsets(size: Int, shape: BrushShape) -> [PixelPoint] {
+    /// A line brush is `size` pixels long at `angle` degrees (0 is horizontal).
+    static func brushOffsets(size: Int, shape: BrushShape, angle: Int = 0) -> [PixelPoint] {
         let size = max(1, size)
+        if shape == .line {
+            let r = Double(size - 1) / 2, radians = Double(angle) * .pi / 180
+            let dx = r * cos(radians), dy = -r * sin(radians)
+            return line(from: PixelPoint(x: Int((-dx).rounded()), y: Int((-dy).rounded())),
+                        to: PixelPoint(x: Int(dx.rounded()), y: Int(dy.rounded())))
+        }
         let start = -(size - 1) / 2
         let center = Double(size - 1) / 2
         let radius = Double(size) / 2

@@ -13,10 +13,12 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 - **Projects** gallery with thumbnails, search, filters (all, animations, still images), rename, duplicate, delete, and PNG/GIF/JPEG import.
 - **New sprite**: quick sizes (16–256) or custom up to 1024 px, transparent, white or black background, and a starting palette (PICO-8, Sweetie 16, DawnBringer 16, grays).
 - **Editor**
-  - Pencil, eraser, paint bucket, **gradient**, eyedropper, line, **curve**, rectangle, ellipse, **contour** and **polygon** (as in [Aseprite](https://www.aseprite.org/docs/drawing/)).
+  - Pencil, **spray** (⇧S), eraser, paint bucket, **gradient**, eyedropper, line, **curve**, rectangle, ellipse, **contour** and **polygon** (as in [Aseprite](https://www.aseprite.org/docs/drawing/)).
     - Curve: drag the line, then drag twice to bend each end. Polygon: tap each corner and tap the first one (or Done) to close it. Contour: draw an outline and it fills when you lift. Gradient (⇧G, with the bucket): drag across the area the bucket would fill to blend the primary into the secondary color, linear or radial, smooth or with 2×2, 4×4 or 8×8 Bayer dithering. Control points and corners are marked on the canvas.
   - Floating tool options:
-    - square or round brush from 1 to 8 px;
+    - square, round or **line** brush (at any angle, in 15° steps) from 1 to 8 px;
+    - **custom brush**: select part of the drawing and choose Edit > New brush from selection (⌘B) to paint with it, in its own colors or in the primary color;
+    - spray width and speed;
     - optional pixel-perfect for clean 1 px strokes (off by default; the choice is remembered);
     - filled or outlined shapes, previewed while you drag, and rounded rectangle corners;
     - paint bucket: contiguous or global, tolerance, diagonals (8-way spreading) and “All layers” to find the area from every visible layer while painting only the active one;
@@ -91,7 +93,7 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 
 | Key | Action |
 |---|---|
-| `B` | Pencil |
+| `B` / `⇧S` | Pencil / spray |
 | `E` | Eraser |
 | `G` / `⇧G` | Paint bucket / gradient |
 | `I` | Eyedropper |
@@ -107,6 +109,7 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 | `⇧⌘I` | Invert selection |
 | `⌘X` `⌘C` `⌘V` | Cut, copy, paste |
 | `⌘T` | Transform |
+| `⌘B` | New brush from selection |
 | `⇧H` / `⇧V` | Flip horizontally / vertically |
 | `↩` / `⎋` / arrows | While transforming: apply / cancel / nudge 1 px |
 | `↩` / `⎋` | While building a curve or polygon: done / cancel |

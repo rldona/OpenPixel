@@ -13,10 +13,12 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Proyectos**: galería con miniaturas, búsqueda, filtros (todos, animaciones, estáticos), renombrar, duplicar, eliminar e importar PNG/GIF/JPEG.
 - **Nuevo sprite**: tamaños rápidos (16–256) o personalizado hasta 1024 px, fondo transparente, blanco o negro, y paleta inicial (PICO-8, Sweetie 16, DawnBringer 16, grises).
 - **Editor**
-  - Lápiz, goma, cubo de pintura, **degradado**, cuentagotas, línea, **curva**, rectángulo, elipse, **contorno** y **polígono** (como en [Aseprite](https://www.aseprite.org/docs/drawing/)).
+  - Lápiz, **spray** (⇧S), goma, cubo de pintura, **degradado**, cuentagotas, línea, **curva**, rectángulo, elipse, **contorno** y **polígono** (como en [Aseprite](https://www.aseprite.org/docs/drawing/)).
     - Curva: arrastra la línea y luego arrastra dos veces para curvar cada extremo. Polígono: toca cada esquina y toca la primera (o Listo) para cerrarlo. Contorno: dibuja el borde y se rellena al levantar. Degradado (⇧G, junto al cubo): arrastra sobre la zona que rellenaría el cubo para pasar del color principal al secundario, lineal o radial, suave o con tramado Bayer de 2×2, 4×4 u 8×8. Los puntos de control y las esquinas se marcan en el lienzo.
   - Barra de opciones flotante según la herramienta:
-    - pincel cuadrado o redondo de 1 a 8 px;
+    - pincel cuadrado, redondo o de **línea** (con cualquier ángulo, en pasos de 15°) de 1 a 8 px;
+    - **pincel propio**: selecciona una parte del dibujo y elige Editar > Nuevo pincel con la selección (⌘B) para pintar con ella, con sus colores o con el color principal;
+    - ancho y velocidad del spray;
     - pixel-perfect opcional para trazos de 1 px sin esquinas dobles (desactivado por defecto; se recuerda tu elección);
     - formas con o sin relleno, con vista previa mientras arrastras, y rectángulos con esquinas redondeadas;
     - cubo contiguo o global (sustituye el color en toda la cel), tolerancia, diagonales (se extiende también por las esquinas) y «Todas las capas» para delimitar la zona con todas las capas visibles pintando solo la activa;
@@ -67,7 +69,7 @@ Con teclado se usan los atajos de Aseprite:
 
 | Tecla | Acción |
 |---|---|
-| `B` | Lápiz |
+| `B` / `⇧S` | Lápiz / spray |
 | `E` | Goma |
 | `G` / `⇧G` | Cubo / degradado |
 | `I` | Cuentagotas |
@@ -75,6 +77,7 @@ Con teclado se usan los atajos de Aseprite:
 | `D` / `⇧D` | Contorno / polígono |
 | `U` / `⇧U` | Rectángulo / elipse |
 | `[` `]` | Tamaño del pincel |
+| `⌘B` | Nuevo pincel con la selección |
 | `↩` / `⎋` | Al construir una curva o un polígono: listo / cancelar |
 | `X` | Intercambiar colores |
 | `⌥N` | Nuevo frame (duplica el actual) |

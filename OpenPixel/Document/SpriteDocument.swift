@@ -70,6 +70,16 @@ final class SpriteDocument {
     var symmetry = Symmetry()
     var brushSize = 1
     var brushShape = BrushShape.square
+    /// Angle of the line brush, in degrees.
+    var brushAngle = 45
+    /// A brush made from part of the drawing (Edit > New brush), painted with its own colors.
+    private(set) var customBrush: PixelImage?
+    var useCustomBrush = false
+    /// The custom brush paints the primary color, keeping only its shape.
+    var customBrushUsesColor = false
+    /// Spray: radius of the area the dots land in, and dots per Pencil sample.
+    var sprayWidth = 8
+    var spraySpeed = 4
     /// Removes the extra corner pixel in 1 px freehand strokes (Aseprite's pixel-perfect).
     /// Off by default: it removes corner pixels, which trades control for
     /// smoother 1 px lines. The choice is remembered across sprites.
@@ -401,6 +411,9 @@ final class SpriteDocument {
             pendingDragging = true
             pendingShapeStage = 1
             redrawPendingShape()
+        case .spray:
+            lastPoint = p
+            spray(at: [p])
         default:
             lastPoint = p
             strokePath = []
@@ -440,6 +453,7 @@ final class SpriteDocument {
         }
         guard !path.isEmpty else { return }
         lastPoint = last
+        if tool == .spray { return spray(at: points) }
         if tool == .contour { contourPath += path }
         plotFreehand(path, pressures: pathPressures)
     }
@@ -598,8 +612,9 @@ final class SpriteDocument {
     private var effectiveBrushSize: Int { tool.usesBrush ? brushSize : 1 }
 
     private func dirtyRect(for points: some Sequence<PixelPoint>) -> PixelRect? {
-        let brushSize = effectiveBrushSize
-        let lower = -(brushSize - 1) / 2, upper = brushSize / 2
+        let offsets = brushStamp(size: effectiveBrushSize).map(\.offset)
+        let lower = min(0, offsets.map { min($0.x, $0.y) }.min() ?? 0)
+        let upper = max(0, offsets.map { max($0.x, $0.y) }.max() ?? 0)
         guard var rect = PixelRect(bounding: points, lower: lower, upper: upper) else { return nil }
         rect = symmetry.covering(rect, width: storage.width, height: storage.height)
         return rect.clipped(width: storage.width, height: storage.height)
@@ -608,32 +623,100 @@ final class SpriteDocument {
     /// The ink a stroke uses: the eraser always erases.
     private var strokeInk: Ink { tool == .eraser ? .simple : ink }
 
+    /// The custom brush, when it's the one in use for the current tool.
+    private var activeCustomBrush: PixelImage? { useCustomBrush && tool.usesBrush ? customBrush : nil }
+
+    /// The current brush at `size`: where it paints around the pointer, and the
+    /// color of each pixel when the brush has its own (a custom brush).
+    private func brushStamp(size: Int) -> [(offset: PixelPoint, color: PixelColor?)] {
+        guard let brush = activeCustomBrush else {
+            return Raster.brushOffsets(size: size, shape: brushShape, angle: brushAngle).map { ($0, nil) }
+        }
+        let cx = (brush.width - 1) / 2, cy = (brush.height - 1) / 2
+        let tint = tool == .eraser || customBrushUsesColor
+        var stamp: [(offset: PixelPoint, color: PixelColor?)] = []
+        for y in 0..<brush.height {
+            for x in 0..<brush.width where brush[x, y].a != 0 {
+                var color = brush[x, y]
+                if tint {
+                    let a = color.a
+                    color = strokeColor
+                    color.a = UInt8(Int(color.a) * Int(a) / 255)
+                }
+                stamp.append((PixelPoint(x: x - cx, y: y - cy), tool == .eraser && color.a == 255 ? nil : color))
+            }
+        }
+        return stamp
+    }
+
     /// Stamps the brush on every point (and its mirror when symmetry is on).
     /// With a selection, only selected pixels are painted, as in Aseprite.
     /// `pressures` (0...1, one per point) scale the size and opacity when
     /// the pressure dynamics are on.
     private func stamp(_ points: [PixelPoint], pressures: [Double]? = nil, on image: inout PixelImage, color: PixelColor) {
-        var offsetsBySize: [Int: [PixelPoint]] = [:]
-        func offsets(_ size: Int) -> [PixelPoint] {
-            if let cached = offsetsBySize[size] { return cached }
-            let o = Raster.brushOffsets(size: size, shape: brushShape)
-            offsetsBySize[size] = o
-            return o
+        var stampsBySize: [Int: [(offset: PixelPoint, color: PixelColor?)]] = [:]
+        func brush(_ size: Int) -> [(offset: PixelPoint, color: PixelColor?)] {
+            if let cached = stampsBySize[size] { return cached }
+            let stamp = brushStamp(size: size)
+            stampsBySize[size] = stamp
+            return stamp
         }
         var painter = makePainter(color: color)
+        // A custom brush repaints its pixels on every stamp, so the last one shows.
+        painter.repaints = activeCustomBrush != nil
         defer { strokeCoverage = painter.coverage }
         let brushSize = effectiveBrushSize
+        let scalesSize = pressureSize && activeCustomBrush == nil
         for (n, p) in points.enumerated() {
             let pressure = pressures?[n] ?? 1
-            let size = pressureSize ? 1 + Int((Double(brushSize - 1) * pressure).rounded()) : brushSize
+            let size = scalesSize ? 1 + Int((Double(brushSize - 1) * pressure).rounded()) : brushSize
             let alpha = pressureOpacity ? Double(toolOpacity) * pressure : Double(toolOpacity)
             let a = UInt8(max(1, min(255, alpha.rounded())))
-            for o in offsets(size) {
+            for (o, c) in brush(size) {
                 let q = PixelPoint(x: p.x + o.x, y: p.y + o.y)
-                painter.paint(q, alpha: a, on: &image)
-                for m in symmetry.images(of: q, width: image.width, height: image.height) { painter.paint(m, alpha: a, on: &image) }
+                painter.paint(q, alpha: a, color: c, on: &image)
+                for m in symmetry.images(of: q, width: image.width, height: image.height) { painter.paint(m, alpha: a, color: c, on: &image) }
             }
         }
+    }
+
+    /// Spray: dots scattered at random around each sample.
+    private func spray(at points: [PixelPoint]) {
+        let r = sprayWidth
+        let dirty = PixelRect(bounding: points, lower: -r, upper: r)
+            .map { symmetry.covering($0, width: storage.width, height: storage.height) }?
+            .clipped(width: storage.width, height: storage.height)
+        let color = strokeColor, alpha = UInt8(max(1, min(255, toolOpacity))), count = spraySpeed
+        mutateActiveCel(dirty: dirty) { image in
+            var painter = makePainter(color: color)
+            for p in points {
+                for _ in 0..<count {
+                    let angle = Double.random(in: 0..<(2 * .pi)), distance = Double.random(in: 0...1).squareRoot() * Double(r)
+                    let q = PixelPoint(x: p.x + Int((cos(angle) * distance).rounded()), y: p.y + Int((sin(angle) * distance).rounded()))
+                    painter.paint(q, alpha: alpha, on: &image)
+                    for m in symmetry.images(of: q, width: image.width, height: image.height) { painter.paint(m, alpha: alpha, on: &image) }
+                }
+            }
+            strokeCoverage = painter.coverage
+        }
+    }
+
+    /// Makes a brush from the selected pixels of the active cel, as Aseprite's
+    /// Edit > New Brush, and switches to the pencil to use it.
+    func newBrushFromSelection() {
+        guard let mask = selection, let bounds = mask.bounds else { return }
+        let cel = storage.cels[activeCelKey] ?? PixelImage(width: storage.width, height: storage.height)
+        var image = cel.cropped(to: bounds)
+        let local = mask.cropped(to: bounds)
+        for i in image.pixels.indices where !local.bits[i] { image.pixels[i] = .clear }
+        guard let content = SelectionMask.opaquePixels(of: image).bounds else {
+            notice = L10n.string("There's nothing drawn in the selection")
+            return
+        }
+        customBrush = image.cropped(to: content)
+        useCustomBrush = true
+        deselect()
+        select(.pencil)
     }
 
     /// Everything a stroke needs to paint one pixel, taken out of the
@@ -651,7 +734,7 @@ final class SpriteDocument {
 
     private func plotFreehand(_ points: [PixelPoint], pressures: [Double]? = nil) {
         let color = strokeColor
-        let usePixelPerfect = pixelPerfect && brushSize == 1 && (tool == .pencil || tool == .eraser)
+        let usePixelPerfect = pixelPerfect && brushSize == 1 && activeCustomBrush == nil && (tool == .pencil || tool == .eraser)
         let original = strokeStart?.cels[activeCelKey]
         // Pixel-perfect may restore the pixel before these points, so include it.
         let dirty = dirtyRect(for: points + strokePath.suffix(2))
@@ -2161,12 +2244,14 @@ private struct Painter {
     let ramp: [PixelColor]
     let direction: ShadeDirection
     var coverage: [UInt8]
+    /// Paint again at the same strength instead of skipping pixels already painted.
+    var repaints = false
 
     /// `color` overrides the painter's color for this pixel (gradients).
     mutating func paint(_ q: PixelPoint, alpha: UInt8, color: PixelColor? = nil, on image: inout PixelImage) {
         guard image.contains(q), mask?.contains(q) ?? true else { return }
         let i = q.y * image.width + q.x
-        guard alpha > coverage[i] else { return }
+        guard alpha > coverage[i] || (repaints && alpha == coverage[i]) else { return }
         coverage[i] = alpha
         let ramp = ramp, direction = direction
         image.pixels[i] = ink.apply(color ?? self.color, over: original?.pixels[i] ?? .clear, alpha: alpha) { direction.step($0, in: ramp) }

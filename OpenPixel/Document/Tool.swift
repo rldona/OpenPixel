@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum Tool: String, CaseIterable, Identifiable {
-    case pencil, eraser, bucket, gradient, eyedropper, line, curve, rectangle, ellipse, contour, polygon
+    case pencil, spray, eraser, bucket, gradient, eyedropper, line, curve, rectangle, ellipse, contour, polygon
     case selectRectangle, selectEllipse, lasso, magicWand, move, text
 
     var id: String { rawValue }
@@ -9,6 +9,7 @@ enum Tool: String, CaseIterable, Identifiable {
     var title: LocalizedStringKey {
         switch self {
         case .pencil: "Pencil"
+        case .spray: "Spray"
         case .eraser: "Eraser"
         case .bucket: "Paint bucket"
         case .gradient: "Gradient"
@@ -31,6 +32,7 @@ enum Tool: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .pencil: "pencil"
+        case .spray: "aqi.medium"
         case .eraser: "eraser"
         case .bucket: "drop"
         case .gradient: "square.lefthalf.filled"
@@ -54,6 +56,7 @@ enum Tool: String, CaseIterable, Identifiable {
     var shortcut: KeyEquivalent {
         switch self {
         case .pencil: "b"
+        case .spray: "s"
         case .eraser: "e"
         case .bucket, .gradient: "g"
         case .eyedropper: "i"
@@ -68,7 +71,7 @@ enum Tool: String, CaseIterable, Identifiable {
         }
     }
 
-    var shortcutModifiers: EventModifiers { [.ellipse, .selectEllipse, .curve, .polygon, .gradient].contains(self) ? .shift : [] }
+    var shortcutModifiers: EventModifiers { [.ellipse, .selectEllipse, .curve, .polygon, .gradient, .spray].contains(self) ? .shift : [] }
 
     /// Tools whose strokes are stamped with the brush.
     var usesBrush: Bool {
@@ -79,7 +82,7 @@ enum Tool: String, CaseIterable, Identifiable {
     }
 
     /// Tools that paint with the ink (the eraser always erases).
-    var usesInk: Bool { (usesBrush && self != .eraser) || [.bucket, .gradient, .contour, .polygon].contains(self) }
+    var usesInk: Bool { (usesBrush && self != .eraser) || [.spray, .bucket, .gradient, .contour, .polygon].contains(self) }
 
     /// Shapes built over several touches: a curve is bent after drawing its
     /// line, a polygon gets a corner per tap.
@@ -101,7 +104,7 @@ enum ToolGroup: CaseIterable, Identifiable {
 
     var tools: [Tool] {
         switch self {
-        case .pencil: [.pencil]
+        case .pencil: [.pencil, .spray]
         case .eraser: [.eraser]
         case .bucket: [.bucket, .gradient]
         case .eyedropper: [.eyedropper]

@@ -449,3 +449,15 @@
 "Bayer 2×2" = "Bayer 2×2";
 "Bayer 4×4" = "Bayer 4×4";
 "Bayer 8×8" = "Bayer 8×8";
+
+/* Brushes and spray */
+"Spray" = "Spray";
+"Line brush" = "Pincel de línea";
+"Custom brush" = "Pincel propio";
+"Use color" = "Usar el color";
+"Rotate the brush left" = "Girar el pincel a la izquierda";
+"Rotate the brush right" = "Girar el pincel a la derecha";
+"Brush angle: %lld degrees" = "Ángulo del pincel: %lld grados";
+"Less" = "Menos";
+"New brush from selection" = "Nuevo pincel con la selección";
+"There's nothing drawn in the selection" = "No hay nada dibujado en la selección";
