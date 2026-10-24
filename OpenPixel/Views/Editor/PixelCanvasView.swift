@@ -54,7 +54,6 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onPencilDoubleTap: (() -> Void)?
     /// Apple Pencil Pro squeeze.
     var onPencilSqueeze: (() -> Void)?
-    var onZoomChanged: ((CGFloat) -> Void)?
     /// Four-finger tap: show or hide the panels around the canvas.
     var onFocusToggle: (() -> Void)?
     /// A symmetry axis handle was dragged: which axis, and where to (in half pixels).
@@ -734,7 +733,6 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             y: (Self.topInset + (available.height - spriteSize.height * scale) / 2).rounded()
         )
         needsFit = false
-        onZoomChanged?(scale)
         updateGeometry()
     }
 
@@ -748,7 +746,6 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         let sy = (anchor.y - origin.y) / scale
         scale = clamped
         origin = CGPoint(x: anchor.x - sx * scale, y: anchor.y - sy * scale)
-        onZoomChanged?(scale)
         updateGeometry()
     }
 

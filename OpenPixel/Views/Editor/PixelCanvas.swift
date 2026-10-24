@@ -25,7 +25,6 @@ struct PixelCanvas: UIViewRepresentable {
     let tileGrid: GridSettings?
     let symmetry: Symmetry
     let tiledMode: TiledMode
-    let onZoomChanged: (CGFloat) -> Void
     var onFocusToggle: () -> Void = {}
 
     func makeUIView(context: Context) -> PixelCanvasView {
@@ -63,7 +62,6 @@ struct PixelCanvas: UIViewRepresentable {
 
     func updateUIView(_ view: PixelCanvasView, context: Context) {
         if document.canvasOwner !== view { connect(view) }
-        view.onZoomChanged = onZoomChanged
         view.onFocusToggle = onFocusToggle
         view.spriteSize = spriteSize
         view.showGrid = showGrid

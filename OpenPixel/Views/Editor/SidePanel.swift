@@ -3,11 +3,6 @@ import UniformTypeIdentifiers
 
 struct SidePanel: View {
     @Bindable var document: SpriteDocument
-    /// The canvas zoom, shown and changed under the project's name.
-    let zoom: CGFloat
-    let canvas: CanvasController
-    /// Tapping the project's name renames it.
-    let onRename: () -> Void
     @State private var editingPrimary = false
     @State private var editingSecondary = false
     /// Palette edit mode: taps select a run of entries instead of picking a color.
@@ -22,12 +17,6 @@ struct SidePanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                projectHeader
-                HStack {
-                    SectionLabel("Zoom")
-                    Spacer()
-                    zoomControl
-                }
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Preview")
                     // Updates when a stroke is committed, not on every stroke sample.
@@ -74,58 +63,6 @@ struct SidePanel: View {
         .fileImporter(isPresented: $importingPalette, allowedContentTypes: [.data]) { result in
             importPalette(result)
         }
-    }
-
-    // MARK: Project and zoom
-
-    /// The project's name and size; tap to rename.
-    private var projectHeader: some View {
-        let s = document.structure
-        return Button(action: onRename) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(document.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Theme.text)
-                        .lineLimit(1)
-                    Image(systemName: "pencil")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                }
-                (Text(verbatim: "\(s.width) × \(s.height) · RGBA · ")
-                    + (s.frames.count == 1 ? Text("1 frame") : Text("\(s.frames.count) frames"))
-                    + Text(verbatim: " · ")
-                    + (s.layers.count == 1 ? Text("1 layer") : Text("\(s.layers.count) layers")))
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help(Text("Rename project"))
-        .accessibilityHint(Text("Rename project"))
-    }
-
-    private var zoomControl: some View {
-        HStack(spacing: 0) {
-            IconButton(systemImage: "minus", label: "Zoom out", size: 32) { canvas.zoomOut() }
-                .keyboardShortcut("-", modifiers: .command)
-            Button { canvas.fit() } label: {
-                Text(verbatim: "\(Int(zoom * 100))%")
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.text)
-                    .frame(minWidth: 52, minHeight: 32)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("Fit to screen"))
-            .keyboardShortcut("0", modifiers: .command)
-            IconButton(systemImage: "plus", label: "Zoom in", size: 32) { canvas.zoomIn() }
-                .keyboardShortcut("+", modifiers: .command)
-        }
-        .background(Theme.field, in: RoundedRectangle(cornerRadius: 9))
-        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.border))
     }
 
     // MARK: Colors

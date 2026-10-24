@@ -6,11 +6,8 @@ struct EditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var canvas = CanvasController()
-    @State private var zoom: CGFloat = 1
     @State private var showingExport = false
-    @State private var showingRename = false
     @State private var showingGridSettings = false
-    @State private var renameText = ""
     @State private var saveTask: Task<Void, Never>?
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
     @State private var focusMode = false
@@ -45,7 +42,6 @@ struct EditorView: View {
                             CanvasHost(
                                 document: document,
                                 controller: canvas,
-                                onZoomChanged: { zoom = $0 },
                                 onFocusToggle: toggleFocus,
                                 onRevision: scheduleSave
                             )
@@ -87,20 +83,22 @@ struct EditorView: View {
                     }
                 }
                 if !focusMode {
-                    SidePanel(document: document, zoom: zoom, canvas: canvas, onRename: {
-                        renameText = document.name
-                        showingRename = true
-                    })
+                    SidePanel(document: document)
                         .frame(width: Self.panelWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
         }
         .background {
-            Button("Focus mode", action: toggleFocus)
-                .keyboardShortcut(.tab, modifiers: [])
-                .opacity(0)
-                .accessibilityHidden(true)
+            Group {
+                Button("Focus mode", action: toggleFocus)
+                    .keyboardShortcut(.tab, modifiers: [])
+                Button("Zoom out") { canvas.zoomOut() }.keyboardShortcut("-", modifiers: .command)
+                Button("Zoom in") { canvas.zoomIn() }.keyboardShortcut("+", modifiers: .command)
+                Button("Fit to screen") { canvas.fit() }.keyboardShortcut("0", modifiers: .command)
+            }
+            .opacity(0)
+            .accessibilityHidden(true)
         }
         .background(Theme.background)
         .background { EditorShortcuts(document: document) }
@@ -109,14 +107,6 @@ struct EditorView: View {
         .sheet(isPresented: $document.isReplacingColor) { ReplaceColorSheet(document: document) }
         .sheet(isPresented: Binding(get: { document.textAnchor != nil }, set: { if !$0 { document.textAnchor = nil } })) {
             TextEntrySheet(document: document)
-        }
-        .alert("Rename project", isPresented: $showingRename) {
-            TextField("Name", text: $renameText)
-            Button("Cancel", role: .cancel) {}
-            Button("Save") {
-                let trimmed = renameText.trimmingCharacters(in: .whitespaces)
-                if !trimmed.isEmpty { document.name = trimmed }
-            }
         }
         .onChange(of: document.name) { scheduleSave() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { save() } }
@@ -489,7 +479,6 @@ struct ToolRail: View {
 private struct CanvasHost: View {
     let document: SpriteDocument
     let controller: CanvasController
-    let onZoomChanged: (CGFloat) -> Void
     let onFocusToggle: () -> Void
     /// Called after every committed change (autosave).
     let onRevision: () -> Void
@@ -510,7 +499,6 @@ private struct CanvasHost: View {
                 ?? (document.showTileGrid ? sprite.grid : nil),
             symmetry: document.symmetry,
             tiledMode: document.tiledMode,
-            onZoomChanged: onZoomChanged,
             onFocusToggle: onFocusToggle
         )
         .onChange(of: document.revision) { onRevision() }
