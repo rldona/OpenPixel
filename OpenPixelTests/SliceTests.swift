@@ -91,7 +91,7 @@ final class SliceTests: XCTestCase {
         XCTAssertEqual(pieces.count, 1)
         XCTAssertEqual(pieces[0].image.width, 4)
         XCTAssertEqual(pieces[0].image[0, 0], .black)
-        let urls = try Exporter.exportFiles(doc.sprite, name: "doc", frameIndex: 0, format: .spriteSheet, scale: 1, includeData: true)
+        let urls = try Exporter.exportFiles(doc.sprite, name: "doc", frameIndex: 0, options: ExportOptions(format: .spriteSheet, scale: 1, includeData: true))
         XCTAssertEqual(urls.map(\.pathExtension), ["png", "json"])
     }
 }

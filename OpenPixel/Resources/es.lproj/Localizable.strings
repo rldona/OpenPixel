@@ -180,12 +180,10 @@
 "Sprite sheet" = "Hoja de sprites";
 "Animated GIF" = "GIF animado";
 "Current frame" = "Frame actual";
-"All frames in a row" = "Todos los frames en fila";
 "With each frame's duration" = "Con la duración de cada frame";
 "loops forever" = "bucle infinito";
 "plays %lld times" = "se reproduce %lld veces";
 "Scale" = "Escala";
-"Nearest-neighbor scaling keeps pixels sharp." = "Escalado por vecino más cercano: los píxeles siguen nítidos.";
 "Share or save…" = "Compartir o guardar…";
 "Couldn't create the image." = "No se pudo generar la imagen.";
 "Couldn't read the image." = "No se pudo leer la imagen.";
@@ -599,3 +597,22 @@
 "The pencil places the selected tile, the eraser clears cells, the bucket fills connected cells and the eyedropper picks a tile." = "El lápiz pone el tile elegido, la goma vacía celdas, el cubo rellena celdas conectadas y el cuentagotas elige un tile.";
 "Tool" = "Herramienta";
 "Selection" = "Selección";
+
+/* Files: Aseprite, import and export */
+"This isn't an Aseprite file." = "Este archivo no es de Aseprite.";
+"The Aseprite file is damaged." = "El archivo de Aseprite está dañado.";
+"PNG sequence" = "Secuencia PNG";
+"One file per frame" = "Un archivo por frame";
+"Frames in a row" = "Frames en fila";
+"Aseprite" = "Aseprite";
+"Layers, frames, tags and slices" = "Capas, frames, tags y slices";
+"Apply pixel ratio" = "Aplicar pixel ratio";
+"Pixels come out %@, as on the canvas." = "Los píxeles salen a %@, como en el lienzo.";
+"Export for Twitter" = "Exportar para Twitter";
+"Adjusts the last frame's duration so Twitter plays the animation right." = "Ajusta la duración del último frame para que Twitter reproduzca bien la animación.";
+"Keeps opaque images as PNG instead of JPEG on Twitter." = "Evita que Twitter convierta las imágenes opacas a JPEG.";
+"The whole sprite as Aseprite saves it, to keep working on it in Aseprite or in OpenPixel on another device." = "El sprite completo tal como lo guarda Aseprite, para seguir trabajando en Aseprite o en OpenPixel en otro dispositivo.";
+"Range…" = "Rango…";
+"Visible layers" = "Capas visibles";
+"As the tag" = "Como el tag";
+"Pixel ratio" = "Pixel ratio";
