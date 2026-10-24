@@ -97,6 +97,9 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = UIColor(Theme.background)
+        // The sprite layers move freely when zooming and panning; keep them
+        // from drawing over the toolbars around the canvas.
+        clipsToBounds = true
         isMultipleTouchEnabled = true
         setUpLayers()
         setUpGestures()
