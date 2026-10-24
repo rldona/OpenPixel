@@ -17,8 +17,11 @@ struct ToolOptionsBar: View {
                 // The tip's shape only shows from 2 px up.
                 if document.brushSize > 1 { brushShape }
             }
-            if document.tool == .pencil || document.tool == .eraser {
+            if document.tool.usesInk || document.tool == .eraser {
                 divider
+                InkButton(document: document)
+            }
+            if document.tool == .pencil || document.tool == .eraser {
                 toggle("Pixel-perfect", isOn: $document.pixelPerfect)
                     .disabled(document.brushSize > 1)
                     .opacity(document.brushSize > 1 ? 0.4 : 1)
@@ -26,6 +29,13 @@ struct ToolOptionsBar: View {
             if document.tool == .rectangle || document.tool == .ellipse {
                 divider
                 toggle("Fill", isOn: $document.shapeFilled)
+            }
+            if document.tool == .rectangle {
+                cornerRadius
+            }
+            if document.tool.buildsOverTouches || document.tool == .contour {
+                divider
+                shapeProgress
             }
             if document.tool == .bucket {
                 divider
@@ -130,6 +140,68 @@ struct ToolOptionsBar: View {
         case .add: "Add to selection"
         case .subtract: "Subtract from selection"
         case .intersect: "Intersect selection"
+        }
+    }
+
+    private var cornerRadius: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "button.roundedtop.horizontal")
+                .font(.system(size: 13, weight: .medium))
+                .accessibilityHidden(true)
+            Button { document.cornerRadius = max(0, document.cornerRadius - 1) } label: {
+                Image(systemName: "minus").frame(width: 30, height: 34)
+            }
+            .disabled(document.cornerRadius == 0)
+            .accessibilityLabel(Text("Less rounded corners"))
+            Text(verbatim: "\(document.cornerRadius) px")
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .frame(width: 40)
+                .accessibilityLabel(Text("Corner radius: \(document.cornerRadius) pixels"))
+            Button { document.cornerRadius = min(SpriteDocument.maxCornerRadius, document.cornerRadius + 1) } label: {
+                Image(systemName: "plus").frame(width: 30, height: 34)
+            }
+            .accessibilityLabel(Text("More rounded corners"))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.text)
+    }
+
+    /// What the next touch does while a curve or polygon is being built, and a Done button.
+    @ViewBuilder
+    private var shapeProgress: some View {
+        Text(shapeHint)
+            .font(.system(size: 13))
+            .foregroundStyle(Theme.muted)
+            .fixedSize()
+        if document.isBuildingShape {
+            Button { document.finishPendingShape() } label: {
+                Text("Done")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.onAccent)
+                    .padding(.horizontal, 12)
+                    .frame(height: 30)
+                    .background(Theme.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.return, modifiers: [])
+            Button { document.cancelPendingShape() } label: {
+                Image(systemName: "xmark").frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Theme.text)
+            .keyboardShortcut(.escape, modifiers: [])
+            .accessibilityLabel(Text("Cancel"))
+        }
+    }
+
+    private var shapeHint: LocalizedStringKey {
+        switch (document.tool, document.pendingShapeStage) {
+        case (.curve, 2): "Drag to bend the curve"
+        case (.curve, 3): "Drag to bend the other end"
+        case (.curve, _): "Drag to draw the line, then bend it"
+        case (.polygon, 0): "Tap to place the corners"
+        case (.polygon, _): "Tap the first corner to close it"
+        default: "Draw the outline; it fills when you lift"
         }
     }
 

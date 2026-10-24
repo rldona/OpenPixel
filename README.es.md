@@ -13,12 +13,15 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Proyectos**: galería con miniaturas, búsqueda, filtros (todos, animaciones, estáticos), renombrar, duplicar, eliminar e importar PNG/GIF/JPEG.
 - **Nuevo sprite**: tamaños rápidos (16–256) o personalizado hasta 1024 px, fondo transparente, blanco o negro, y paleta inicial (PICO-8, Sweetie 16, DawnBringer 16, grises).
 - **Editor**
-  - Lápiz, goma, cubo de pintura, cuentagotas, línea, rectángulo y elipse, más simetría horizontal.
+  - Lápiz, goma, cubo de pintura, cuentagotas, línea, **curva**, rectángulo, elipse, **contorno** y **polígono** (como en [Aseprite](https://www.aseprite.org/docs/drawing/)), más simetría horizontal.
+    - Curva: arrastra la línea y luego arrastra dos veces para curvar cada extremo. Polígono: toca cada esquina y toca la primera (o Listo) para cerrarlo. Contorno: dibuja el borde y se rellena al levantar. Los puntos de control y las esquinas se marcan en el lienzo.
   - Barra de opciones flotante según la herramienta:
     - pincel cuadrado o redondo de 1 a 8 px;
     - pixel-perfect opcional para trazos de 1 px sin esquinas dobles (desactivado por defecto; se recuerda tu elección);
-    - formas con o sin relleno, con vista previa mientras arrastras;
+    - formas con o sin relleno, con vista previa mientras arrastras, y rectángulos con esquinas redondeadas;
     - cubo contiguo o global (sustituye el color en toda la cel).
+  - **Tintas** ([las de Aseprite](https://www.aseprite.org/docs/ink/)): simple, mezcla alfa, copiar alfa + color, bloquear alfa (pinta solo sobre lo dibujado) y sombreado (cada pasada mueve lo dibujado al color siguiente o anterior de la paleta). **Opacidad** de la herramienta, aplicada una vez por trazo para que repasar no acumule.
+  - La **presión del Apple Pencil** puede cambiar el grosor y/o la opacidad.
   - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.
   - Deshacer y rehacer (hasta 100 pasos).
 - **Timeline** al estilo Aseprite, compacto como el suyo: arrastra su borde superior para hacerlo más alto o más bajo (doble toque en el borde para ver todas las capas). Mantiene a la vista la capa con la que trabajas, y la fila de tags solo aparece cuando el sprite tiene tags.
@@ -65,9 +68,11 @@ Con teclado se usan los atajos de Aseprite:
 | `E` | Goma |
 | `G` | Cubo |
 | `I` | Cuentagotas |
-| `L` | Línea |
+| `L` / `⇧L` | Línea / curva |
+| `D` / `⇧D` | Contorno / polígono |
 | `U` / `⇧U` | Rectángulo / elipse |
 | `[` `]` | Tamaño del pincel |
+| `↩` / `⎋` | Al construir una curva o un polígono: listo / cancelar |
 | `X` | Intercambiar colores |
 | `⌥N` | Nuevo frame (duplica el actual) |
 | `⌥⇧N` | Nuevo frame vacío |

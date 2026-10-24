@@ -13,12 +13,15 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 - **Projects** gallery with thumbnails, search, filters (all, animations, still images), rename, duplicate, delete, and PNG/GIF/JPEG import.
 - **New sprite**: quick sizes (16–256) or custom up to 1024 px, transparent, white or black background, and a starting palette (PICO-8, Sweetie 16, DawnBringer 16, grays).
 - **Editor**
-  - Pencil, eraser, paint bucket, eyedropper, line, rectangle and ellipse, plus horizontal symmetry.
+  - Pencil, eraser, paint bucket, eyedropper, line, **curve**, rectangle, ellipse, **contour** and **polygon** (as in [Aseprite](https://www.aseprite.org/docs/drawing/)), plus horizontal symmetry.
+    - Curve: drag the line, then drag twice to bend each end. Polygon: tap each corner and tap the first one (or Done) to close it. Contour: draw an outline and it fills when you lift. Control points and corners are marked on the canvas.
   - Floating tool options:
     - square or round brush from 1 to 8 px;
     - optional pixel-perfect for clean 1 px strokes (off by default; the choice is remembered);
-    - filled or outlined shapes, previewed while you drag;
+    - filled or outlined shapes, previewed while you drag, and rounded rectangle corners;
     - contiguous or global fill.
+  - **Inks** ([Aseprite's](https://www.aseprite.org/docs/ink/)): simple, alpha compositing, copy alpha + color, lock alpha (paint only over what's drawn) and shading (each pass moves drawn pixels to the next or previous palette color). Tool **opacity**, applied once per stroke so going over the same spot doesn't build up.
+  - **Apple Pencil pressure** can change the brush size and/or the opacity.
   - Pixel grid, whole-number zoom levels and fit to screen.
 - **Selection** (as in [Aseprite](https://www.aseprite.org/docs/selecting/))
   - Rectangular and elliptical marquee, lasso and magic wand (tolerance, contiguous, current layer or all layers).
@@ -89,7 +92,8 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 | `E` | Eraser |
 | `G` | Paint bucket |
 | `I` | Eyedropper |
-| `L` | Line |
+| `L` / `⇧L` | Line / curve |
+| `D` / `⇧D` | Contour / polygon |
 | `U` / `⇧U` | Rectangle / ellipse |
 | `[` `]` | Brush size |
 | `M` / `⇧M` | Rectangular / elliptical marquee |
@@ -102,6 +106,7 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 | `⌘T` | Transform |
 | `⇧H` / `⇧V` | Flip horizontally / vertically |
 | `↩` / `⎋` / arrows | While transforming: apply / cancel / nudge 1 px |
+| `↩` / `⎋` | While building a curve or polygon: done / cancel |
 | `X` | Swap colors |
 | `⌥N` | New frame (duplicates the current one) |
 | `⌥⇧N` | New empty frame |

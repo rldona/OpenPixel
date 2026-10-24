@@ -396,3 +396,37 @@
 "Tap an element to select it" = "Toca un elemento para seleccionarlo";
 "The layers are hidden or locked" = "Las capas están ocultas o bloqueadas";
 "All frames" = "Todos los frames";
+
+/* Inks */
+"Simple" = "Simple";
+"Alpha compositing" = "Mezcla alfa";
+"Copy alpha + color" = "Copiar alfa + color";
+"Lock alpha" = "Bloquear alfa";
+"Shading" = "Sombreado";
+"Ink" = "Tinta";
+"Ink and opacity" = "Tinta y opacidad";
+"Shading direction" = "Dirección del sombreado";
+"Previous palette color" = "Color anterior de la paleta";
+"Next palette color" = "Color siguiente de la paleta";
+"Apple Pencil pressure" = "Presión del Apple Pencil";
+"Changes the size" = "Cambia el grosor";
+"Changes the opacity" = "Cambia la opacidad";
+"Paints the color; transparent erases" = "Pinta el color; el transparente borra";
+"Blends over what's there" = "Se mezcla con lo que hay debajo";
+"Replaces color and transparency" = "Sustituye el color y la transparencia";
+"Paints only over drawn pixels" = "Pinta solo sobre lo ya dibujado";
+"Steps drawn pixels along the palette" = "Mueve lo dibujado por la paleta";
+
+/* Curve, contour, polygon */
+"Curve" = "Curva";
+"Contour" = "Contorno";
+"Polygon" = "Polígono";
+"Less rounded corners" = "Esquinas menos redondeadas";
+"More rounded corners" = "Esquinas más redondeadas";
+"Corner radius: %lld pixels" = "Radio de las esquinas: %lld píxeles";
+"Drag to bend the curve" = "Arrastra para curvarla";
+"Drag to bend the other end" = "Arrastra para curvar el otro extremo";
+"Drag to draw the line, then bend it" = "Arrastra para trazar la línea y luego cúrvala";
+"Tap to place the corners" = "Toca para poner las esquinas";
+"Tap the first corner to close it" = "Toca la primera esquina para cerrarlo";
+"Draw the outline; it fills when you lift" = "Dibuja el contorno; se rellena al levantar";

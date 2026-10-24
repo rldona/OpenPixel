@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum Tool: String, CaseIterable, Identifiable {
-    case pencil, eraser, bucket, eyedropper, line, rectangle, ellipse
+    case pencil, eraser, bucket, eyedropper, line, curve, rectangle, ellipse, contour, polygon
     case selectRectangle, selectEllipse, lasso, magicWand, move, text
 
     var id: String { rawValue }
@@ -13,6 +13,9 @@ enum Tool: String, CaseIterable, Identifiable {
         case .bucket: "Paint bucket"
         case .eyedropper: "Eyedropper"
         case .line: "Line"
+        case .curve: "Curve"
+        case .contour: "Contour"
+        case .polygon: "Polygon"
         case .rectangle: "Rectangle"
         case .ellipse: "Ellipse"
         case .selectRectangle: "Rectangular marquee"
@@ -31,6 +34,9 @@ enum Tool: String, CaseIterable, Identifiable {
         case .bucket: "drop"
         case .eyedropper: "eyedropper"
         case .line: "line.diagonal"
+        case .curve: "point.topleft.down.to.point.bottomright.curvepath"
+        case .contour: "scribble.variable"
+        case .polygon: "pentagon"
         case .rectangle: "rectangle"
         case .ellipse: "circle"
         case .selectRectangle: "rectangle.dashed"
@@ -49,7 +55,8 @@ enum Tool: String, CaseIterable, Identifiable {
         case .eraser: "e"
         case .bucket: "g"
         case .eyedropper: "i"
-        case .line: "l"
+        case .line, .curve: "l"
+        case .contour, .polygon: "d"
         case .rectangle, .ellipse: "u"
         case .selectRectangle, .selectEllipse: "m"
         case .lasso: "q"
@@ -59,15 +66,22 @@ enum Tool: String, CaseIterable, Identifiable {
         }
     }
 
-    var shortcutModifiers: EventModifiers { self == .ellipse || self == .selectEllipse ? .shift : [] }
+    var shortcutModifiers: EventModifiers { [.ellipse, .selectEllipse, .curve, .polygon].contains(self) ? .shift : [] }
 
     /// Tools whose strokes are stamped with the brush.
     var usesBrush: Bool {
         switch self {
-        case .pencil, .eraser, .line, .rectangle, .ellipse: true
+        case .pencil, .eraser, .line, .curve, .rectangle, .ellipse: true
         default: false
         }
     }
+
+    /// Tools that paint with the ink (the eraser always erases).
+    var usesInk: Bool { (usesBrush && self != .eraser) || [.bucket, .contour, .polygon].contains(self) }
+
+    /// Shapes built over several touches: a curve is bent after drawing its
+    /// line, a polygon gets a corner per tap.
+    var buildsOverTouches: Bool { self == .curve || self == .polygon }
 
     /// Tools that draw a shape from the touch-down point to the current point.
     var isShape: Bool { self == .line || self == .rectangle || self == .ellipse }
@@ -89,7 +103,7 @@ enum ToolGroup: CaseIterable, Identifiable {
         case .eraser: [.eraser]
         case .bucket: [.bucket]
         case .eyedropper: [.eyedropper]
-        case .shapes: [.line, .rectangle, .ellipse]
+        case .shapes: [.line, .curve, .rectangle, .ellipse, .contour, .polygon]
         case .text: [.text]
         case .select: [.selectRectangle, .selectEllipse, .lasso, .magicWand]
         case .move: [.move]

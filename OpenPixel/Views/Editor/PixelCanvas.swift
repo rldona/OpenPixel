@@ -34,8 +34,8 @@ struct PixelCanvas: UIViewRepresentable {
         view.onTransformMoved = { [weak document] in document?.continueTransformDrag(to: $0) }
         view.onTransformEnded = { [weak document] in document?.endTransformDrag() }
         view.onTransformOutsideTap = { [weak document] in document?.applyTransform() }
-        view.onStrokeBegan = { [weak document] in document?.beginStroke(at: $0) }
-        view.onStrokeMoved = { [weak document] in document?.continueStroke(through: $0) }
+        view.onStrokeBegan = { [weak document] in document?.beginStroke(at: $0, pressure: $1) }
+        view.onStrokeMoved = { [weak document] in document?.continueStroke(through: $0, pressures: $1) }
         view.onStrokeEnded = { [weak document] in document?.endStroke() }
         view.onStrokeCancelled = { [weak document] in document?.cancelStroke() }
         view.onUndo = { [weak document] in document?.undo() }

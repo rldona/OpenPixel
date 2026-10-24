@@ -55,8 +55,14 @@ final class SpriteDocument {
     private(set) var hasUnsavedChanges = false
 
     /// Changing the active cel drops any floating pixels first, like Aseprite.
-    var activeLayerID: UUID { didSet { if oldValue != activeLayerID { applyTransformIfNeeded() } } }
-    var activeFrameIndex = 0 { didSet { if oldValue != activeFrameIndex { applyTransformIfNeeded() } } }
+    var activeLayerID: UUID {
+        willSet { if newValue != activeLayerID { finishPendingShape() } }
+        didSet { if oldValue != activeLayerID { applyTransformIfNeeded() } }
+    }
+    var activeFrameIndex = 0 {
+        willSet { if newValue != activeFrameIndex { finishPendingShape() } }
+        didSet { if oldValue != activeFrameIndex { applyTransformIfNeeded() } }
+    }
     private(set) var tool: Tool = .pencil
     private var previousTool: Tool = .pencil
     var primary: PixelColor
@@ -71,6 +77,22 @@ final class SpriteDocument {
         didSet { UserDefaults.standard.set(pixelPerfect, forKey: "pixelPerfect") }
     }
     var shapeFilled = false
+    /// Rounded corners for the rectangle tool, in pixels.
+    var cornerRadius = 0
+    static let maxCornerRadius = 32
+    /// How the tool's color combines with the pixels under it.
+    var ink = Ink.simple
+    /// Tool opacity, 0...255 as in Aseprite.
+    var toolOpacity = 255
+    /// Which way the shading ink walks the palette.
+    var shadeDirection = ShadeDirection.forward
+    /// Apple Pencil pressure changes the brush size and/or the opacity.
+    var pressureSize = UserDefaults.standard.bool(forKey: "pressureSize") {
+        didSet { UserDefaults.standard.set(pressureSize, forKey: "pressureSize") }
+    }
+    var pressureOpacity = UserDefaults.standard.bool(forKey: "pressureOpacity") {
+        didSet { UserDefaults.standard.set(pressureOpacity, forKey: "pressureOpacity") }
+    }
     /// Bucket fills only the connected area; when off it replaces the color everywhere in the cel.
     var fillContiguous = true
     var showGrid = true
@@ -164,6 +186,22 @@ final class SpriteDocument {
     @ObservationIgnored private var shapeRect: PixelRect?
     /// Pixels plotted so far in a 1 px freehand stroke, for pixel-perfect.
     @ObservationIgnored private var strokePath: [PixelPoint] = []
+    /// How strongly each pixel has been painted in the current stroke (0...255).
+    /// Inks are applied to the cel as it was when the stroke began, so going
+    /// over the same pixel twice in one stroke doesn't build up opacity or shading.
+    @ObservationIgnored private var strokeCoverage: [UInt8] = []
+    @ObservationIgnored private var strokePressure: Double = 1
+    /// The contour tool's path, filled when the stroke ends.
+    @ObservationIgnored private var contourPath: [PixelPoint] = []
+    /// The curve ([start, end, control 1, control 2]) or the polygon's corners
+    /// while they're built over several touches.
+    @ObservationIgnored private var pendingShape: [PixelPoint] = []
+    @ObservationIgnored private var pendingBeforeDrag: [PixelPoint] = []
+    @ObservationIgnored private var pendingDragging = false
+    /// 0 when nothing is pending. A curve is at 1 while its line is drawn and
+    /// at 2 and 3 while each end is bent; a polygon stays at 1.
+    private(set) var pendingShapeStage = 0
+    var isBuildingShape: Bool { pendingShapeStage != 0 }
     static let maxBrushSize = 8
     @ObservationIgnored private var playTask: Task<Void, Never>?
     private static let historyLimit = 100
@@ -220,6 +258,7 @@ final class SpriteDocument {
     /// While transforming, undo cancels the transform.
     func undo() {
         if isTransforming { return cancelTransform() }
+        if isBuildingShape { return cancelPendingShape() }
         cancelStroke()
         guard let previous = undoStack.popLast() else { return }
         stopPlayback()
@@ -254,6 +293,7 @@ final class SpriteDocument {
     // MARK: - Tools and colors
 
     func select(_ newTool: Tool) {
+        if newTool != tool { finishPendingShape() }
         if newTool != .move { applyTransformIfNeeded() }
         if newTool != tool { previousTool = tool }
         tool = newTool
@@ -301,7 +341,12 @@ final class SpriteDocument {
 
     private var activeCelKey: CelKey { CelKey(layer: activeLayerID, frame: activeFrame.id) }
 
-    func beginStroke(at p: PixelPoint) {
+    /// `pressure` is the Apple Pencil's force, 0...1 (1 for fingers).
+    func beginStroke(at p: PixelPoint, pressure: Double = 1) {
+        if isBuildingShape {
+            if tool.buildsOverTouches { return continuePendingShape(at: p) }
+            finishPendingShape()
+        }
         cancelStroke()
         stopPlayback()
         if tool == .eyedropper {
@@ -322,54 +367,85 @@ final class SpriteDocument {
         }
 
         strokeStart = storage
+        strokeCoverage = [UInt8](repeating: 0, count: storage.width * storage.height)
+        strokePressure = pressure
         switch tool {
         case .bucket:
-            let color = primary, contiguous = fillContiguous, mask = selection
-            mutateActiveCel(dirty: nil) { image in
-                if contiguous {
-                    Raster.floodFill(&image, at: p, with: color, within: mask)
-                } else {
-                    Raster.replaceColor(&image, at: p, with: color, within: mask)
-                }
-            }
+            fill(at: p)
             endStroke()
         case .line, .rectangle, .ellipse:
             shapeOrigin = p
             shapeRect = nil
             drawShape(to: p)
+        case .curve, .polygon:
+            pendingShape = tool == .curve ? [p, p, p, p] : [p]
+            pendingBeforeDrag = []
+            pendingDragging = true
+            pendingShapeStage = 1
+            redrawPendingShape()
         default:
             lastPoint = p
             strokePath = []
-            plotFreehand([p])
+            contourPath = [p]
+            plotFreehand([p], pressures: [pressure])
         }
     }
 
-    func continueStroke(to p: PixelPoint) {
-        continueStroke(through: [p])
+    func continueStroke(to p: PixelPoint, pressure: Double = 1) {
+        continueStroke(through: [p], pressures: [pressure])
     }
 
     /// Extends the stroke through several points at once (all the Pencil
     /// samples of one touch event), redrawing the canvas only once.
-    func continueStroke(through points: [PixelPoint]) {
+    func continueStroke(through points: [PixelPoint], pressures: [Double]? = nil) {
         if selectionDrag != nil { return updateSelection(through: points) }
         guard strokeStart != nil, let target = points.last else { return }
+        if pendingDragging {
+            movePendingPoint(to: target)
+            return
+        }
         if tool.isShape {
             drawShape(to: target)
             return
         }
         guard var last = lastPoint else { return }
         var path: [PixelPoint] = []
-        for p in points where p != last {
-            path.append(contentsOf: Raster.line(from: last, to: p).dropFirst())
+        var pathPressures: [Double] = []
+        for (n, p) in points.enumerated() where p != last {
+            let segment = Raster.line(from: last, to: p).dropFirst()
+            path.append(contentsOf: segment)
+            // Ease the pressure along the segment so a fast stroke doesn't step.
+            let from = strokePressure, to = pressures?[n] ?? 1
+            for k in 1...segment.count { pathPressures.append(from + (to - from) * Double(k) / Double(segment.count)) }
+            strokePressure = to
             last = p
         }
         guard !path.isEmpty else { return }
         lastPoint = last
-        plotFreehand(path)
+        if tool == .contour { contourPath += path }
+        plotFreehand(path, pressures: pathPressures)
     }
 
     func endStroke() {
         if selectionDrag != nil { return finishSelection() }
+        if isBuildingShape {
+            pendingDragging = false
+            if tool == .curve {
+                pendingShapeStage += 1
+                if pendingShapeStage > 3 { finishPendingShape() }
+            }
+            return
+        }
+        if tool == .contour, strokeStart != nil {
+            // Replace the outline drawn so far with the filled shape.
+            shapeRect = dirtyRect(for: contourPath)
+            drawPreview(Raster.polygon(contourPath, filled: true))
+        }
+        commitStroke()
+    }
+
+    /// One undo step for everything the stroke changed.
+    private func commitStroke() {
         guard let start = strokeStart else { return }
         resetStroke()
         let key = activeCelKey
@@ -378,13 +454,25 @@ final class SpriteDocument {
         changed()
     }
 
-    /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be a pinch.
+    /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be
+    /// a pinch. While a curve or polygon is being built only the drag is undone.
     func cancelStroke() {
         if let drag = selectionDrag {
             selectionDrag = nil
             selection = drag.before
             return
         }
+        if isBuildingShape {
+            guard pendingDragging else { return }
+            pendingDragging = false
+            guard !pendingBeforeDrag.isEmpty else { return cancelPendingShape() }
+            pendingShape = pendingBeforeDrag
+            return redrawPendingShape()
+        }
+        revertStroke()
+    }
+
+    private func revertStroke() {
         guard let start = strokeStart else { return }
         resetStroke()
         storage = start
@@ -397,6 +485,82 @@ final class SpriteDocument {
         shapeOrigin = nil
         shapeRect = nil
         strokePath = []
+        strokeCoverage = []
+        strokePressure = 1
+        contourPath = []
+    }
+
+    // MARK: Curves and polygons
+
+    private func continuePendingShape(at p: PixelPoint) {
+        pendingBeforeDrag = pendingShape
+        if tool == .polygon, pendingShape.count >= 3, let first = pendingShape.first,
+           max(abs(first.x - p.x), abs(first.y - p.y)) <= 1 {
+            // Tapping the first corner closes the polygon.
+            return finishPendingShape()
+        }
+        pendingDragging = true
+        if tool == .polygon { pendingShape.append(p) }
+        movePendingPoint(to: p)
+    }
+
+    /// The point the current drag holds: the curve's end or a control point,
+    /// or the polygon's newest corner.
+    private func movePendingPoint(to p: PixelPoint) {
+        if tool == .polygon {
+            pendingShape[pendingShape.count - 1] = p
+        } else {
+            switch pendingShapeStage {
+            case 1: pendingShape[1] = p
+            // The first bend moves both control points, so it bends like an arc;
+            // the second one moves only the end's control point.
+            case 2: pendingShape[2] = p; pendingShape[3] = p
+            default: pendingShape[3] = p
+            }
+        }
+        redrawPendingShape()
+    }
+
+    private func redrawPendingShape() {
+        let s = pendingShape
+        switch tool {
+        case .curve where s.count == 4: drawPreview(Raster.curve(from: s[0], s[2], s[3], to: s[1]))
+        case .polygon where !s.isEmpty: drawPreview(Raster.polygon(s, filled: true))
+        default: break
+        }
+        onOverlayChange?()
+    }
+
+    /// Keeps the curve or polygon as it is now, as one undo step.
+    func finishPendingShape() {
+        guard isBuildingShape else { return }
+        pendingShape = []
+        pendingBeforeDrag = []
+        pendingDragging = false
+        pendingShapeStage = 0
+        commitStroke()
+        onOverlayChange?()
+    }
+
+    func cancelPendingShape() {
+        guard isBuildingShape else { return }
+        pendingShape = []
+        pendingBeforeDrag = []
+        pendingDragging = false
+        pendingShapeStage = 0
+        revertStroke()
+        onOverlayChange?()
+    }
+
+    /// Points the canvas marks while a curve or polygon is being built, and
+    /// the lines from each end of the curve to its control point.
+    var shapeGuides: (handles: [PixelPoint], lines: [(PixelPoint, PixelPoint)]) {
+        guard isBuildingShape else { return ([], []) }
+        let s = pendingShape
+        if tool == .curve, s.count == 4 {
+            return pendingShapeStage == 1 ? ([s[0], s[1]], []) : (s, [(s[0], s[2]), (s[1], s[3])])
+        }
+        return (s, [])
     }
 
     var strokeColor: PixelColor { tool == .eraser ? eraseColor : primary }
@@ -411,41 +575,71 @@ final class SpriteDocument {
     }
 
     /// Area covered by stamping the brush on `points`, including its mirror.
+    /// Contours and polygons are filled shapes; they don't use the brush.
+    private var effectiveBrushSize: Int { tool.usesBrush ? brushSize : 1 }
+
     private func dirtyRect(for points: some Sequence<PixelPoint>) -> PixelRect? {
+        let brushSize = effectiveBrushSize
         let lower = -(brushSize - 1) / 2, upper = brushSize / 2
         guard var rect = PixelRect(bounding: points, lower: lower, upper: upper) else { return nil }
         if mirrorX { rect = rect.union(rect.mirrored(width: storage.width)) }
         return rect.clipped(width: storage.width, height: storage.height)
     }
 
+    /// The ink a stroke uses: the eraser always erases.
+    private var strokeInk: Ink { tool == .eraser ? .simple : ink }
+
     /// Stamps the brush on every point (and its mirror when symmetry is on).
     /// With a selection, only selected pixels are painted, as in Aseprite.
-    private func stamp(_ points: [PixelPoint], on image: inout PixelImage, color: PixelColor) {
-        let offsets = Raster.brushOffsets(size: brushSize, shape: brushShape)
-        let mask = selection
-        func paint(_ q: PixelPoint) {
-            guard image.contains(q), mask?.contains(q) ?? true else { return }
-            image[q] = color
+    /// `pressures` (0...1, one per point) scale the size and opacity when
+    /// the pressure dynamics are on.
+    private func stamp(_ points: [PixelPoint], pressures: [Double]? = nil, on image: inout PixelImage, color: PixelColor) {
+        var offsetsBySize: [Int: [PixelPoint]] = [:]
+        func offsets(_ size: Int) -> [PixelPoint] {
+            if let cached = offsetsBySize[size] { return cached }
+            let o = Raster.brushOffsets(size: size, shape: brushShape)
+            offsetsBySize[size] = o
+            return o
         }
-        for p in points {
-            for o in offsets {
+        var painter = makePainter(color: color)
+        defer { strokeCoverage = painter.coverage }
+        let brushSize = effectiveBrushSize
+        for (n, p) in points.enumerated() {
+            let pressure = pressures?[n] ?? 1
+            let size = pressureSize ? 1 + Int((Double(brushSize - 1) * pressure).rounded()) : brushSize
+            let alpha = pressureOpacity ? Double(toolOpacity) * pressure : Double(toolOpacity)
+            let a = UInt8(max(1, min(255, alpha.rounded())))
+            for o in offsets(size) {
                 let q = PixelPoint(x: p.x + o.x, y: p.y + o.y)
-                paint(q)
-                if mirrorX { paint(PixelPoint(x: image.width - 1 - q.x, y: q.y)) }
+                painter.paint(q, alpha: a, on: &image)
+                if mirrorX { painter.paint(PixelPoint(x: image.width - 1 - q.x, y: q.y), alpha: a, on: &image) }
             }
         }
     }
 
-    private func plotFreehand(_ points: [PixelPoint]) {
+    /// Everything a stroke needs to paint one pixel, taken out of the
+    /// document so the inner loop doesn't go through observation.
+    private func makePainter(color: PixelColor) -> Painter {
+        let w = storage.width, h = storage.height
+        var coverage = strokeCoverage
+        strokeCoverage = []
+        if coverage.count != w * h { coverage = [UInt8](repeating: 0, count: w * h) }
+        return Painter(
+            ink: strokeInk, color: color, original: strokeStart?.cels[activeCelKey], mask: selection,
+            ramp: storage.palette.filter { !$0.isTransparent }, direction: shadeDirection, coverage: coverage
+        )
+    }
+
+    private func plotFreehand(_ points: [PixelPoint], pressures: [Double]? = nil) {
         let color = strokeColor
-        let usePixelPerfect = pixelPerfect && brushSize == 1
+        let usePixelPerfect = pixelPerfect && brushSize == 1 && (tool == .pencil || tool == .eraser)
         let original = strokeStart?.cels[activeCelKey]
         // Pixel-perfect may restore the pixel before these points, so include it.
         let dirty = dirtyRect(for: points + strokePath.suffix(2))
         mutateActiveCel(dirty: dirty) { image in
-            for p in points {
+            for (n, p) in points.enumerated() {
                 if strokePath.last == p { continue }
-                stamp([p], on: &image, color: color)
+                stamp([p], pressures: pressures.map { [$0[n]] }, on: &image, color: color)
                 guard usePixelPerfect else { continue }
                 strokePath.append(p)
                 removePixelPerfectCorner(in: &image, original: original)
@@ -464,25 +658,29 @@ final class SpriteDocument {
         // A pixel the stroke already went through elsewhere stays: removing it
         // would open a hole where the line crosses or doubles back on itself.
         guard isCorner, image.contains(b), !strokePath[..<(n - 3)].contains(b) else { return }
-        image[b] = original?[b] ?? .clear
-        if mirrorX {
-            let m = PixelPoint(x: image.width - 1 - b.x, y: b.y)
-            image[m] = original?[m] ?? .clear
+        func restore(_ q: PixelPoint) {
+            image[q] = original?[q] ?? .clear
+            if strokeCoverage.indices.contains(q.y * image.width + q.x) { strokeCoverage[q.y * image.width + q.x] = 0 }
         }
+        restore(b)
+        if mirrorX { restore(PixelPoint(x: image.width - 1 - b.x, y: b.y)) }
         strokePath.remove(at: n - 2)
     }
 
-    /// Redraws the shape from the touch-down point on top of the cel as it was
-    /// when the stroke began, so dragging previews it live.
     private func drawShape(to p: PixelPoint) {
-        guard let start = strokeStart, let origin = shapeOrigin else { return }
-        let points: [PixelPoint]
+        guard let origin = shapeOrigin else { return }
         switch tool {
-        case .line: points = Raster.line(from: origin, to: p)
-        case .rectangle: points = Raster.rectangle(from: origin, to: p, filled: shapeFilled)
-        case .ellipse: points = Raster.ellipse(from: origin, to: p, filled: shapeFilled)
+        case .line: drawPreview(Raster.line(from: origin, to: p))
+        case .rectangle: drawPreview(Raster.rectangle(from: origin, to: p, filled: shapeFilled, radius: cornerRadius))
+        case .ellipse: drawPreview(Raster.ellipse(from: origin, to: p, filled: shapeFilled))
         default: return
         }
+    }
+
+    /// Redraws a shape on top of the cel as it was when the stroke began, so
+    /// dragging previews it live.
+    private func drawPreview(_ points: [PixelPoint]) {
+        guard let start = strokeStart else { return }
         let key = activeCelKey
         let newRect = dirtyRect(for: points)
         // Repaint where the previous preview was, too, so it disappears.
@@ -491,17 +689,30 @@ final class SpriteDocument {
         shapeRect = newRect
         let color = strokeColor
         mutateActiveCel(dirty: dirty) { image in
-            if let previous, let original = start.cels[key] {
+            if let previous {
                 // Restore only the area the last preview touched.
+                let original = start.cels[key]
                 for y in previous.minY...previous.maxY {
-                    for x in previous.minX...previous.maxX { image[x, y] = original[x, y] }
-                }
-            } else if let previous {
-                for y in previous.minY...previous.maxY {
-                    for x in previous.minX...previous.maxX { image[x, y] = .clear }
+                    for x in previous.minX...previous.maxX {
+                        image[x, y] = original?[x, y] ?? .clear
+                        strokeCoverage[y * image.width + x] = 0
+                    }
                 }
             }
             stamp(points, on: &image, color: color)
+        }
+    }
+
+    /// Paint bucket: paints the area it reaches with the ink and opacity.
+    private func fill(at p: PixelPoint) {
+        let cel = storage.cels[activeCelKey] ?? PixelImage(width: storage.width, height: storage.height)
+        let region = Raster.fillRegion(in: cel, at: p, contiguous: fillContiguous, within: selection)
+        let color = primary, alpha = UInt8(max(1, min(255, toolOpacity)))
+        mutateActiveCel(dirty: nil) { image in
+            var painter = makePainter(color: color)
+            for i in region.bits.indices where region.bits[i] {
+                painter.paint(PixelPoint(x: i % image.width, y: i / image.width), alpha: alpha, on: &image)
+            }
         }
     }
 
@@ -1432,6 +1643,7 @@ extension SpriteDocument {
     }
 
     func applyTransformIfNeeded() {
+        finishPendingShape()
         if isTransforming { applyTransform() }
     }
 
@@ -1874,5 +2086,26 @@ extension SpriteDocument {
         var placed: [UUID] = []
         perform { placed = $0.moveLayers([id], to: index, copy: true) }
         if let copy = placed.first { activeLayerID = copy }
+    }
+}
+
+/// Paints single pixels with an ink, each at most once per stroke at its
+/// strongest alpha, always starting from the cel as the stroke found it.
+private struct Painter {
+    let ink: Ink
+    let color: PixelColor
+    let original: PixelImage?
+    let mask: SelectionMask?
+    let ramp: [PixelColor]
+    let direction: ShadeDirection
+    var coverage: [UInt8]
+
+    mutating func paint(_ q: PixelPoint, alpha: UInt8, on image: inout PixelImage) {
+        guard image.contains(q), mask?.contains(q) ?? true else { return }
+        let i = q.y * image.width + q.x
+        guard alpha > coverage[i] else { return }
+        coverage[i] = alpha
+        let ramp = ramp, direction = direction
+        image.pixels[i] = ink.apply(color, over: original?.pixels[i] ?? .clear, alpha: alpha) { direction.step($0, in: ramp) }
     }
 }

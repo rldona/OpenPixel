@@ -27,8 +27,9 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var showGrid = true { didSet { if oldValue != showGrid { updateOverlays() } } }
     var mirrorX = false { didSet { if oldValue != mirrorX { updateOverlays() } } }
 
-    var onStrokeBegan: ((PixelPoint) -> Void)?
-    var onStrokeMoved: (([PixelPoint]) -> Void)?
+    /// Points come with the Apple Pencil's pressure, 0...1 (always 1 for fingers).
+    var onStrokeBegan: ((PixelPoint, Double) -> Void)?
+    var onStrokeMoved: (([PixelPoint], [Double]) -> Void)?
     var onStrokeEnded: (() -> Void)?
     var onStrokeCancelled: (() -> Void)?
     var onUndo: (() -> Void)?
@@ -78,6 +79,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let antsFront = CAShapeLayer()
     private let boxLayer = CAShapeLayer()
     private let handlesLayer = CAShapeLayer()
+    /// Control points of a curve, corners of a polygon being built.
+    private let guidesLayer = CAShapeLayer()
     /// Selection edges in sprite coordinates, recomputed when the selection changes.
     private var outline: [(PixelPoint, PixelPoint)] = []
     /// Cell size and grid of the current checker image; it's rebuilt when any changes.
@@ -120,6 +123,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         mirrorLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         boxLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         handlesLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
+        guidesLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         shadowLayer.shadowOpacity = isDark ? 0.5 : 0.15
         checkerLayer.contents = nil
         updateChecker()
@@ -156,7 +160,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         layer.addSublayer(gridLayer)
         layer.addSublayer(mirrorLayer)
 
-        for l in [antsBack, antsFront, boxLayer, handlesLayer] {
+        for l in [antsBack, antsFront, boxLayer, handlesLayer, guidesLayer] {
             l.actions = Self.noAnimations
             l.fillColor = nil
             layer.addSublayer(l)
@@ -175,6 +179,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         boxLayer.lineWidth = 1.5
         handlesLayer.fillColor = UIColor.white.cgColor
         handlesLayer.lineWidth = 1.5
+        guidesLayer.fillColor = UIColor.white.cgColor
+        guidesLayer.lineWidth = 1.5
     }
 
     private func setUpGestures() {
@@ -339,6 +345,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         antsBack.path = ants
         antsFront.path = ants
 
+        updateGuides()
         boxLayer.frame = bounds
         handlesLayer.frame = bounds
         guard let box = document?.isTransforming == true ? document?.transformBox : nil else {
@@ -362,6 +369,25 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         let pivot = toView(box.pivot)
         handles.addEllipse(in: CGRect(x: pivot.x - 5, y: pivot.y - 5, width: 10, height: 10))
         handlesLayer.path = handles
+    }
+
+    private func updateGuides() {
+        guidesLayer.frame = bounds
+        guard let guides = document?.shapeGuides, !guides.handles.isEmpty else {
+            guidesLayer.path = nil
+            return
+        }
+        func center(_ p: PixelPoint) -> CGPoint { toView(CGPoint(x: Double(p.x) + 0.5, y: Double(p.y) + 0.5)) }
+        let path = CGMutablePath()
+        for (a, b) in guides.lines {
+            path.move(to: center(a))
+            path.addLine(to: center(b))
+        }
+        let radius = max(5, min(8, scale / 2))
+        for p in guides.handles.map(center) {
+            path.addEllipse(in: CGRect(x: p.x - radius, y: p.y - radius, width: radius * 2, height: radius * 2))
+        }
+        guidesLayer.path = path
     }
 
     /// What a touch at `location` (view coordinates) would grab on the transform box.
@@ -563,6 +589,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     // MARK: - Drawing touches
 
+    private func pressure(of touch: UITouch) -> Double {
+        guard touch.type == .pencil, touch.maximumPossibleForce > 0 else { return 1 }
+        return min(1, max(0.05, Double(touch.force / touch.maximumPossibleForce)))
+    }
+
     private func canDraw(with touch: UITouch) -> Bool {
         switch touch.type {
         case .pencil, .indirectPointer: true
@@ -610,7 +641,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         drawingTouch = touch
         if let p = spritePoint(touch.location(in: self)) {
             strokeActive = true
-            onStrokeBegan?(p)
+            onStrokeBegan?(p, pressure(of: touch))
         }
     }
 
@@ -632,23 +663,27 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         // The Pencil reports up to 240 samples per second; handle all of an
         // event's samples in one batch so the canvas updates once per event.
         var points: [PixelPoint] = []
+        var pressures: [Double] = []
         for sample in event?.coalescedTouches(for: touch) ?? [touch] {
             guard let p = spritePoint(sample.location(in: self)) else { continue }
             if !strokeActive {
                 strokeActive = true
-                onStrokeBegan?(p)
+                onStrokeBegan?(p, pressure(of: sample))
             } else if points.last != p {
                 points.append(p)
+                pressures.append(pressure(of: sample))
+            } else {
+                pressures[pressures.count - 1] = max(pressures[pressures.count - 1], pressure(of: sample))
             }
         }
-        if !points.isEmpty { onStrokeMoved?(points) }
+        if !points.isEmpty { onStrokeMoved?(points, pressures) }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
             // A tap inside the selection: select the element under it.
             pendingSelectionTouch = nil
-            onStrokeBegan?(pending.point)
+            onStrokeBegan?(pending.point, 1)
             onStrokeEnded?()
             return
         }

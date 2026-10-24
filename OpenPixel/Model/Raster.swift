@@ -43,14 +43,80 @@ enum Raster {
         return offsets
     }
 
-    /// Outline or filled rectangle between two opposite corners.
-    static func rectangle(from a: PixelPoint, to b: PixelPoint, filled: Bool) -> [PixelPoint] {
+    /// Outline or filled rectangle between two opposite corners, with corners
+    /// rounded by `radius` pixels (clamped to half the shorter side).
+    static func rectangle(from a: PixelPoint, to b: PixelPoint, filled: Bool, radius: Int = 0) -> [PixelPoint] {
         let x0 = min(a.x, b.x), x1 = max(a.x, b.x), y0 = min(a.y, b.y), y1 = max(a.y, b.y)
+        let r = max(0, min(radius, (x1 - x0) / 2, (y1 - y0) / 2))
+        // Inside test: away from the corners everything is in; in a corner the
+        // pixel's centre must be inside the circle of radius r + ½.
+        func inside(_ x: Int, _ y: Int) -> Bool {
+            guard x >= x0, x <= x1, y >= y0, y <= y1 else { return false }
+            guard r > 0 else { return true }
+            let cx = x < x0 + r ? x0 + r : (x > x1 - r ? x1 - r : x)
+            let cy = y < y0 + r ? y0 + r : (y > y1 - r ? y1 - r : y)
+            let dx = Double(x - cx), dy = Double(y - cy)
+            return dx * dx + dy * dy <= (Double(r) + 0.5) * (Double(r) + 0.5)
+        }
         var points: [PixelPoint] = []
         for y in y0...y1 {
-            for x in x0...x1 where filled || x == x0 || x == x1 || y == y0 || y == y1 {
-                points.append(PixelPoint(x: x, y: y))
+            for x in x0...x1 where inside(x, y) {
+                let edge = !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1)
+                if filled || edge { points.append(PixelPoint(x: x, y: y)) }
             }
+        }
+        return points
+    }
+
+    /// Cubic Bézier from `a` to `b` bent by two control points, as connected pixels.
+    static func curve(from a: PixelPoint, _ c1: PixelPoint, _ c2: PixelPoint, to b: PixelPoint) -> [PixelPoint] {
+        // Not bent yet: exactly what the line tool draws.
+        if c1 == a && c2 == b { return line(from: a, to: b) }
+        func length(_ p: PixelPoint, _ q: PixelPoint) -> Double { Double(max(abs(p.x - q.x), abs(p.y - q.y))) }
+        let steps = max(1, Int(length(a, c1) + length(c1, c2) + length(c2, b)) * 2)
+        var points: [PixelPoint] = []
+        var previous = a
+        for i in 1...steps {
+            let t = Double(i) / Double(steps), u = 1 - t
+            func axis(_ p0: Int, _ p1: Int, _ p2: Int, _ p3: Int) -> Int {
+                Int((u * u * u * Double(p0) + 3 * u * u * t * Double(p1) + 3 * u * t * t * Double(p2) + t * t * t * Double(p3)).rounded())
+            }
+            let p = PixelPoint(x: axis(a.x, c1.x, c2.x, b.x), y: axis(a.y, c1.y, c2.y, b.y))
+            guard p != previous else { continue }
+            points += line(from: previous, to: p).dropLast()
+            previous = p
+        }
+        points.append(b)
+        // Drop the L-corners the sampling leaves, so the curve stays 1 px thin.
+        var thin: [PixelPoint] = []
+        for p in points {
+            if thin.count >= 2 {
+                let m = thin[thin.count - 1], o = thin[thin.count - 2]
+                if abs(o.x - p.x) == 1 && abs(o.y - p.y) == 1 && (m.x == o.x || m.y == o.y) && (m.x == p.x || m.y == p.y) {
+                    thin.removeLast()
+                }
+            }
+            if thin.last != p { thin.append(p) }
+        }
+        return thin
+    }
+
+    /// A closed polygon through `vertices`: its edges, plus the inside when `filled`.
+    static func polygon(_ vertices: [PixelPoint], filled: Bool) -> [PixelPoint] {
+        guard let first = vertices.first else { return [] }
+        guard filled else {
+            let closed = vertices + [first]
+            var outline: [PixelPoint] = [first]
+            for i in 1..<closed.count { outline += line(from: closed[i - 1], to: closed[i]).dropFirst() }
+            return outline
+        }
+        let xs = vertices.map(\.x), ys = vertices.map(\.y)
+        let minX = xs.min()!, minY = ys.min()!
+        let shifted = vertices.map { PixelPoint(x: $0.x - minX, y: $0.y - minY) }
+        let mask = SelectionMask.polygon(shifted, width: xs.max()! - minX + 1, height: ys.max()! - minY + 1)
+        var points: [PixelPoint] = []
+        for i in mask.bits.indices where mask.bits[i] {
+            points.append(PixelPoint(x: i % mask.width + minX, y: i / mask.width + minY))
         }
         return points
     }
@@ -120,5 +186,42 @@ enum Raster {
             stack.append(PixelPoint(x: p.x, y: p.y + 1))
             stack.append(PixelPoint(x: p.x, y: p.y - 1))
         }
+    }
+
+    /// The pixels the paint bucket reaches from `start`: those whose color in
+    /// `reference` is within `tolerance` of the start color, connected to it
+    /// (through edges, or corners too with `diagonal`) when `contiguous`,
+    /// and inside `mask` if given.
+    static func fillRegion(
+        in reference: PixelImage, at start: PixelPoint, tolerance: Int = 0, contiguous: Bool = true,
+        diagonal: Bool = false, within mask: SelectionMask? = nil
+    ) -> SelectionMask {
+        let w = reference.width, h = reference.height
+        var region = [Bool](repeating: false, count: w * h)
+        guard reference.contains(start), mask?.contains(start) ?? true else { return SelectionMask(width: w, height: h, bits: region) }
+        let target = reference[start]
+        func reachable(_ i: Int) -> Bool {
+            reference.pixels[i].matches(target, tolerance: tolerance) && (mask?.bits[i] ?? true)
+        }
+        guard contiguous else {
+            for i in reference.pixels.indices where reachable(i) { region[i] = true }
+            return SelectionMask(width: w, height: h, bits: region)
+        }
+        var stack = [start.y * w + start.x]
+        region[stack[0]] = true
+        while let i = stack.popLast() {
+            let x = i % w, y = i / w
+            for dy in -1...1 {
+                for dx in -1...1 where (dx != 0 || dy != 0) && (diagonal || dx == 0 || dy == 0) {
+                    let nx = x + dx, ny = y + dy
+                    guard nx >= 0, ny >= 0, nx < w, ny < h else { continue }
+                    let j = ny * w + nx
+                    guard !region[j], reachable(j) else { continue }
+                    region[j] = true
+                    stack.append(j)
+                }
+            }
+        }
+        return SelectionMask(width: w, height: h, bits: region)
     }
 }
