@@ -25,6 +25,8 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
     - cuentagotas: la imagen completa o solo la capa activa;
     - si una herramienta tiene más opciones de las que caben, la barra se desplaza en horizontal.
   - **Simetría** ([la de Aseprite](https://www.aseprite.org/docs/symmetry/)): horizontal, vertical o ambas. Toca el botón del raíl para activarla o desactivarla; mantenlo pulsado para elegir los ejes o centrarlos. Arrastra un eje por su tirador (debajo o a la derecha del sprite) para moverlo en pasos de medio píxel, de modo que puede pasar entre dos píxeles o por el centro de uno.
+  - **Modo mosaico** (el Ver > Modo mosaico de Aseprite, el botón junto a la cuadrícula): el sprite se ve repetido alrededor, en horizontal, en vertical o en ambas direcciones, y los trazos, formas y rellenos pasan de un borde al contrario, para hacer texturas sin costuras.
+  - **Apretar** el Apple Pencil Pro intercambia el color principal y el secundario (Aseprite pinta con el secundario con el clic derecho).
   - **Tintas** ([las de Aseprite](https://www.aseprite.org/docs/ink/)): simple, mezcla alfa, copiar alfa + color, bloquear alfa (pinta solo sobre lo dibujado) y sombreado (cada pasada mueve lo dibujado al color siguiente o anterior de la paleta). **Opacidad** de la herramienta, aplicada una vez por trazo para que repasar no acumule.
   - La **presión del Apple Pencil** puede cambiar el grosor y/o la opacidad.
   - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.
@@ -64,6 +66,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 | Toque con tres dedos | Rehacer |
 | Mantener un dedo (con Pencil) | Cuentagotas rápido |
 | Doble toque en el Pencil | Alterna la goma y la herramienta anterior |
+| Apretar el Apple Pencil Pro | Intercambia el color principal y el secundario |
 
 Con teclado se usan los atajos de Aseprite:
 

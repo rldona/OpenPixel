@@ -25,6 +25,8 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
     - eyedropper: the whole image or the active layer only;
     - when a tool has more options than fit, the bar scrolls sideways.
   - **Symmetry** ([Aseprite's](https://www.aseprite.org/docs/symmetry/)): horizontal, vertical or both. Tap the rail button to turn it on or off; touch and hold to choose the axes or center them. Drag an axis by its handle (below or right of the sprite) to move it in half-pixel steps, so it can run between two pixels or through the middle of one.
+  - **Tiled mode** (Aseprite's View > Tiled Mode, the button next to the grid): the sprite is shown repeated around itself, horizontally, vertically or both, and strokes, shapes and fills wrap across the edges, to make seamless textures.
+  - Apple Pencil Pro **squeeze** swaps the primary and secondary colors (Aseprite paints with the secondary color on right-click).
   - **Inks** ([Aseprite's](https://www.aseprite.org/docs/ink/)): simple, alpha compositing, copy alpha + color, lock alpha (paint only over what's drawn) and shading (each pass moves drawn pixels to the next or previous palette color). Tool **opacity**, applied once per stroke so going over the same spot doesn't build up.
   - **Apple Pencil pressure** can change the brush size and/or the opacity.
   - Pixel grid, whole-number zoom levels and fit to screen.
@@ -87,6 +89,7 @@ Drawing stays smooth on large canvases (256×256 and up):
 | Three-finger tap | Redo |
 | Touch and hold (with Pencil) | Quick eyedropper |
 | Double-tap on the Pencil | Toggle eraser and previous tool |
+| Squeeze the Apple Pencil Pro | Swap primary and secondary colors |
 | Four-finger tap | Focus mode: hide or show the panels |
 
 With a keyboard, OpenPixel uses Aseprite's shortcuts:

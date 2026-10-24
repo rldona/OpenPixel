@@ -22,6 +22,7 @@ struct PixelCanvas: UIViewRepresentable {
     let spriteSize: CGSize
     let showGrid: Bool
     let symmetry: Symmetry
+    let tiledMode: TiledMode
     let onZoomChanged: (CGFloat) -> Void
     var onFocusToggle: () -> Void = {}
 
@@ -42,6 +43,8 @@ struct PixelCanvas: UIViewRepresentable {
         view.onRedo = { [weak document] in document?.redo() }
         view.onEyedropper = { [weak document] in document?.pickColor(at: $0) }
         view.onPencilDoubleTap = { [weak document] in document?.toggleEraser() }
+        // Aseprite paints with the secondary color on right-click; on iPad a squeeze swaps the colors.
+        view.onPencilSqueeze = { [weak document] in document?.swapColors() }
         view.onSymmetryAxisMoved = { [weak document] in document?.moveSymmetryAxis(vertical: $0, to: $1) }
         return view
     }
@@ -63,6 +66,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.spriteSize = spriteSize
         view.showGrid = showGrid
         view.symmetry = symmetry
+        view.tiledMode = tiledMode
         view.onionLayers = onionLayers
         if view.renderedRevision != revision || view.renderedFrame != frameIndex {
             view.renderAll()

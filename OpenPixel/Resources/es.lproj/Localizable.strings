@@ -461,3 +461,10 @@
 "Less" = "Menos";
 "New brush from selection" = "Nuevo pincel con la selección";
 "There's nothing drawn in the selection" = "No hay nada dibujado en la selección";
+
+/* Tiled mode */
+"Tiled mode" = "Modo mosaico";
+"None" = "Ninguno";
+"Tile horizontally" = "Repetir en horizontal";
+"Tile vertically" = "Repetir en vertical";
+"Tile in both directions" = "Repetir en ambas direcciones";

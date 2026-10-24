@@ -68,6 +68,7 @@ final class SpriteDocument {
     var primary: PixelColor
     var secondary: PixelColor
     var symmetry = Symmetry()
+    var tiledMode = TiledMode.none
     var brushSize = 1
     var brushShape = BrushShape.square
     /// Angle of the line brush, in degrees.
@@ -366,7 +367,10 @@ final class SpriteDocument {
     private var activeCelKey: CelKey { CelKey(layer: activeLayerID, frame: activeFrame.id) }
 
     /// `pressure` is the Apple Pencil's force, 0...1 (1 for fingers).
-    func beginStroke(at p: PixelPoint, pressure: Double = 1) {
+    func beginStroke(at point: PixelPoint, pressure: Double = 1) {
+        // In tiled mode a stroke can start on a copy around the sprite; tools
+        // that act on one spot need it inside, freehand strokes wrap as they paint.
+        let p = tool.usesBrush || tool == .spray ? point : tiledMode.wrap(point, width: storage.width, height: storage.height)
         if isBuildingShape {
             if tool.buildsOverTouches { return continuePendingShape(at: p) }
             finishPendingShape()
@@ -612,6 +616,8 @@ final class SpriteDocument {
     private var effectiveBrushSize: Int { tool.usesBrush ? brushSize : 1 }
 
     private func dirtyRect(for points: some Sequence<PixelPoint>) -> PixelRect? {
+        // Wrapped strokes can land anywhere.
+        if tiledMode != .none { return .full(width: storage.width, height: storage.height) }
         let offsets = brushStamp(size: effectiveBrushSize).map(\.offset)
         let lower = min(0, offsets.map { min($0.x, $0.y) }.min() ?? 0)
         let upper = max(0, offsets.map { max($0.x, $0.y) }.max() ?? 0)
@@ -683,7 +689,7 @@ final class SpriteDocument {
     /// Spray: dots scattered at random around each sample.
     private func spray(at points: [PixelPoint]) {
         let r = sprayWidth
-        let dirty = PixelRect(bounding: points, lower: -r, upper: r)
+        let dirty = tiledMode != .none ? .full(width: storage.width, height: storage.height) : PixelRect(bounding: points, lower: -r, upper: r)
             .map { symmetry.covering($0, width: storage.width, height: storage.height) }?
             .clipped(width: storage.width, height: storage.height)
         let color = strokeColor, alpha = UInt8(max(1, min(255, toolOpacity))), count = spraySpeed
@@ -728,7 +734,7 @@ final class SpriteDocument {
         if coverage.count != w * h { coverage = [UInt8](repeating: 0, count: w * h) }
         return Painter(
             ink: strokeInk, color: color, original: strokeStart?.cels[activeCelKey], mask: selection,
-            ramp: storage.palette.filter { !$0.isTransparent }, direction: shadeDirection, coverage: coverage
+            ramp: storage.palette.filter { !$0.isTransparent }, direction: shadeDirection, tiling: tiledMode, coverage: coverage
         )
     }
 
@@ -759,13 +765,15 @@ final class SpriteDocument {
             && abs(a.x - c.x) == 1 && abs(a.y - c.y) == 1
         // A pixel the stroke already went through elsewhere stays: removing it
         // would open a hole where the line crosses or doubles back on itself.
-        guard isCorner, image.contains(b), !strokePath[..<(n - 3)].contains(b) else { return }
-        func restore(_ q: PixelPoint) {
+        guard isCorner, !strokePath[..<(n - 3)].contains(b) else { return }
+        func restore(_ point: PixelPoint) {
+            let q = tiledMode.wrap(point, width: image.width, height: image.height)
+            guard image.contains(q) else { return }
             image[q] = original?[q] ?? .clear
             if strokeCoverage.indices.contains(q.y * image.width + q.x) { strokeCoverage[q.y * image.width + q.x] = 0 }
         }
         restore(b)
-        for m in symmetry.images(of: b, width: image.width, height: image.height) where image.contains(m) { restore(m) }
+        for m in symmetry.images(of: b, width: image.width, height: image.height) { restore(m) }
         strokePath.remove(at: n - 2)
     }
 
@@ -2243,12 +2251,14 @@ private struct Painter {
     let mask: SelectionMask?
     let ramp: [PixelColor]
     let direction: ShadeDirection
+    let tiling: TiledMode
     var coverage: [UInt8]
     /// Paint again at the same strength instead of skipping pixels already painted.
     var repaints = false
 
     /// `color` overrides the painter's color for this pixel (gradients).
-    mutating func paint(_ q: PixelPoint, alpha: UInt8, color: PixelColor? = nil, on image: inout PixelImage) {
+    mutating func paint(_ point: PixelPoint, alpha: UInt8, color: PixelColor? = nil, on image: inout PixelImage) {
+        let q = tiling == .none ? point : tiling.wrap(point, width: image.width, height: image.height)
         guard image.contains(q), mask?.contains(q) ?? true else { return }
         let i = q.y * image.width + q.x
         guard alpha > coverage[i] || (repaints && alpha == coverage[i]) else { return }

@@ -42,6 +42,7 @@ struct EditorView: View {
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
                                 symmetry: document.symmetry,
+                                tiledMode: document.tiledMode,
                                 onZoomChanged: { zoom = $0 },
                                 onFocusToggle: toggleFocus
                             )
@@ -239,6 +240,7 @@ struct EditorView: View {
             IconButton(systemImage: "arrow.up.left.and.arrow.down.right", label: "Focus mode", action: toggleFocus)
             IconButton(systemImage: "grid", label: "Pixel grid", isOn: document.showGrid) { document.showGrid.toggle() }
                 .keyboardShortcut("'", modifiers: .command)
+            tiledModeMenu
             HStack(spacing: 0) {
                 IconButton(systemImage: "minus", label: "Zoom out", size: 40) { canvas.zoomOut() }
                     .keyboardShortcut("-", modifiers: .command)
@@ -273,6 +275,28 @@ struct EditorView: View {
         .frame(height: 56)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    /// Aseprite's View > Tiled Mode.
+    private var tiledModeMenu: some View {
+        let isOn = document.tiledMode != .none
+        return Menu {
+            Picker("Tiled mode", selection: $document.tiledMode) {
+                Text("None").tag(TiledMode.none)
+                Text("Tile horizontally").tag(TiledMode.horizontal)
+                Text("Tile vertically").tag(TiledMode.vertical)
+                Text("Tile in both directions").tag(TiledMode.both)
+            }
+        } label: {
+            Image(systemName: "square.grid.3x3.square")
+                .font(.system(size: 17.6, weight: .medium))
+                .frame(width: 44, height: 44)
+                .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
+                .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel(Text("Tiled mode"))
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     private var statusPills: some View {

@@ -41,3 +41,19 @@ struct Symmetry: Equatable {
         return result
     }
 }
+
+/// Aseprite's tiled mode: the sprite is shown repeated around itself and
+/// drawing past an edge wraps to the other side, to make seamless textures.
+enum TiledMode: String, CaseIterable, Identifiable {
+    case none, horizontal, vertical, both
+    var id: String { rawValue }
+
+    var wrapsX: Bool { self == .horizontal || self == .both }
+    var wrapsY: Bool { self == .vertical || self == .both }
+
+    /// `p` brought back inside a `width` × `height` sprite along the tiled axes.
+    func wrap(_ p: PixelPoint, width: Int, height: Int) -> PixelPoint {
+        PixelPoint(x: wrapsX ? ((p.x % width) + width) % width : p.x,
+                   y: wrapsY ? ((p.y % height) + height) % height : p.y)
+    }
+}

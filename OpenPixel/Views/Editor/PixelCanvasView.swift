@@ -26,6 +26,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onionLayers: [OnionLayer] = [] { didSet { updateOnionLayers() } }
     var showGrid = true { didSet { if oldValue != showGrid { updateOverlays() } } }
     var symmetry = Symmetry() { didSet { if oldValue != symmetry { updateOverlays() } } }
+    var tiledMode = TiledMode.none { didSet { if oldValue != tiledMode { updateGeometry() } } }
 
     /// Points come with the Apple Pencil's pressure, 0...1 (always 1 for fingers).
     var onStrokeBegan: ((PixelPoint, Double) -> Void)?
@@ -36,6 +37,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onRedo: (() -> Void)?
     var onEyedropper: ((PixelPoint) -> Void)?
     var onPencilDoubleTap: (() -> Void)?
+    /// Apple Pencil Pro squeeze.
+    var onPencilSqueeze: (() -> Void)?
     var onZoomChanged: ((CGFloat) -> Void)?
     /// Four-finger tap: show or hide the panels around the canvas.
     var onFocusToggle: (() -> Void)?
@@ -76,6 +79,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let checkerLayer = CALayer()
     private let onionHost = CALayer()
     private let imageLayer = CALayer()
+    /// Copies of the sprite around it in tiled mode.
+    private let tilesHost = CALayer()
     private let gridLayer = CAShapeLayer()
     private let mirrorLayer = CAShapeLayer()
     /// Handles to drag the symmetry axes.
@@ -134,6 +139,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         shadowLayer.shadowOpacity = isDark ? 0.5 : 0.15
         checkerLayer.contents = nil
         updateChecker()
+        updateTiles()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
@@ -162,6 +168,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         mirrorLayer.lineWidth = 2
         mirrorLayer.lineDashPattern = [6, 5]
 
+        tilesHost.actions = Self.noAnimations
+        layer.addSublayer(tilesHost)
         layer.addSublayer(shadowLayer)
         layer.addSublayer(spriteLayer)
         layer.addSublayer(gridLayer)
@@ -267,7 +275,45 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     private func pushImage() {
-        imageLayer.contents = PixelImage.makeCGImage(pixels: buffer, width: bufferSize.width, height: bufferSize.height)
+        let image = PixelImage.makeCGImage(pixels: buffer, width: bufferSize.width, height: bufferSize.height)
+        imageLayer.contents = image
+        tilesHost.sublayers?.forEach { $0.sublayers?.last?.contents = image }
+    }
+
+    /// Offsets, in sprite sizes, of the copies shown around the sprite.
+    private var tileOffsets: [(Int, Int)] {
+        let xs = tiledMode.wrapsX ? [-1, 0, 1] : [0], ys = tiledMode.wrapsY ? [-1, 0, 1] : [0]
+        return ys.flatMap { y in xs.map { (x: $0, y: y) } }.filter { $0 != (0, 0) }
+    }
+
+    private func updateTiles() {
+        let offsets = tileOffsets
+        if tilesHost.sublayers?.count != offsets.count {
+            // Each copy is a checkerboard with the image on top, like the sprite itself.
+            tilesHost.sublayers = offsets.map { _ in
+                let tile = CALayer()
+                tile.masksToBounds = true
+                for _ in 0..<2 {
+                    let l = CALayer()
+                    l.magnificationFilter = .nearest
+                    l.minificationFilter = .nearest
+                    tile.addSublayer(l)
+                }
+                tile.sublayers?.last?.contents = imageLayer.contents
+                for l in [tile] + (tile.sublayers ?? []) { l.actions = Self.noAnimations }
+                return tile
+            }
+        }
+        let rect = spriteRect
+        // The sprite's drop shadow would fall on the copies around it.
+        shadowLayer.isHidden = tiledMode != .none
+        tilesHost.frame = bounds
+        for (tile, o) in zip(tilesHost.sublayers ?? [], offsets) {
+            tile.frame = rect.offsetBy(dx: CGFloat(o.0) * rect.width, dy: CGFloat(o.1) * rect.height)
+            tile.sublayers?.first?.contents = checkerLayer.contents
+            tile.sublayers?.first?.frame = checkerLayer.frame
+            tile.sublayers?.last?.frame = tile.bounds
+        }
     }
 
     private func updateOnionLayers() {
@@ -317,6 +363,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         onionHost.frame = spriteLayer.bounds
         onionHost.sublayers?.forEach { $0.frame = onionHost.bounds }
         updateChecker()
+        updateTiles()
         updateOverlays()
     }
 
@@ -539,10 +586,15 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         updateGeometry()
     }
 
+    /// The sprite pixel under `location`; in tiled mode also on the copies
+    /// around the sprite (outside 0..<size, the document wraps them).
     private func spritePoint(_ location: CGPoint) -> PixelPoint? {
         let x = Int(((location.x - origin.x) / scale).rounded(.down))
         let y = Int(((location.y - origin.y) / scale).rounded(.down))
-        guard x >= 0, y >= 0, x < Int(spriteSize.width), y < Int(spriteSize.height) else { return nil }
+        let w = Int(spriteSize.width), h = Int(spriteSize.height)
+        let xRange = tiledMode.wrapsX ? -w..<(2 * w) : 0..<w
+        let yRange = tiledMode.wrapsY ? -h..<(2 * h) : 0..<h
+        guard xRange.contains(x), yRange.contains(y) else { return nil }
         return PixelPoint(x: x, y: y)
     }
 
@@ -621,6 +673,12 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     @available(iOS 17.5, *)
     func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveTap tap: UIPencilInteraction.Tap) {
         handlePencilTap()
+    }
+
+    @available(iOS 17.5, *)
+    func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveSqueeze squeeze: UIPencilInteraction.Squeeze) {
+        guard squeeze.phase == .ended, UIPencilInteraction.preferredSqueezeAction != .ignore else { return }
+        onPencilSqueeze?()
     }
 
     private func handlePencilTap() {
