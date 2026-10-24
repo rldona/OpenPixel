@@ -1208,6 +1208,16 @@ final class SpriteDocument {
         updateLayer(id) { $0.isBackground = false }
     }
 
+    /// Whether `moveLayer(_:by:)` has somewhere to go: a neighbour in the same
+    /// group, and never below the background.
+    func canMoveLayer(_ id: UUID, by offset: Int) -> Bool {
+        let layers = structure.layers
+        guard let layer = layers.first(where: { $0.id == id }), !layer.isBackground else { return false }
+        let siblings = layers.filter { $0.parent == layer.parent }
+        guard let index = siblings.firstIndex(where: { $0.id == id }), siblings.indices.contains(index + offset) else { return false }
+        return !siblings[index + offset].isBackground
+    }
+
     /// Positive `offset` moves the layer up (towards the top of the stack),
     /// past its neighbours in the same group; a group moves with its children.
     func moveLayer(_ id: UUID, by offset: Int) {

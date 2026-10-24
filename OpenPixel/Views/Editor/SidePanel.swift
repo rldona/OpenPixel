@@ -137,15 +137,29 @@ struct SidePanel: View {
                 }
                 Spacer(minLength: 0)
             }
-            HStack {
-                Button("Swap", systemImage: "arrow.left.arrow.right") { document.swapColors() }
-                Spacer()
-                Button("Replace…", systemImage: "drop.halffull") { document.isReplacingColor = true }
+            // Swapping the colors, then what changes the sprite's own colors.
+            HStack(spacing: 6) {
+                colorAction("Swap", "arrow.left.arrow.right") { document.swapColors() }
+                colorAction("Replace…", "drop.halffull") { document.isReplacingColor = true }
                     .accessibilityLabel(Text("Replace color…"))
+                colorAction("Hue/Sat…", "slider.horizontal.3") { document.beginHueSaturation() }
+                    .accessibilityLabel(Text("Hue/Saturation…"))
             }
-            .font(.system(size: 13, weight: .medium))
-            .lineLimit(1)
         }
+    }
+
+    private func colorAction(_ title: LocalizedStringKey, _ systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: systemImage).font(.system(size: 16, weight: .medium))
+                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(Theme.text)
+            .frame(maxWidth: .infinity, minHeight: 54)
+            .background(Theme.chip, in: RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Color shading

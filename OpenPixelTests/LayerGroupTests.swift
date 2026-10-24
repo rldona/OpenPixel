@@ -69,6 +69,11 @@ final class LayerGroupTests: XCTestCase {
         XCTAssertEqual(names(doc), ["A", "B", group.name, "C"], "B is already on top of the group")
         doc.moveLayer(id(doc, "B"), by: -1)
         XCTAssertEqual(names(doc), ["B", "A", group.name, "C"])
+        // What the timeline's up and down buttons check.
+        XCTAssertTrue(doc.canMoveLayer(id(doc, "B"), by: 1))
+        XCTAssertFalse(doc.canMoveLayer(id(doc, "B"), by: -1), "already the group's bottom layer")
+        XCTAssertFalse(doc.canMoveLayer(id(doc, "C"), by: 1), "already on top")
+        XCTAssertTrue(doc.canMoveLayer(group.id, by: 1))
     }
 
     func testIntoOutOfUngroupAndDelete() {

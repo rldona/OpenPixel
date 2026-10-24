@@ -17,7 +17,7 @@ struct FrameTimeline: View {
     @AppStorage("timelineFirstFrame") private var firstFrame = 1
     private let clipboard = TimelineClipboard.shared
 
-    private let nameColumn: CGFloat = 230
+    private let nameColumn: CGFloat = 270
     private let celWidth: CGFloat = 32
     private let rowHeight: CGFloat = 30
     /// Frame numbers grow a second line when some frame's duration differs.
@@ -473,6 +473,13 @@ struct FrameTimeline: View {
 
                 IconButton(systemImage: "trash", label: "Delete layer", size: 28) { document.deleteLayer(document.activeLayerID) }
                     .opacity(document.structure.layers.count > 1 ? 1 : 0.35)
+                // Layer > Move up / Move down: the active layer past its neighbour.
+                IconButton(systemImage: "arrow.up", label: "Move layer up", size: 28) { document.moveLayer(document.activeLayerID, by: 1) }
+                    .disabled(!document.canMoveLayer(document.activeLayerID, by: 1))
+                    .opacity(document.canMoveLayer(document.activeLayerID, by: 1) ? 1 : 0.35)
+                IconButton(systemImage: "arrow.down", label: "Move layer down", size: 28) { document.moveLayer(document.activeLayerID, by: -1) }
+                    .disabled(!document.canMoveLayer(document.activeLayerID, by: -1))
+                    .opacity(document.canMoveLayer(document.activeLayerID, by: -1) ? 1 : 0.35)
             }
             .padding(.leading, 6)
             .padding(.trailing, 8)
