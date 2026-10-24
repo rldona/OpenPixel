@@ -588,6 +588,10 @@ struct FrameTimeline: View {
             }
             Divider()
             Button("Duplicate layer", systemImage: "plus.square.on.square") { document.duplicateLayer(layer.id) }
+            Button("Merge down", systemImage: "arrow.down.to.line") { document.mergeDown(layer.id) }
+                .disabled(document.sprite.layers.first?.id == layer.id)
+            Button("Flatten", systemImage: "square.stack.3d.down.forward") { document.flatten() }
+                .disabled(document.sprite.layers.count <= 1)
             Button("Select layers", systemImage: "checkmark.rectangle.stack") {
                 document.isSelectingRange = true
                 document.extendRange(layerRow: layer.id)

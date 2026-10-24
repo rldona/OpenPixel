@@ -487,3 +487,12 @@
 "Drag to resize, or down to hide it. Double tap to fit every layer." = "Arrastra para cambiar el tamaño, o hacia abajo para ocultarlo. Doble toque para ver todas las capas.";
 "Hide timeline" = "Ocultar el timeline";
 "Show timeline" = "Mostrar el timeline";
+
+/* Layers: merge, flatten, from selection; preview */
+"Merge down" = "Fusionar hacia abajo";
+"Flatten" = "Aplanar";
+"Flattened" = "Aplanada";
+"New layer from selection" = "Nueva capa con la selección";
+"Cut to new layer" = "Cortar a una capa nueva";
+"Play preview" = "Reproducir la vista previa";
+"Pause preview" = "Pausar la vista previa";

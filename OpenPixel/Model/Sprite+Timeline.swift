@@ -171,3 +171,51 @@ extension Sprite {
 
     var tagBandCount: Int { (tagBands.map(\.band).max() ?? -1) + 1 }
 }
+
+// MARK: - Merging layers
+
+extension Sprite {
+    /// Draws the layer at `index` onto the one below in every frame and removes it.
+    mutating func mergeDown(at index: Int) {
+        guard layers.indices.contains(index), index > 0 else { return }
+        let upper = layers[index], lower = layers[index - 1]
+        for frame in frames {
+            let top = CelKey(layer: upper.id, frame: frame.id), bottom = CelKey(layer: lower.id, frame: frame.id)
+            guard upper.isVisible, let image = cels[top] else { continue }
+            let opacity = upper.opacity * (celOpacity[top] ?? 1)
+            guard opacity > 0 else { continue }
+            var base = cels[bottom] ?? PixelImage(width: width, height: height)
+            // The lower cel's own opacity is baked in, or it would fade the merged pixels too.
+            if let own = celOpacity[bottom], own < 1 {
+                for i in base.pixels.indices { base.pixels[i].a = UInt8((Double(base.pixels[i].a) * own).rounded()) }
+                celOpacity[bottom] = nil
+            }
+            for i in image.pixels.indices where image.pixels[i].a != 0 {
+                base.pixels[i] = image.pixels[i].blended(over: base.pixels[i], opacity: opacity)
+            }
+            cels[bottom] = base
+            // Its linked cels didn't get the upper pixels, so it isn't linked anymore.
+            links[bottom] = nil
+        }
+        layers.remove(at: index)
+        cels = cels.filter { $0.key.layer != upper.id }
+        normalizeLinks()
+    }
+
+    /// Replaces all layers with one holding each frame's visible image.
+    /// Returns the new layer's id.
+    mutating func flatten(name: String) -> UUID {
+        let background = layers.contains { $0.isBackground && $0.isVisible }
+        let layer = Layer(name: background ? L10n.string("Background") : name, isBackground: background)
+        var flat: [CelKey: PixelImage] = [:]
+        for (index, frame) in frames.enumerated() {
+            let image = composite(frameIndex: index)
+            if !image.isEmpty { flat[CelKey(layer: layer.id, frame: frame.id)] = image }
+        }
+        layers = [layer]
+        cels = flat
+        links = [:]
+        celOpacity = [:]
+        return layer.id
+    }
+}

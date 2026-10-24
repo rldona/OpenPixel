@@ -20,7 +20,7 @@ struct SidePanel: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Preview")
                     // Updates when a stroke is committed, not on every stroke sample.
-                    PixelThumbnail(image: document.sprite.composite(frameIndex: document.activeFrameIndex).makeCGImage())
+                    AnimatedPreview(document: document)
                         .frame(height: 180)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))

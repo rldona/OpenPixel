@@ -897,12 +897,17 @@ final class SpriteDocument {
         activeFrameIndex = frameIndex
     }
 
-    func addLayer() {
+    /// "Layer N" with the first N no layer uses yet.
+    private func newLayerName() -> String {
         let names = Set(sprite.layers.map(\.name))
         var n = sprite.layers.count + 1
         func layerName(_ n: Int) -> String { L10n.string("Layer %d", n) }
         while names.contains(layerName(n)) { n += 1 }
-        let layer = Layer(name: layerName(n))
+        return layerName(n)
+    }
+
+    func addLayer() {
+        let layer = Layer(name: newLayerName())
         let index = sprite.layers.firstIndex { $0.id == activeLayerID } ?? sprite.layers.count - 1
         perform { $0.layers.insert(layer, at: index + 1) }
         activeLayerID = layer.id
@@ -2239,6 +2244,46 @@ extension SpriteDocument {
         var placed: [UUID] = []
         perform { placed = $0.moveLayers([id], to: index, copy: true) }
         if let copy = placed.first { activeLayerID = copy }
+    }
+
+    /// Layer > Merge Down: the layer is drawn onto the one below it, frame by
+    /// frame, with its opacity, and disappears.
+    func mergeDown(_ id: UUID) {
+        guard let index = sprite.layers.firstIndex(where: { $0.id == id }), index > 0 else { return }
+        let lower = sprite.layers[index - 1].id
+        perform { s in s.mergeDown(at: index) }
+        activeLayerID = lower
+    }
+
+    /// Layer > Flatten: every visible layer becomes one (the background if
+    /// there was one). Hidden layers are dropped, as in Aseprite.
+    func flatten() {
+        guard sprite.layers.count > 1 else { return }
+        var flat: UUID?
+        perform { s in flat = s.flatten(name: L10n.string("Flattened")) }
+        if let flat { activeLayerID = flat }
+    }
+
+    /// Aseprite's Ctrl+J / Ctrl+Shift+J: the selected pixels of the active cel
+    /// go to a new layer above it, copied or cut.
+    func newLayerFromSelection(cut: Bool) {
+        guard let mask = selection, let source = storage.cels[activeCelKey],
+              let index = storage.layers.firstIndex(where: { $0.id == activeLayerID }) else { return }
+        if cut, !activeLayerEditable { return }
+        let layer = Layer(name: newLayerName())
+        let frame = activeFrame.id, active = activeCelKey, erase = eraseColor
+        perform { s in
+            var image = PixelImage(width: s.width, height: s.height)
+            for i in mask.bits.indices where mask.bits[i] { image.pixels[i] = source.pixels[i] }
+            s.layers.insert(layer, at: index + 1)
+            if !image.isEmpty { s.cels[CelKey(layer: layer.id, frame: frame)] = image }
+            if cut, var cel = s.cels[active] {
+                for i in mask.bits.indices where mask.bits[i] { cel.pixels[i] = erase }
+                s.cels[active] = cel.isEmpty ? nil : cel
+                s.syncLinks(from: active)
+            }
+        }
+        activeLayerID = layer.id
     }
 }
 
