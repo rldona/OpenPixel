@@ -746,6 +746,21 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         updateGeometry()
     }
 
+    /// Aseprite's 100%: one point per sprite pixel, zooming around the middle of the view.
+    func actualSize() {
+        setScale(1, anchor: CGPoint(x: bounds.midX, y: bounds.midY))
+    }
+
+    /// Aseprite's Center: the sprite in the middle of the view, at the same zoom.
+    func centerSprite() {
+        let available = bounds.height - Self.topInset - Self.bottomInset
+        origin = CGPoint(
+            x: ((bounds.width - spriteSize.width * scaleX) / 2).rounded(),
+            y: (Self.topInset + (available - spriteSize.height * scaleY) / 2).rounded()
+        )
+        updateGeometry()
+    }
+
     func zoom(by factor: CGFloat) {
         setScale((scale * factor).rounded(), anchor: CGPoint(x: bounds.midX, y: bounds.midY))
     }

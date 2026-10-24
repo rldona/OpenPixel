@@ -8,6 +8,8 @@ final class CanvasController {
     func zoomIn() { view?.zoom(by: 2) }
     func zoomOut() { view?.zoom(by: 0.5) }
     func fit() { view?.fitToScreen() }
+    func actualSize() { view?.actualSize() }
+    func center() { view?.centerSprite() }
 }
 
 /// SwiftUI only redraws the canvas for committed changes (`revision`) and frame

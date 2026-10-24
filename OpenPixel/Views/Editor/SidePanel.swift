@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct SidePanel: View {
     @Bindable var document: SpriteDocument
+    let canvas: CanvasController
     @State private var editingPrimary = false
     @State private var editingSecondary = false
     /// Palette edit mode: taps select a run of entries instead of picking a color.
@@ -24,6 +25,7 @@ struct SidePanel: View {
                         .frame(height: 180)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
+                    viewButtons
                 }
 
                 paletteSection
@@ -63,6 +65,33 @@ struct SidePanel: View {
         .fileImporter(isPresented: $importingPalette, allowedContentTypes: [.data]) { result in
             importPalette(result)
         }
+    }
+
+    // MARK: View
+
+    /// Aseprite's 100% / Center / Fit Screen buttons for the canvas.
+    private var viewButtons: some View {
+        HStack(spacing: 6) {
+            viewButton(Text(verbatim: "100%"), label: "Actual size") { canvas.actualSize() }
+                .keyboardShortcut("1", modifiers: .command)
+            viewButton(Text("Center"), label: "Center") { canvas.center() }
+            viewButton(Text("Fit screen"), label: "Fit to screen") { canvas.fit() }
+        }
+    }
+
+    private func viewButton(_ title: Text, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            title
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .foregroundStyle(Theme.text)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .background(Theme.chip, in: RoundedRectangle(cornerRadius: 9))
+                .contentShape(RoundedRectangle(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
     }
 
     // MARK: Colors

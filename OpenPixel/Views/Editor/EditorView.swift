@@ -83,7 +83,7 @@ struct EditorView: View {
                     }
                 }
                 if !focusMode {
-                    SidePanel(document: document)
+                    SidePanel(document: document, canvas: canvas)
                         .frame(width: Self.panelWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
