@@ -32,6 +32,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
     /// on, isn't exported and is shown at its own resolution.
     var reference: ReferenceImage?
     var isReference: Bool { reference != nil }
+    var blendMode = BlendMode.normal
 
     init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false, isBackground: Bool = false, reference: ReferenceImage? = nil) {
         self.id = id
@@ -44,7 +45,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         self.reference = reference
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground, reference }
+    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground, reference, blendMode }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -56,6 +57,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         isContinuous = try c.decodeIfPresent(Bool.self, forKey: .isContinuous) ?? false
         isBackground = try c.decodeIfPresent(Bool.self, forKey: .isBackground) ?? false
         reference = try c.decodeIfPresent(ReferenceImage.self, forKey: .reference)
+        blendMode = try c.decodeIfPresent(BlendMode.self, forKey: .blendMode) ?? .normal
     }
 }
 
@@ -126,6 +128,19 @@ struct Sprite: Equatable, Sendable {
                 let opacity = layer.opacity * (celOpacity[key] ?? 1)
                 guard opacity > 0 else { continue }
                 let opaqueLayer = opacity >= 1
+                let mode = layer.blendMode
+                if mode != .normal {
+                    image.pixels.withUnsafeBufferPointer { src in
+                        for y in rect.minY...rect.maxY {
+                            var i = y * w + rect.minX
+                            for _ in rect.minX...rect.maxX {
+                                if src[i].a != 0 { dst[i] = mode.composite(src[i], over: dst[i], opacity: opacity) }
+                                i += 1
+                            }
+                        }
+                    }
+                    continue
+                }
                 image.pixels.withUnsafeBufferPointer { src in
                     for y in rect.minY...rect.maxY {
                         var i = y * w + rect.minX

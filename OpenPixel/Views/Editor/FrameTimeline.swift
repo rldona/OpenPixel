@@ -586,6 +586,9 @@ struct FrameTimeline: View {
                         Image(systemName: "photo").font(.system(size: 11)).foregroundStyle(Theme.muted)
                     }
                     Text(verbatim: layer.name)
+                    if layer.blendMode != .normal {
+                        Text(layer.blendMode.title).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.muted)
+                    }
                 }
                     .font(.system(size: 13, weight: .medium))
                     // Underlined like Aseprite's background layer.
@@ -626,6 +629,14 @@ struct FrameTimeline: View {
                 Toggle(isOn: Binding(get: { layer.isContinuous }, set: { _ in document.toggleContinuous(layer.id) })) {
                     Label("Continuous", systemImage: "capsule")
                 }
+            }
+            if !layer.isBackground && !layer.isReference {
+                Picker(selection: Binding(get: { layer.blendMode }, set: { document.setBlendMode($0, layer: layer.id) })) {
+                    ForEach(BlendMode.allCases) { Text($0.title).tag($0) }
+                } label: {
+                    Label("Blend mode", systemImage: "circle.lefthalf.filled.righthalf.striped.horizontal")
+                }
+                .pickerStyle(.menu)
             }
             if !layer.isBackground {
                 Menu("Opacity") {

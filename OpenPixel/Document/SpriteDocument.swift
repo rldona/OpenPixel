@@ -930,6 +930,10 @@ final class SpriteDocument {
         }
     }
 
+    func setBlendMode(_ mode: BlendMode, layer id: UUID) {
+        updateLayer(id) { $0.blendMode = mode }
+    }
+
     func toggleVisibility(_ id: UUID) {
         updateLayer(id) { $0.isVisible.toggle() }
     }

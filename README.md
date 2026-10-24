@@ -54,6 +54,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - **Copy and paste between sprites**: copy a block, then paste cels, frames or layers from the menu of a cel, a frame number or a layer in any sprite.
   - **Loop section**, new tags over the selected frames and duration for several frames at once. **Focus a tag band** so playback stays inside its tags.
   - **Reference layers**, as in Aseprite: touch and hold the timeline's + to add one from Photos or Files. The image keeps its own resolution (it isn't turned into pixels), starts at 50 % opacity under the drawing (or over it, if no drawn layer is above), can't be painted on and isn't exported. Move it with the Move tool; fit, fill, enlarge or shrink it from its menu.
+  - **Blend modes** per layer (from its menu): normal, multiply, screen, overlay, darken, lighten, color dodge and burn, hard and soft light, difference, exclusion, addition, subtract and divide. Merging down keeps the look.
   - **Merge down** and **flatten** (from a layer's menu), **new layer from selection** (⌘J, or ⌘⇧J to cut), and an **animated preview** in the side panel with its own play button, so the animation runs while you draw.
   - **Cel opacity** (shared by linked cels), duplicate layer, double tap to rename, first frame numbered 0 or 1, and Aseprite's keys: `,` `.` for previous/next frame and ⇧X to show or hide the layer.
   - Configurable **onion skin**: 0–3 frames before and after, opacity, red/blue tint, and an option to stay inside the tag.

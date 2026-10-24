@@ -191,7 +191,7 @@ extension Sprite {
                 celOpacity[bottom] = nil
             }
             for i in image.pixels.indices where image.pixels[i].a != 0 {
-                base.pixels[i] = image.pixels[i].blended(over: base.pixels[i], opacity: opacity)
+                base.pixels[i] = upper.blendMode.composite(image.pixels[i], over: base.pixels[i], opacity: opacity)
             }
             cels[bottom] = base
             // Its linked cels didn't get the upper pixels, so it isn't linked anymore.

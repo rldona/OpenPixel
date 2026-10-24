@@ -510,3 +510,21 @@
 "Smaller" = "Más pequeña";
 "That image can't be opened" = "No se puede abrir esa imagen";
 "“%@” is a reference layer: use the Move tool to place it" = "«%@» es una capa de referencia: usa la herramienta Mover para colocarla";
+
+/* Blend modes */
+"Blend mode" = "Modo de fusión";
+"Normal" = "Normal";
+"Multiply" = "Multiplicar";
+"Screen" = "Trama";
+"Overlay" = "Superponer";
+"Darken" = "Oscurecer";
+"Lighten" = "Aclarar";
+"Color dodge" = "Sobreexponer color";
+"Color burn" = "Subexponer color";
+"Hard light" = "Luz fuerte";
+"Soft light" = "Luz suave";
+"Difference" = "Diferencia";
+"Exclusion" = "Exclusión";
+"Addition" = "Suma";
+"Subtract" = "Resta";
+"Divide" = "Dividir";
