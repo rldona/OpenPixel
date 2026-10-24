@@ -209,7 +209,8 @@ struct EditorView: View {
     /// hide it behind a capsule, double tap to fit every layer.
     private var timelineResizeHandle: some View {
         Capsule()
-            .fill(timelineDragStart != nil ? Theme.accent : Theme.strongBorder)
+            // In the accent color, so it reads as something to grab; solid while dragged.
+            .fill(Theme.accent.opacity(timelineDragStart != nil ? 1 : 0.75))
             .frame(width: 56, height: 6)
             .frame(maxWidth: .infinity)
             .frame(height: 22)
