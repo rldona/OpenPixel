@@ -38,7 +38,7 @@ struct EditorView: View {
                 }
                 VStack(spacing: 0) {
                     Group {
-                        ZStack(alignment: .bottomLeading) {
+                        ZStack(alignment: .bottomTrailing) {
                             CanvasHost(
                                 document: document,
                                 controller: canvas,
@@ -49,7 +49,7 @@ struct EditorView: View {
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
                             if !focusMode && !timelineCollapsed && !document.hasSelection && !document.isTransforming { statusPills }
                         }
-                        .overlay(alignment: .topLeading) {
+                        .overlay(alignment: .top) {
                             if !focusMode { ToolOptionsBar(document: document).padding(14) }
                         }
                         .overlay(alignment: .topTrailing) {
