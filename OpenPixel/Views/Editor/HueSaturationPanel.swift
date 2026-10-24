@@ -1,22 +1,40 @@
 import SwiftUI
 
-/// Aseprite's Hue/Saturation window: floats over the canvas, which shows the
-/// result while the sliders move. OK applies it as one undo step.
+/// Aseprite's Hue/Saturation window: floats over the editor (at first over the
+/// side panel) and can be dragged by its title; the canvas shows the result
+/// while the sliders move. Apply makes it one undo step.
 /// https://www.aseprite.org/docs/hue-saturation/
 struct HueSaturationPanel: View {
     let document: SpriteDocument
+    /// The space it can be dragged in.
+    let area: CGSize
     @State private var adjustment = HueSaturation()
     @State private var everyCel = false
+    /// Where it was dragged to, from its place at the top right; kept between uses.
+    @AppStorage("hueSaturationOffsetX") private var offsetX = 0.0
+    @AppStorage("hueSaturationOffsetY") private var offsetY = 0.0
+    @GestureState private var drag = CGSize.zero
+    private static let width: CGFloat = EditorView.panelWidth - 16
+    private static let approximateHeight: CGFloat = 425
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Hue/Saturation").font(.system(size: 15, weight: .semibold))
-                Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.muted)
+                Text("Hue/Saturation").font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                Spacer(minLength: 4)
                 Button("Reset") { adjustment = HueSaturation(mode: adjustment.mode) }
                     .font(.system(size: 13, weight: .medium))
                     .disabled(adjustment.isIdentity)
             }
+            .frame(minHeight: 32)
+            .contentShape(Rectangle())
+            .gesture(dragGesture)
+            // Double tap the title to put it back over the side panel.
+            .onTapGesture(count: 2) { withAnimation(.snappy) { offsetX = 0; offsetY = 0 } }
+            .accessibilityHint(Text("Drag to move the window"))
 
             Picker("Mode", selection: $adjustment.mode) {
                 ForEach(HueSaturation.Mode.allCases) { Text(verbatim: $0.title).tag($0) }
@@ -35,14 +53,13 @@ struct HueSaturationPanel: View {
                 channel("G", \.green)
                 channel("B", \.blue)
                 channel("A", \.alphaChannel)
-                Spacer(minLength: 8)
-                Picker("Where", selection: $everyCel) {
-                    Text("Current cel").tag(false)
-                    Text("Every cel").tag(true)
-                }
-                .pickerStyle(.menu)
-                .fixedSize()
             }
+
+            Picker("Where", selection: $everyCel) {
+                Text("Current cel").tag(false)
+                Text("Every cel").tag(true)
+            }
+            .pickerStyle(.segmented)
 
             HStack(spacing: 10) {
                 Button { document.endHueSaturation(apply: nil, everyCel: everyCel) } label: {
@@ -60,17 +77,34 @@ struct HueSaturationPanel: View {
             }
             .font(.system(size: 15))
         }
-        .padding(16)
-        .frame(width: 340)
+        .padding(14)
+        .frame(width: Self.width)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border))
         .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+        .offset(clamped(CGSize(width: offsetX + drag.width, height: offsetY + drag.height)))
         // A short pause between slider moves keeps big sprites responsive.
         .task(id: Preview(adjustment: adjustment, everyCel: everyCel)) {
             try? await Task.sleep(for: .milliseconds(30))
             guard !Task.isCancelled else { return }
             document.previewHueSaturation(adjustment, everyCel: everyCel)
         }
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(coordinateSpace: .global)
+            .updating($drag) { value, state, _ in state = value.translation }
+            .onEnded { value in
+                let end = clamped(CGSize(width: offsetX + value.translation.width, height: offsetY + value.translation.height))
+                offsetX = end.width
+                offsetY = end.height
+            }
+    }
+
+    /// Keeps it inside the editor: it starts at the top right, so it can go left and down.
+    private func clamped(_ offset: CGSize) -> CGSize {
+        let maxLeft = max(0, area.width - Self.width - 16), maxDown = max(0, area.height - Self.approximateHeight)
+        return CGSize(width: min(0, max(-maxLeft, offset.width)), height: min(maxDown, max(0, offset.height)))
     }
 
     private struct Preview: Hashable {

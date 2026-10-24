@@ -51,12 +51,6 @@ struct EditorView: View {
                         }
                         .overlay(alignment: .topTrailing) {
                             if focusMode { focusExitButton }
-                            if document.isAdjustingHueSaturation {
-                                HueSaturationPanel(document: document)
-                                    .padding(16)
-                                    .padding(.top, focusMode ? 56 : 0)
-                                    .transition(.opacity)
-                            }
                         }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {
@@ -94,6 +88,18 @@ struct EditorView: View {
                     SidePanel(document: document, canvas: canvas)
                         .frame(width: Self.panelWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
+            // Over the side panel, like Aseprite's floating window; it can be dragged anywhere.
+            .overlay {
+                if document.isAdjustingHueSaturation {
+                    GeometryReader { geometry in
+                        HueSaturationPanel(document: document, area: geometry.size)
+                            .padding(8)
+                            .padding(.top, focusMode ? 56 : 0)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    }
+                    .transition(.opacity)
                 }
             }
         }
