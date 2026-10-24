@@ -17,10 +17,11 @@ struct EditorView: View {
 
         VStack(spacing: 0) {
             topBar
+            // Three full-height columns: tools | canvas over timeline | side panel.
             HStack(spacing: 0) {
+                ToolRail(document: document)
                 VStack(spacing: 0) {
-                    HStack(spacing: 0) {
-                        ToolRail(document: document)
+                    Group {
                         ZStack(alignment: .bottomLeading) {
                             PixelCanvas(
                                 document: document,
@@ -255,8 +256,14 @@ struct ToolRail: View {
         }
         .padding(.vertical, 12)
         .frame(width: 68)
-        .background(Theme.panel)
-        .overlay(alignment: .trailing) { Rectangle().fill(Theme.border).frame(width: 1) }
+        // Background and divider run under the home indicator, like the side panel.
+        .background {
+            HStack(spacing: 0) {
+                Theme.panel
+                Rectangle().fill(Theme.border).frame(width: 1)
+            }
+            .ignoresSafeArea(edges: .bottom)
+        }
         .background {
             // Aseprite's single-key tool shortcuts; tools inside groups aren't buttons of their own.
             Group {
