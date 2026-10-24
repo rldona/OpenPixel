@@ -430,3 +430,9 @@
 "Tap to place the corners" = "Toca para poner las esquinas";
 "Tap the first corner to close it" = "Toca la primera esquina para cerrarlo";
 "Draw the outline; it fills when you lift" = "Dibuja el contorno; se rellena al levantar";
+
+/* Symmetry */
+"Vertical symmetry" = "Simetría vertical";
+"Center the axes" = "Centrar los ejes";
+"Symmetry" = "Simetría";
+"Touch and hold to choose the axes" = "Mantén pulsado para elegir los ejes";

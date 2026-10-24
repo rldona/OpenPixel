@@ -67,7 +67,7 @@ final class SpriteDocument {
     private var previousTool: Tool = .pencil
     var primary: PixelColor
     var secondary: PixelColor
-    var mirrorX = false
+    var symmetry = Symmetry()
     var brushSize = 1
     var brushShape = BrushShape.square
     /// Removes the extra corner pixel in 1 px freehand strokes (Aseprite's pixel-perfect).
@@ -582,7 +582,7 @@ final class SpriteDocument {
         let brushSize = effectiveBrushSize
         let lower = -(brushSize - 1) / 2, upper = brushSize / 2
         guard var rect = PixelRect(bounding: points, lower: lower, upper: upper) else { return nil }
-        if mirrorX { rect = rect.union(rect.mirrored(width: storage.width)) }
+        rect = symmetry.covering(rect, width: storage.width, height: storage.height)
         return rect.clipped(width: storage.width, height: storage.height)
     }
 
@@ -612,7 +612,7 @@ final class SpriteDocument {
             for o in offsets(size) {
                 let q = PixelPoint(x: p.x + o.x, y: p.y + o.y)
                 painter.paint(q, alpha: a, on: &image)
-                if mirrorX { painter.paint(PixelPoint(x: image.width - 1 - q.x, y: q.y), alpha: a, on: &image) }
+                for m in symmetry.images(of: q, width: image.width, height: image.height) { painter.paint(m, alpha: a, on: &image) }
             }
         }
     }
@@ -663,7 +663,7 @@ final class SpriteDocument {
             if strokeCoverage.indices.contains(q.y * image.width + q.x) { strokeCoverage[q.y * image.width + q.x] = 0 }
         }
         restore(b)
-        if mirrorX { restore(PixelPoint(x: image.width - 1 - b.x, y: b.y)) }
+        for m in symmetry.images(of: b, width: image.width, height: image.height) where image.contains(m) { restore(m) }
         strokePath.remove(at: n - 2)
     }
 
@@ -714,6 +714,20 @@ final class SpriteDocument {
                 painter.paint(PixelPoint(x: i % image.width, y: i / image.width), alpha: alpha, on: &image)
             }
         }
+    }
+
+    /// Moves a symmetry axis to `position2` (in half pixels), e.g. by dragging it on the canvas.
+    func moveSymmetryAxis(vertical: Bool, to position2: Int) {
+        if vertical {
+            symmetry.axisY2 = min(2 * storage.height - 1, max(1, position2))
+        } else {
+            symmetry.axisX2 = min(2 * storage.width - 1, max(1, position2))
+        }
+    }
+
+    func centerSymmetryAxes() {
+        symmetry.axisX2 = nil
+        symmetry.axisY2 = nil
     }
 
     func setBrushSize(_ size: Int) {

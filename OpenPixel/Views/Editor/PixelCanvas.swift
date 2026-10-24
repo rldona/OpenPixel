@@ -21,7 +21,7 @@ struct PixelCanvas: UIViewRepresentable {
     let onionLayers: [OnionLayer]
     let spriteSize: CGSize
     let showGrid: Bool
-    let mirrorX: Bool
+    let symmetry: Symmetry
     let onZoomChanged: (CGFloat) -> Void
     var onFocusToggle: () -> Void = {}
 
@@ -42,6 +42,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.onRedo = { [weak document] in document?.redo() }
         view.onEyedropper = { [weak document] in document?.pickColor(at: $0) }
         view.onPencilDoubleTap = { [weak document] in document?.toggleEraser() }
+        view.onSymmetryAxisMoved = { [weak document] in document?.moveSymmetryAxis(vertical: $0, to: $1) }
         return view
     }
 
@@ -61,7 +62,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.onFocusToggle = onFocusToggle
         view.spriteSize = spriteSize
         view.showGrid = showGrid
-        view.mirrorX = mirrorX
+        view.symmetry = symmetry
         view.onionLayers = onionLayers
         if view.renderedRevision != revision || view.renderedFrame != frameIndex {
             view.renderAll()

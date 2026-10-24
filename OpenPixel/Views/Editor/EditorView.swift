@@ -41,7 +41,7 @@ struct EditorView: View {
                                 onionLayers: onionLayers(sprite),
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
-                                mirrorX: document.mirrorX,
+                                symmetry: document.symmetry,
                                 onZoomChanged: { zoom = $0 },
                                 onFocusToggle: toggleFocus
                             )
@@ -279,7 +279,7 @@ struct EditorView: View {
         HStack(spacing: 8) {
             (Text(document.tool.title)
                 + Text(verbatim: document.tool.usesBrush ? " \(document.brushSize) px" : "")
-                + (document.mirrorX ? Text(" + symmetry") : Text(verbatim: ""))
+                + (document.symmetry.isOn ? Text(" + symmetry") : Text(verbatim: ""))
                 + Text(verbatim: " · \(document.activeLayer?.name ?? "") · ")
                 + Text("frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)")
                 + Text(verbatim: document.activeTag.map { " · \($0.name)" } ?? ""))
@@ -319,9 +319,7 @@ struct ToolRail: View {
                 toolButton(for: group)
             }
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
-            IconButton(systemImage: "square.split.2x1", label: "Horizontal symmetry", isOn: document.mirrorX, size: 48) {
-                document.mirrorX.toggle()
-            }
+            symmetryButton
             Spacer()
         }
         .padding(.vertical, 12)
@@ -345,6 +343,43 @@ struct ToolRail: View {
             .opacity(0)
             .accessibilityHidden(true)
         }
+    }
+
+    /// Tap turns symmetry on and off; touch and hold picks the axes.
+    private var symmetryButton: some View {
+        let s = document.symmetry
+        let icon = s.horizontal && s.vertical ? "square.split.2x2" : (s.vertical ? "square.split.1x2" : "square.split.2x1")
+        return Menu {
+            Button { document.symmetry.horizontal.toggle(); document.symmetry.isEnabled = true } label: {
+                Label("Horizontal symmetry", systemImage: s.horizontal ? "checkmark" : "square.split.2x1")
+            }
+            Button { document.symmetry.vertical.toggle(); document.symmetry.isEnabled = true } label: {
+                Label("Vertical symmetry", systemImage: s.vertical ? "checkmark" : "square.split.1x2")
+            }
+            Divider()
+            Button { document.centerSymmetryAxes() } label: { Label("Center the axes", systemImage: "align.horizontal.center") }
+                .disabled(s.axisX2 == nil && s.axisY2 == nil)
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 19, weight: .medium))
+                .frame(width: 48, height: 48)
+                .foregroundStyle(s.isOn ? Theme.onAccent : Theme.text)
+                .background(s.isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "arrowtriangle.down.fill")
+                        .font(.system(size: 6))
+                        .rotationEffect(.degrees(-45))
+                        .foregroundStyle(s.isOn ? Theme.onAccent : Theme.muted)
+                        .padding(5)
+                }
+        } primaryAction: {
+            if !s.horizontal && !s.vertical { document.symmetry.horizontal = true }
+            document.symmetry.isEnabled.toggle()
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel(Text("Symmetry"))
+        .accessibilityHint(Text("Touch and hold to choose the axes"))
+        .accessibilityAddTraits(s.isOn ? .isSelected : [])
     }
 
     /// One slot per group. Groups with several tools show the last one used;

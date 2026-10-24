@@ -36,11 +36,6 @@ struct PixelRect: Equatable, Sendable {
         PixelRect(minX: min(minX, other.minX), minY: min(minY, other.minY), maxX: max(maxX, other.maxX), maxY: max(maxY, other.maxY))
     }
 
-    /// The same rectangle reflected across the vertical centre of an image `width` wide.
-    func mirrored(width: Int) -> PixelRect {
-        PixelRect(minX: width - 1 - maxX, minY: minY, maxX: width - 1 - minX, maxY: maxY)
-    }
-
     func clipped(width: Int, height: Int) -> PixelRect? {
         let rect = PixelRect(minX: max(0, minX), minY: max(0, minY), maxX: min(width - 1, maxX), maxY: min(height - 1, maxY))
         return rect.minX <= rect.maxX && rect.minY <= rect.maxY ? rect : nil

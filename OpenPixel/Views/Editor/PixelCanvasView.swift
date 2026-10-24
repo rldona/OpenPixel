@@ -25,7 +25,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
     var onionLayers: [OnionLayer] = [] { didSet { updateOnionLayers() } }
     var showGrid = true { didSet { if oldValue != showGrid { updateOverlays() } } }
-    var mirrorX = false { didSet { if oldValue != mirrorX { updateOverlays() } } }
+    var symmetry = Symmetry() { didSet { if oldValue != symmetry { updateOverlays() } } }
 
     /// Points come with the Apple Pencil's pressure, 0...1 (always 1 for fingers).
     var onStrokeBegan: ((PixelPoint, Double) -> Void)?
@@ -39,6 +39,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onZoomChanged: ((CGFloat) -> Void)?
     /// Four-finger tap: show or hide the panels around the canvas.
     var onFocusToggle: (() -> Void)?
+    /// A symmetry axis handle was dragged: which axis, and where to (in half pixels).
+    var onSymmetryAxisMoved: ((_ vertical: Bool, _ position2: Int) -> Void)?
     /// Transform drags, in sprite coordinates with sub-pixel precision.
     var onTransformBegan: ((TransformHandle, CGPoint) -> Void)?
     var onTransformMoved: ((CGPoint) -> Void)?
@@ -56,6 +58,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private weak var drawingTouch: UITouch?
     private var strokeActive = false
     private weak var transformTouch: UITouch?
+    /// A touch dragging a symmetry axis by its handle (true for the horizontal line of vertical symmetry).
+    private var axisTouch: (touch: UITouch, vertical: Bool)?
     /// A touch inside the selection: it moves the pixels once it drags,
     /// and selects the element under it if it lifts without moving.
     private var pendingSelectionTouch: (touch: UITouch, start: CGPoint, point: PixelPoint)?
@@ -74,6 +78,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let imageLayer = CALayer()
     private let gridLayer = CAShapeLayer()
     private let mirrorLayer = CAShapeLayer()
+    /// Handles to drag the symmetry axes.
+    private let axisKnobsLayer = CAShapeLayer()
     /// Marching ants: a white line under black animated dashes, visible on any color.
     private let antsBack = CAShapeLayer()
     private let antsFront = CAShapeLayer()
@@ -121,6 +127,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         spriteLayer.borderColor = UIColor(Theme.border).resolvedColor(with: traits).cgColor
         gridLayer.strokeColor = (isDark ? UIColor(white: 1, alpha: 0.22) : UIColor(white: 0, alpha: 0.18)).cgColor
         mirrorLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
+        axisKnobsLayer.fillColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         boxLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         handlesLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         guidesLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
@@ -132,7 +139,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     private func setUpLayers() {
-        for l in [shadowLayer, spriteLayer, checkerLayer, onionHost, imageLayer, gridLayer, mirrorLayer] {
+        for l in [shadowLayer, spriteLayer, checkerLayer, onionHost, imageLayer, gridLayer, mirrorLayer, axisKnobsLayer] {
             l.actions = Self.noAnimations
         }
         shadowLayer.shadowColor = UIColor.black.cgColor
@@ -159,6 +166,9 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         layer.addSublayer(spriteLayer)
         layer.addSublayer(gridLayer)
         layer.addSublayer(mirrorLayer)
+        axisKnobsLayer.strokeColor = UIColor.white.cgColor
+        axisKnobsLayer.lineWidth = 2
+        layer.addSublayer(axisKnobsLayer)
 
         for l in [antsBack, antsFront, boxLayer, handlesLayer, guidesLayer] {
             l.actions = Self.noAnimations
@@ -442,15 +452,46 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             gridLayer.isHidden = true
         }
 
-        if mirrorX {
+        axisKnobsLayer.frame = bounds
+        axisKnobsLayer.isHidden = !symmetry.isOn
+        if symmetry.isOn {
             let path = CGMutablePath()
-            path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-            path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+            let knobs = CGMutablePath()
+            for handle in axisHandles() {
+                if handle.vertical {
+                    path.move(to: CGPoint(x: rect.minX, y: handle.center.y))
+                    path.addLine(to: CGPoint(x: rect.maxX, y: handle.center.y))
+                } else {
+                    path.move(to: CGPoint(x: handle.center.x, y: rect.minY))
+                    path.addLine(to: CGPoint(x: handle.center.x, y: rect.maxY))
+                }
+                knobs.addEllipse(in: CGRect(x: handle.center.x - 8, y: handle.center.y - 8, width: 16, height: 16))
+            }
             mirrorLayer.path = path
+            axisKnobsLayer.path = knobs
             mirrorLayer.isHidden = false
         } else {
             mirrorLayer.isHidden = true
         }
+    }
+
+    /// Grab points just outside the sprite, below the line of horizontal
+    /// symmetry and right of the line of vertical symmetry (the options bar
+    /// floats above the sprite).
+    private func axisHandles() -> [(vertical: Bool, center: CGPoint)] {
+        guard symmetry.isOn else { return [] }
+        let rect = spriteRect
+        let w = Int(spriteSize.width), h = Int(spriteSize.height)
+        var handles: [(Bool, CGPoint)] = []
+        if symmetry.horizontal {
+            let x = rect.minX + CGFloat(symmetry.axisX2(width: w)) / 2 * scale
+            handles.append((false, CGPoint(x: x, y: rect.maxY + 18)))
+        }
+        if symmetry.vertical {
+            let y = rect.minY + CGFloat(symmetry.axisY2(height: h)) / 2 * scale
+            handles.append((true, CGPoint(x: rect.maxX + 18, y: y)))
+        }
+        return handles
     }
 
     // MARK: - Viewport
@@ -603,7 +644,15 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if transformTouch != nil { return }
+        if transformTouch != nil || axisTouch != nil { return }
+        // Any touch can drag a symmetry axis by its handle.
+        if drawingTouch == nil, let touch = touches.first {
+            let location = touch.location(in: self)
+            if let handle = axisHandles().first(where: { hypot($0.center.x - location.x, $0.center.y - location.y) <= 22 }) {
+                axisTouch = (touch, handle.vertical)
+                return
+            }
+        }
         if let document, document.isTransforming || document.tool == .move,
            let touch = touches.first(where: canDraw), drawingTouch == nil {
             if touch.type == .pencil { pencilOnly = true }
@@ -646,6 +695,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let axis = axisTouch, touches.contains(axis.touch) {
+            let p = toSprite(axis.touch.location(in: self))
+            onSymmetryAxisMoved?(axis.vertical, Int(((axis.vertical ? p.y : p.x) * 2).rounded()))
+            return
+        }
         if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
             let now = pending.touch.location(in: self)
             guard hypot(now.x - pending.start.x, now.y - pending.start.y) > 6 else { return }
@@ -680,6 +734,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let axis = axisTouch, touches.contains(axis.touch) {
+            axisTouch = nil
+            return
+        }
         if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
             // A tap inside the selection: select the element under it.
             pendingSelectionTouch = nil
@@ -699,6 +757,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let axis = axisTouch, touches.contains(axis.touch) {
+            axisTouch = nil
+            return
+        }
         if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
             pendingSelectionTouch = nil
             return

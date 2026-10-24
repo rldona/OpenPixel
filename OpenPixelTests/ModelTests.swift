@@ -102,7 +102,7 @@ final class SpriteDocumentTests: XCTestCase {
 
     func testMirrorPaintsBothSides() {
         let doc = makeDocument()
-        doc.mirrorX = true
+        doc.symmetry.isEnabled = true
         doc.beginStroke(at: PixelPoint(x: 1, y: 2))
         doc.endStroke()
         XCTAssertEqual(pixel(doc, 6, 2), .black)
