@@ -38,7 +38,11 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - **Tags**: named, colored frame ranges with a direction (forward, reverse, ping-pong, ping-pong reverse) and a repeat count.
   - **Playback** of the current frame's tag (or all frames) at 0.25× to 3× speed.
   - **Linked cels**: cels that share one image, so editing one changes all of them, joined by a line in the timeline. Mark a layer as **continuous** (chain icon) and new frames link its cel instead of copying it. Unlink from the cel's menu.
-  - **Range selection**: tap “Select”, then cels or frame numbers to select a block, and link, unlink, clear, duplicate, reverse or delete it.
+  - **Range selection**: tap “Select”, then cels, frame numbers or layer names to select a block, and link, unlink, clear, duplicate, reverse or delete it.
+  - **Move and copy blocks** of cels, frames or layers by dragging them, as in Aseprite. A switch next to “Done” chooses between moving and copying. Blocks dropped past the last frame add frames, and copies on a continuous layer are linked to their originals.
+  - **Copy and paste between sprites**: copy a block, then paste cels, frames or layers from the menu of a cel, a frame number or a layer in any sprite.
+  - **Loop section**, new tags over the selected frames and duration for several frames at once. **Focus a tag band** so playback stays inside its tags.
+  - **Cel opacity** (shared by linked cels), duplicate layer, double tap to rename, first frame numbered 0 or 1, and Aseprite's keys: `,` `.` for previous/next frame and ⇧X to show or hide the layer.
   - Configurable **onion skin**: 0–3 frames before and after, opacity, red/blue tint, and an option to stay inside the tag.
 - **Color**: primary and secondary colors, the system color picker and an editable palette.
 - **Export**: PNG of the current frame, sprite sheet or animated GIF, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.

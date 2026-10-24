@@ -96,6 +96,10 @@ final class SpriteDocument {
     // Timeline range selection
     var isSelectingRange = false
     var timelineRange: TimelineRange?
+    /// Dragging a selected block copies it instead of moving it.
+    var dragCopies = false
+    /// The tag band (row) the timeline focuses; playback stays inside its tags.
+    var focusedTagBand: Int?
     @ObservationIgnored var rangeAnchor: (layer: UUID, frame: Int)?
 
     /// Called when the selection outline or the transform box changes.
@@ -612,20 +616,6 @@ final class SpriteDocument {
 
     // MARK: - Tags
 
-    /// Creates a tag on the active frame and returns it.
-    @discardableResult
-    func addTag() -> FrameTag {
-        let index = activeFrameIndex
-        let tag = FrameTag(
-            name: L10n.string("Tag %d", sprite.tags.count + 1),
-            from: index,
-            to: index,
-            color: FrameTag.colors[sprite.tags.count % FrameTag.colors.count]
-        )
-        perform { $0.tags.append(tag) }
-        return tag
-    }
-
     func updateTag(_ tag: FrameTag) {
         guard let index = sprite.tags.firstIndex(where: { $0.id == tag.id }) else { return }
         var tag = tag
@@ -666,11 +656,13 @@ final class SpriteDocument {
     /// repeat count), or every frame in a loop when the frame has no tag.
     func startPlayback() {
         guard !isPlaying else { return }
-        let (cycle, repeatCount) = sprite.playbackCycle(at: activeFrameIndex)
+        let band = focusedTagBand.flatMap { $0 < sprite.tagBandCount ? $0 : nil }
+        let (cycle, repeatCount) = sprite.playbackCycle(at: activeFrameIndex, band: band)
         guard cycle.count > 1 else { return }
         cancelStroke()
         isPlaying = true
         let start = cycle.firstIndex(of: activeFrameIndex) ?? 0
+        activeFrameIndex = cycle[start]
         playTask = Task { [weak self] in
             var position = start
             var loops = 0
@@ -1061,7 +1053,10 @@ extension SpriteDocument {
 // MARK: - Timeline ranges
 
 /// A block of cels selected in the timeline: some layers × a run of frames.
+/// Like Aseprite, it remembers whether whole frames or whole layers were picked.
 struct TimelineRange: Equatable {
+    enum Kind { case cels, frames, layers }
+    var kind = Kind.cels
     var layers: Set<UUID>
     var frames: ClosedRange<Int>
 }
@@ -1078,6 +1073,7 @@ extension SpriteDocument {
         let ids = sprite.layers.map(\.id)
         guard let a = ids.firstIndex(of: anchor.layer), let b = ids.firstIndex(of: layer) else { return }
         timelineRange = TimelineRange(
+            kind: .cels,
             layers: Set(ids[min(a, b)...max(a, b)]),
             frames: min(anchor.frame, frameIndex)...max(anchor.frame, frameIndex)
         )
@@ -1088,7 +1084,15 @@ extension SpriteDocument {
         let all = Set(sprite.layers.map(\.id))
         let start = timelineRange.map { _ in rangeAnchor?.frame ?? frameIndex } ?? frameIndex
         if timelineRange == nil { rangeAnchor = (sprite.layers.last!.id, frameIndex) }
-        timelineRange = TimelineRange(layers: all, frames: min(start, frameIndex)...max(start, frameIndex))
+        timelineRange = TimelineRange(kind: .frames, layers: all, frames: min(start, frameIndex)...max(start, frameIndex))
+    }
+
+    /// Tap on a layer name while selecting: whole rows, every frame.
+    func extendRange(layerRow layer: UUID) {
+        let ids = sprite.layers.map(\.id)
+        if timelineRange == nil || rangeAnchor == nil { rangeAnchor = (layer, activeFrameIndex) }
+        guard let a = ids.firstIndex(of: rangeAnchor!.layer), let b = ids.firstIndex(of: layer) else { return }
+        timelineRange = TimelineRange(kind: .layers, layers: Set(ids[min(a, b)...max(a, b)]), frames: 0...(sprite.frames.count - 1))
     }
 
     func endRangeSelection() {
@@ -1144,23 +1148,15 @@ extension SpriteDocument {
     /// Inserts copies of the selected frames right after them.
     func duplicateRangeFrames() {
         guard let range = timelineRange else { return }
-        let sources = range.frames.compactMap { sprite.frames.indices.contains($0) ? sprite.frames[$0] : nil }
-        perform { s in
-            var insertAt = range.frames.upperBound + 1
-            for source in sources {
-                let frame = Frame(duration: source.duration)
-                s.insertFrame(frame, at: insertAt)
-                for layer in s.layers {
-                    if let image = s.cel(layer: layer.id, frame: source.id) {
-                        s.cels[CelKey(layer: layer.id, frame: frame.id)] = image
-                    }
-                }
-                insertAt += 1
-            }
-        }
-        let count = range.frames.count
-        timelineRange = TimelineRange(layers: Set(sprite.layers.map(\.id)), frames: (range.frames.upperBound + 1)...(range.frames.upperBound + count))
-        rangeAnchor = (sprite.layers.last!.id, range.frames.upperBound + 1)
+        var placed = range.frames
+        perform { placed = $0.moveFrames(range.frames, to: range.frames.upperBound + 1, copy: true) }
+        selectFrames(placed)
+    }
+
+    private func selectFrames(_ frames: ClosedRange<Int>) {
+        timelineRange = TimelineRange(kind: .frames, layers: Set(sprite.layers.map(\.id)), frames: frames)
+        rangeAnchor = (sprite.layers.last!.id, frames.lowerBound)
+        activeFrameIndex = frames.lowerBound
     }
 
     /// Reverses the order of the selected frames (Aseprite's Frame > Reverse Frames).
@@ -1170,5 +1166,228 @@ extension SpriteDocument {
             let reversed = Array(s.frames[range.frames].reversed())
             s.frames.replaceSubrange(range.frames, with: reversed)
         }
+    }
+
+    // MARK: Drag and drop
+
+    private func layerIndices(_ range: TimelineRange) -> [Int] {
+        sprite.layers.indices.filter { range.layers.contains(sprite.layers[$0].id) }
+    }
+
+    /// Drops the selected block after dragging it from the cel (`fromLayer`,
+    /// `fromFrame`) to (`toLayer`, `toFrame`). Cel blocks keep their offset
+    /// from the grabbed cel, frame blocks are inserted at the target frame and
+    /// layer blocks at the target layer. `dragCopies` copies instead of moving.
+    func dropRange(from: (layer: UUID, frame: Int), to: (layer: UUID, frame: Int)) {
+        guard let range = timelineRange else { return }
+        let ids = sprite.layers.map(\.id)
+        guard let fromLayer = ids.firstIndex(of: from.layer), let toLayer = ids.firstIndex(of: to.layer) else { return }
+        let copy = dragCopies
+        switch range.kind {
+        case .cels:
+            let indices = layerIndices(range)
+            var applied = (dLayers: 0, dFrames: 0)
+            perform { applied = $0.moveCels(layerIndices: indices, frameRange: range.frames, dLayers: toLayer - fromLayer, dFrames: to.frame - from.frame, copy: copy) }
+            guard applied != (0, 0) else { return }
+            let layers = Set(indices.map { sprite.layers[$0 + applied.dLayers].id })
+            let frames = (range.frames.lowerBound + applied.dFrames)...(range.frames.upperBound + applied.dFrames)
+            timelineRange = TimelineRange(kind: .cels, layers: layers, frames: frames)
+            rangeAnchor = (sprite.layers[(indices.last ?? 0) + applied.dLayers].id, frames.lowerBound)
+            selectCel(layer: sprite.layers[min(sprite.layers.count - 1, toLayer)].id, frameIndex: to.frame)
+        case .frames:
+            guard copy || !range.frames.contains(to.frame) else { return }
+            let destination = to.frame > range.frames.upperBound ? to.frame + 1 : to.frame
+            var placed = range.frames
+            perform { placed = $0.moveFrames(range.frames, to: destination, copy: copy) }
+            selectFrames(placed)
+        case .layers:
+            var placed: [UUID] = []
+            perform { placed = $0.moveLayers(range.layers, to: toLayer, copy: copy) }
+            guard !placed.isEmpty else { return }
+            timelineRange = TimelineRange(kind: .layers, layers: Set(placed), frames: 0...(sprite.frames.count - 1))
+            rangeAnchor = (placed.last!, activeFrameIndex)
+            activeLayerID = placed.last!
+        }
+    }
+
+    // MARK: Copy and paste
+
+    /// Copies the selected cels, frames or layers to the timeline clipboard.
+    func copyRange() {
+        guard let range = timelineRange else { return }
+        let s = sprite
+        let frameIDs = range.frames.compactMap { s.frames.indices.contains($0) ? s.frames[$0].id : nil }
+        switch range.kind {
+        case .cels:
+            let rows = layerIndices(range).reversed().map { li in
+                frameIDs.map { s.content(CelKey(layer: s.layers[li].id, frame: $0)) }
+            }
+            TimelineClipboard.shared.content = .cels(rows)
+        case .frames:
+            TimelineClipboard.shared.content = .frames(range.frames.filter { s.frames.indices.contains($0) }.map { f in
+                (s.frames[f].duration, s.layers.map { s.content(CelKey(layer: $0.id, frame: s.frames[f].id)) })
+            })
+        case .layers:
+            TimelineClipboard.shared.content = .layers(layerIndices(range).map { li in
+                (s.layers[li], s.frames.map { s.content(CelKey(layer: s.layers[li].id, frame: $0.id)) })
+            })
+        }
+        notice = L10n.string("Copied to the timeline")
+    }
+
+    /// Pastes copied cels with their top-left cel on the active cel. Rows past
+    /// the bottom layer are dropped; frames are added past the end.
+    func pasteCels() {
+        guard case .cels(let rows) = TimelineClipboard.shared.content,
+              let top = sprite.layers.firstIndex(where: { $0.id == activeLayerID }) else { return }
+        let start = activeFrameIndex, w = sprite.width, h = sprite.height
+        perform { s in
+            s.ensureFrames(start + (rows.first?.count ?? 0))
+            for (r, row) in rows.enumerated() where top - r >= 0 {
+                for (c, cel) in row.enumerated() {
+                    let key = CelKey(layer: s.layers[top - r].id, frame: s.frames[start + c].id)
+                    s.setContent(cel.fitted(width: w, height: h), key)
+                    s.links[key] = nil
+                }
+            }
+            s.normalizeLinks()
+        }
+    }
+
+    /// Inserts copied frames after the active one; cels go to layers by position.
+    func pasteFrames() {
+        guard case .frames(let copied) = TimelineClipboard.shared.content else { return }
+        let at = activeFrameIndex + 1, w = sprite.width, h = sprite.height
+        perform { s in
+            for (offset, item) in copied.enumerated() {
+                let frame = Frame(duration: item.duration)
+                s.insertFrame(frame, at: at + offset)
+                for (li, cel) in item.cels.enumerated() where s.layers.indices.contains(li) {
+                    s.setContent(cel.fitted(width: w, height: h), CelKey(layer: s.layers[li].id, frame: frame.id))
+                }
+            }
+        }
+        selectFrames(at...(at + copied.count - 1))
+    }
+
+    /// Inserts copied layers above the active one; frames are added if needed.
+    func pasteLayers() {
+        guard case .layers(let copied) = TimelineClipboard.shared.content,
+              let index = sprite.layers.firstIndex(where: { $0.id == activeLayerID }) else { return }
+        let w = sprite.width, h = sprite.height
+        var newIDs: [UUID] = []
+        perform { s in
+            s.ensureFrames(copied.map(\.cels.count).max() ?? 0)
+            for (offset, item) in copied.enumerated() {
+                var layer = item.layer
+                layer.id = UUID()
+                newIDs.append(layer.id)
+                s.layers.insert(layer, at: index + 1 + offset)
+                for (f, cel) in item.cels.enumerated() {
+                    s.setContent(cel.fitted(width: w, height: h), CelKey(layer: layer.id, frame: s.frames[f].id))
+                }
+            }
+        }
+        if let last = newIDs.last { activeLayerID = last }
+    }
+
+    // MARK: Frames, tags and cels
+
+    /// Sets the duration of every selected frame (Aseprite's Frame Properties on a range).
+    func setRangeDuration(_ ms: Int) {
+        guard let range = timelineRange else { return }
+        perform { s in
+            for f in range.frames where s.frames.indices.contains(f) { s.frames[f].duration = min(10_000, max(10, ms)) }
+        }
+    }
+
+    /// The frames a new tag or the loop section covers: the selection, or the active frame.
+    private var tagFrames: ClosedRange<Int> {
+        timelineRange?.frames ?? activeFrameIndex...activeFrameIndex
+    }
+
+    /// Creates a tag over the selected frames (or the active one) and returns it.
+    @discardableResult
+    func addTag() -> FrameTag {
+        let frames = tagFrames
+        let tag = FrameTag(
+            name: L10n.string("Tag %d", sprite.tags.count + 1),
+            from: frames.lowerBound,
+            to: min(frames.upperBound, sprite.frames.count - 1),
+            color: FrameTag.colors[sprite.tags.count % FrameTag.colors.count]
+        )
+        perform { $0.tags.append(tag) }
+        return tag
+    }
+
+    /// Aseprite's Set Loop Section: a tag named "Loop" over the selected
+    /// frames, reused if it already exists. https://www.aseprite.org/docs/loop/
+    @discardableResult
+    func setLoopSection() -> FrameTag {
+        let frames = tagFrames
+        let last = sprite.frames.count - 1
+        if var loop = sprite.tags.first(where: { $0.name == Self.loopTagName }) {
+            loop.from = frames.lowerBound
+            loop.to = min(frames.upperBound, last)
+            updateTag(loop)
+            return loop
+        }
+        let tag = FrameTag(name: Self.loopTagName, from: frames.lowerBound, to: min(frames.upperBound, last), color: FrameTag.colors[7])
+        perform { $0.tags.append(tag) }
+        return tag
+    }
+
+    static let loopTagName = "Loop"
+
+    /// Opacity of one cel; linked cels share it.
+    func setCelOpacity(_ opacity: Double, layer: UUID, frameIndex: Int) {
+        guard sprite.frames.indices.contains(frameIndex) else { return }
+        let key = CelKey(layer: layer, frame: sprite.frames[frameIndex].id)
+        guard sprite.cels[key] != nil else { return }
+        let value = min(1, max(0, opacity))
+        perform { s in
+            let group = s.links[key]
+            for k in s.cels.keys where k == key || (group != nil && s.links[k] == group) {
+                s.celOpacity[k] = value < 1 ? value : nil
+            }
+        }
+    }
+
+    func celOpacity(layer: UUID, frameIndex: Int) -> Double {
+        guard sprite.frames.indices.contains(frameIndex) else { return 1 }
+        return sprite.celOpacity[CelKey(layer: layer, frame: sprite.frames[frameIndex].id)] ?? 1
+    }
+
+    /// Copies the selected layers above them.
+    func duplicateRangeLayers() {
+        guard let range = timelineRange, let top = layerIndices(range).last else { return }
+        var placed: [UUID] = []
+        perform { placed = $0.moveLayers(range.layers, to: top, copy: true) }
+        guard let last = placed.last else { return }
+        timelineRange = TimelineRange(kind: .layers, layers: Set(placed), frames: 0...(sprite.frames.count - 1))
+        rangeAnchor = (last, activeFrameIndex)
+        activeLayerID = last
+    }
+
+    /// Deletes the selected layers (at least one layer stays).
+    func deleteRangeLayers() {
+        guard let range = timelineRange, range.layers.count < sprite.layers.count else {
+            notice = L10n.string("A sprite needs at least one layer")
+            return
+        }
+        perform { s in
+            s.layers.removeAll { range.layers.contains($0.id) }
+            s.cels = s.cels.filter { !range.layers.contains($0.key.layer) }
+            s.normalizeLinks()
+        }
+        endRangeSelection()
+    }
+
+    /// Copies a layer with its cels above itself (Layer > Duplicate).
+    func duplicateLayer(_ id: UUID) {
+        guard let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
+        var placed: [UUID] = []
+        perform { placed = $0.moveLayers([id], to: index, copy: true) }
+        if let copy = placed.first { activeLayerID = copy }
     }
 }

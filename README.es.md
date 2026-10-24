@@ -31,7 +31,8 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Exportar**: PNG del frame actual, hoja de sprites o GIF animado, a escala 1×–10× sin suavizado. La hoja de sprites y el GIF pueden limitarse a un tag; el GIF respeta su dirección y sus repeticiones. Se comparte con la hoja de compartir de iOS.
 - **Autoguardado** en `Documentos/Sprites` (visible desde la app Archivos), en un JSON `.openpixel` legible, en segundo plano.
 - **Selección y transformar** como en Aseprite: marco rectangular y elíptico, lazo y varita mágica; modos añadir, restar e intersecar; hormigas; cortar, copiar y pegar; mover, escalar, rotar con RotSprite y pivote, voltear, rotar 90° y recortar el lienzo.
-- **Cels enlazadas y rangos**: capas continuas cuyas cels se enlazan al crear frames, desenlazar, y modo «Seleccionar» en el timeline para enlazar, vaciar, duplicar, invertir o eliminar bloques de frames.
+- **Cels enlazadas y rangos**: capas continuas cuyas cels se enlazan al crear frames, desenlazar, y modo «Seleccionar» en el timeline (cels, números de frame o nombres de capa) para enlazar, vaciar, duplicar, invertir o eliminar bloques.
+- **Timeline avanzado**: mover y copiar bloques de cels, frames o capas arrastrando, también más allá del último frame (un interruptor junto a «Listo» elige mover o copiar); copiar y pegar entre sprites; sección de bucle; tags y duración sobre los frames seleccionados; enfocar una banda de tags para reproducir solo sus tags; opacidad por cel; duplicar capa; doble toque para renombrar; primer frame numerado desde 0 o 1; y los atajos de Aseprite `,` `.` y ⇧X.
 - **Preferencias**: inglés (por defecto) o español, y tema claro, oscuro o el del sistema.
 - Edición a pantalla completa, sin barra de estado, y modo enfoque (toque con cuatro dedos o Tab) que deja solo el lienzo.
 - **Rendimiento**: lienzo con capas de GPU y repintado parcial; los trazos van fluidos también en 256×256.

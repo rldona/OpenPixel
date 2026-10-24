@@ -70,8 +70,14 @@ extension Sprite {
     }
 
     /// Frames to play starting from `frame`: its tag's cycle, or every frame in order.
-    func playbackCycle(at frame: Int) -> (frames: [Int], repeatCount: Int) {
-        if let tag = tag(containing: frame) {
+    /// With a focused tag band only that band's tags play; outside them, the band's first tag.
+    func playbackCycle(at frame: Int, band: Int? = nil) -> (frames: [Int], repeatCount: Int) {
+        var tag = tag(containing: frame)
+        if let band {
+            let inBand = tagBands.filter { $0.band == band }.map(\.tag)
+            tag = inBand.first { $0.contains(frame) } ?? inBand.first
+        }
+        if let tag {
             return (Playback.cycle(from: tag.from, to: tag.to, direction: tag.direction), tag.repeatCount)
         }
         return (Array(frames.indices), 0)

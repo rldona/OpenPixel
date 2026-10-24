@@ -251,7 +251,6 @@
 /* Linked cels and timeline ranges */
 "Select" = "Seleccionar";
 "Select cels" = "Seleccionar cels";
-"Tap cels or frame numbers to select" = "Toca cels o números de frame para seleccionar";
 "Link cels" = "Enlazar cels";
 "Unlink cels" = "Desenlazar cels";
 "Unlink cel" = "Desenlazar cel";
@@ -265,3 +264,30 @@
 "Make %@ continuous" = "Hacer %@ continua";
 "New frames link this layer's cel instead of copying it" = "Los frames nuevos enlazan la cel de esta capa en lugar de copiarla";
 "Linked" = "Enlazada";
+
+/* Advanced timeline */
+"Tap cels, frame numbers or layer names" = "Toca cels, números de frame o nombres de capa";
+"Duplicate layers" = "Duplicar capas";
+"Delete layers" = "Eliminar capas";
+"Set loop section" = "Fijar sección de bucle";
+"More" = "Más";
+"Dragging copies" = "Arrastrar copia";
+"Dragging moves" = "Arrastrar mueve";
+"Show or hide layer" = "Mostrar u ocultar capa";
+"First frame number" = "Número del primer frame";
+"Timeline options" = "Opciones del timeline";
+"Duplicate layer" = "Duplicar capa";
+"Select layers" = "Seleccionar capas";
+"Paste layers above" = "Pegar capas encima";
+"Show every tag band" = "Mostrar todas las bandas de tags";
+"Focus tag band %lld" = "Enfocar la banda de tags %lld";
+"Play only the tags of this band" = "Reproduce solo los tags de esta banda";
+"Focus this band" = "Enfocar esta banda";
+"Select frames" = "Seleccionar frames";
+"After the last frame" = "Después del último frame";
+"Paste frames after" = "Pegar frames detrás";
+"Cel opacity" = "Opacidad de la cel";
+"Paste cels here" = "Pegar cels aquí";
+"%@ copy" = "%@ copia";
+"Copied to the timeline" = "Copiado en el timeline";
+"A sprite needs at least one layer" = "Un sprite necesita al menos una capa";
