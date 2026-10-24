@@ -113,6 +113,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let handlesLayer = CAShapeLayer()
     /// Control points of a curve, corners of a polygon being built.
     private let guidesLayer = CAShapeLayer()
+    /// Slices: outlines in their colors, with names.
+    private let slicesHost = CALayer()
     /// Selection edges in sprite coordinates, recomputed when the selection changes.
     private var outline: [(PixelPoint, PixelPoint)] = []
     /// Cell size and grid of the current checker image; it's rebuilt when any changes.
@@ -206,6 +208,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         axisKnobsLayer.lineWidth = 2
         layer.addSublayer(axisKnobsLayer)
 
+        slicesHost.actions = Self.noAnimations
+        layer.addSublayer(slicesHost)
         for l in [antsBack, antsFront, boxLayer, handlesLayer, guidesLayer] {
             l.actions = Self.noAnimations
             l.fillColor = nil
@@ -466,6 +470,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         antsFront.path = ants
 
         updateGuides()
+        updateSlices()
         boxLayer.frame = bounds
         handlesLayer.frame = bounds
         guard let box = document?.isTransforming == true ? document?.transformBox : nil else {
@@ -489,6 +494,76 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         let pivot = toView(box.pivot)
         handles.addEllipse(in: CGRect(x: pivot.x - 5, y: pivot.y - 5, width: 10, height: 10))
         handlesLayer.path = handles
+    }
+
+    /// Slices on the current frame. Faint unless the slice tool is in use;
+    /// the active one gets handles on its corners and edges.
+    private func updateSlices() {
+        slicesHost.frame = bounds
+        guard let document, !document.sprite.slices.isEmpty else {
+            slicesHost.sublayers = nil
+            return
+        }
+        let editing = document.tool == .slice
+        let frames = document.sprite.frames, frame = document.activeFrameIndex
+        var layers: [CALayer] = []
+        for slice in document.sprite.slices {
+            guard let key = slice.key(at: frame, frames: frames) else { continue }
+            let color = UIColor(red: CGFloat(slice.color.r) / 255, green: CGFloat(slice.color.g) / 255, blue: CGFloat(slice.color.b) / 255, alpha: 1)
+            let isActive = editing && slice.id == document.activeSliceID
+            let b = key.bounds
+            let rect = CGRect(origin: toView(CGPoint(x: b.minX, y: b.minY)), size: CGSize(width: CGFloat(b.width) * scale, height: CGFloat(b.height) * scale))
+            let shape = CAShapeLayer()
+            shape.actions = Self.noAnimations
+            let path = CGMutablePath()
+            path.addRect(rect)
+            if let c = key.center {
+                // The 9-slice centre's lines across the slice.
+                let x0 = rect.minX + CGFloat(c.minX) * scale, x1 = rect.minX + CGFloat(c.maxX + 1) * scale
+                let y0 = rect.minY + CGFloat(c.minY) * scale, y1 = rect.minY + CGFloat(c.maxY + 1) * scale
+                for x in [x0, x1] { path.move(to: CGPoint(x: x, y: rect.minY)); path.addLine(to: CGPoint(x: x, y: rect.maxY)) }
+                for y in [y0, y1] { path.move(to: CGPoint(x: rect.minX, y: y)); path.addLine(to: CGPoint(x: rect.maxX, y: y)) }
+            }
+            if let pivot = key.pivot {
+                let c = CGPoint(x: rect.minX + (CGFloat(pivot.x) + 0.5) * scale, y: rect.minY + (CGFloat(pivot.y) + 0.5) * scale)
+                path.move(to: CGPoint(x: c.x - 8, y: c.y)); path.addLine(to: CGPoint(x: c.x + 8, y: c.y))
+                path.move(to: CGPoint(x: c.x, y: c.y - 8)); path.addLine(to: CGPoint(x: c.x, y: c.y + 8))
+            }
+            shape.path = path
+            shape.fillColor = nil
+            shape.strokeColor = color.withAlphaComponent(editing ? 1 : 0.45).cgColor
+            shape.lineWidth = isActive ? 2 : 1
+            layers.append(shape)
+            if isActive {
+                let handles = CAShapeLayer()
+                handles.actions = Self.noAnimations
+                let hp = CGMutablePath()
+                for x in [rect.minX, rect.midX, rect.maxX] {
+                    for y in [rect.minY, rect.midY, rect.maxY] where !(x == rect.midX && y == rect.midY) {
+                        hp.addRect(CGRect(x: x - 5, y: y - 5, width: 10, height: 10))
+                    }
+                }
+                handles.path = hp
+                handles.fillColor = UIColor.white.cgColor
+                handles.strokeColor = color.cgColor
+                handles.lineWidth = 1.5
+                layers.append(handles)
+            }
+            if editing || isActive {
+                let label = CATextLayer()
+                label.actions = Self.noAnimations
+                label.string = slice.name
+                label.fontSize = 11
+                label.foregroundColor = UIColor.white.cgColor
+                label.backgroundColor = color.cgColor
+                label.contentsScale = traitCollection.displayScale
+                label.alignmentMode = .center
+                let width = CGFloat(slice.name.count) * 6.5 + 10
+                label.frame = CGRect(x: rect.minX, y: rect.minY - 16, width: width, height: 15)
+                layers.append(label)
+            }
+        }
+        slicesHost.sublayers = layers
     }
 
     private func updateGuides() {

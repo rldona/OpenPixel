@@ -68,7 +68,8 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - Primary and secondary colors (marked on the palette), swap, and **Replace color** (⇧R) with tolerance, in the current cel or every cel, inside the selection.
   - Palette editing: select a run of colors to edit, gradient, reverse, sort (hue, saturation, brightness, luminance), duplicate, delete and drag to reorder. Everything can be undone.
   - Presets (DawnBringer 32, PICO-8, Sweetie 16, Endesga 32, DawnBringer 16, Game Boy, grays), palette from the sprite's colors, import (.gpl, .hex, .pal, .txt, .png, .gif) and export (.gpl, .hex), and a default palette for new sprites.
-- **Export**: PNG of the current frame, sprite sheet or animated GIF, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.
+- **Slices** ([Aseprite's](https://www.aseprite.org/docs/slices/), ⇧C, with the Move tool): drag to draw a named, colored rectangle; drag inside to move it or an edge or corner to resize it, tap another to pick it. Each slice can have a 9-slice center and a pivot, edited from its properties; changes on a later frame add a key there so slices can follow the animation. Exported as one PNG per slice or in the sprite sheet's JSON.
+- **Export**: PNG of the current frame, sprite sheet (optionally with Aseprite's JSON data: frames, durations, tags and slices, for game engines), animated GIF or one PNG per slice, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.
 - **Autosave** to `Documents/Sprites` (visible in the Files app), as readable `.openpixel` JSON. Saving runs in the background.
 - **Preferences**: English (default) or Spanish, light, dark or system appearance, and the accent color (ember, blue, green, purple or pink).
 - Full-screen editing with no status bar, and a focus mode that leaves only the canvas.
@@ -112,7 +113,7 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 | `M` / `⇧M` | Rectangular / elliptical marquee |
 | `Q` | Lasso |
 | `W` | Magic wand |
-| `V` | Move |
+| `V` / `⇧C` | Move / slice |
 | `⌘A` / `⌘D` / `⇧⌘D` | Select all / deselect / reselect |
 | `⇧⌘I` | Invert selection |
 | `⌘X` `⌘C` `⌘V` | Cut, copy, paste |

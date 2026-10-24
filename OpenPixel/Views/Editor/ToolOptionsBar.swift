@@ -129,6 +129,10 @@ struct ToolOptionsBar: View {
                 divider
                 textOptions
             }
+            if document.tool == .slice {
+                divider
+                SliceOptions(document: document)
+            }
             if document.tool == .move {
                 Text("Drag to move the selection or the layer content")
                     .font(.system(size: 13))
@@ -367,24 +371,7 @@ struct ToolOptionsBar: View {
         NumberChip(title: label, value: value, range: range, unit: unit ?? "", presets: presets)
     }
 
-    /// An on/off option as a pill: the whole label is the touch target, and
-    /// it fills with the accent color when on.
     private func toggle(_ title: LocalizedStringKey, isOn: Binding<Bool>) -> some View {
-        Button { isOn.wrappedValue.toggle() } label: {
-            HStack(spacing: 6) {
-                Image(systemName: isOn.wrappedValue ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(isOn.wrappedValue ? Theme.accent : Theme.muted)
-                Text(title).foregroundStyle(isOn.wrappedValue ? Theme.accentText : Theme.text)
-            }
-            .font(.system(size: 13, weight: .medium))
-            .fixedSize()
-            .padding(.horizontal, 10)
-            .frame(height: 34)
-            .background(isOn.wrappedValue ? Theme.accentSoft : Theme.chip, in: Capsule())
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
+        PillToggle(title: title, isOn: isOn)
     }
 }

@@ -4,7 +4,7 @@ import ImageIO
 import UniformTypeIdentifiers
 
 enum ExportFormat: String, CaseIterable, Identifiable {
-    case png, spriteSheet, gif
+    case png, spriteSheet, gif, slices
 
     var id: String { rawValue }
 
@@ -13,6 +13,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .png: "PNG"
         case .spriteSheet: "Sprite sheet"
         case .gif: "Animated GIF"
+        case .slices: "Slices"
         }
     }
 
@@ -21,6 +22,7 @@ enum ExportFormat: String, CaseIterable, Identifiable {
         case .png: "Current frame"
         case .spriteSheet: "All frames in a row"
         case .gif: "With each frame's duration"
+        case .slices: "Each slice as a PNG"
         }
     }
 
@@ -85,6 +87,99 @@ enum Exporter {
         return data as Data
     }
 
+    /// Aseprite's sprite sheet data (the JSON its CLI `--data` and Export
+    /// Sprite Sheet write, "array" layout): each frame's place in the sheet
+    /// and duration, plus tags and slices, in the sheet's (scaled) pixels.
+    static func sheetData(_ sprite: Sprite, frames: [Int], scale: Int, imageName: String, baseName: String) throws -> Data {
+        let w = sprite.width * scale, h = sprite.height * scale
+        func rect(_ x: Int, _ y: Int, _ rw: Int, _ rh: Int) -> [String: Int] { ["x": x, "y": y, "w": rw, "h": rh] }
+        let frameEntries: [[String: Any]] = frames.enumerated().map { column, index in
+            [
+                "filename": "\(baseName) \(index).png",
+                "frame": rect(column * w, 0, w, h),
+                "rotated": false,
+                "trimmed": false,
+                "spriteSourceSize": rect(0, 0, w, h),
+                "sourceSize": ["w": w, "h": h],
+                "duration": sprite.frames[index].duration
+            ]
+        }
+        // Tags and slice keys are numbered within the exported frames.
+        let position = Dictionary(uniqueKeysWithValues: frames.enumerated().map { ($1, $0) })
+        let tags: [[String: Any]] = sprite.tags.compactMap { tag in
+            guard let from = position[tag.from], let to = position[tag.to] else { return nil }
+            let direction = ["forward": "forward", "reverse": "reverse", "pingPong": "pingpong", "pingPongReverse": "pingpong_reverse"][tag.direction.rawValue] ?? "forward"
+            return ["name": tag.name, "from": from, "to": to, "direction": direction, "repeat": "\(tag.repeatCount)"]
+        }
+        let slices: [[String: Any]] = sprite.slices.map { slice in
+            var keys: [[String: Any]] = []
+            var last: SliceKey?
+            for (column, index) in frames.enumerated() {
+                guard let key = slice.key(at: index, frames: sprite.frames), key != last else { continue }
+                last = key
+                let b = key.bounds
+                var entry: [String: Any] = ["frame": column, "bounds": rect(b.minX * scale, b.minY * scale, b.width * scale, b.height * scale)]
+                if let c = key.center { entry["center"] = rect(c.minX * scale, c.minY * scale, c.width * scale, c.height * scale) }
+                if let p = key.pivot { entry["pivot"] = ["x": p.x * scale, "y": p.y * scale] }
+                keys.append(entry)
+            }
+            let c = slice.color
+            return ["name": slice.name, "color": String(format: "#%02x%02x%02x%02x", c.r, c.g, c.b, c.a), "keys": keys]
+        }
+        let meta: [String: Any] = [
+            "app": "https://github.com/rldona/OpenPixel",
+            "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0",
+            "image": imageName,
+            "format": "RGBA8888",
+            "size": ["w": w * frames.count, "h": h],
+            "scale": "\(scale)",
+            "frameTags": tags,
+            "layers": sprite.layers.filter { !$0.isReference && !$0.isGroup }.map { ["name": $0.name, "opacity": Int(($0.opacity * 255).rounded()), "blendMode": $0.blendMode.rawValue] },
+            "slices": slices
+        ]
+        return try JSONSerialization.data(withJSONObject: ["frames": frameEntries, "meta": meta], options: [.prettyPrinted, .sortedKeys])
+    }
+
+    /// Each slice of a frame, cropped (Aseprite's --split-slices), with its name.
+    static func sliceImages(_ sprite: Sprite, frameIndex: Int) -> [(name: String, image: PixelImage)] {
+        let image = sprite.composite(frameIndex: frameIndex)
+        return sprite.slices.compactMap { slice in
+            guard let key = slice.key(at: frameIndex, frames: sprite.frames),
+                  let rect = key.bounds.clipped(width: sprite.width, height: sprite.height) else { return nil }
+            return (slice.name, image.cropped(to: rect))
+        }
+    }
+
+    /// Writes the export to temporary files ready to share: the image, plus
+    /// the JSON data for a sprite sheet with `includeData`, or one PNG per slice.
+    static func exportFiles(_ sprite: Sprite, name: String, frameIndex: Int, format: ExportFormat, scale: Int, tag: FrameTag? = nil, includeData: Bool = false) throws -> [URL] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("Export", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var safeName = name.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
+        if safeName.isEmpty { safeName = "sprite" }
+        switch format {
+        case .slices:
+            var used: Set<String> = []
+            return try sliceImages(sprite, frameIndex: frameIndex).map { slice in
+                var file = "\(safeName)-\(slice.name)".components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
+                while used.contains(file) { file += "-2" }
+                used.insert(file)
+                let url = directory.appendingPathComponent("\(file).png")
+                try pngData(slice.image.scaled(by: scale)).write(to: url, options: .atomic)
+                return url
+            }
+        case .spriteSheet where includeData:
+            let image = try export(sprite, name: name, frameIndex: frameIndex, format: format, scale: scale, tag: tag)
+            let frames = tag.map { Array($0.from...$0.to) } ?? Array(sprite.frames.indices)
+            let json = try sheetData(sprite, frames: frames, scale: scale, imageName: image.lastPathComponent, baseName: safeName)
+            let url = image.deletingPathExtension().appendingPathExtension("json")
+            try json.write(to: url, options: .atomic)
+            return [image, url]
+        default:
+            return [try export(sprite, name: name, frameIndex: frameIndex, format: format, scale: scale, tag: tag)]
+        }
+    }
+
     /// Writes the export to a temporary file ready to share.
     /// `tag` limits the sprite sheet and the GIF to that tag's frames.
     static func export(_ sprite: Sprite, name: String, frameIndex: Int, format: ExportFormat, scale: Int, tag: FrameTag? = nil) throws -> URL {
@@ -98,6 +193,9 @@ enum Exporter {
         case .gif:
             let animation = animation(sprite, tag: tag)
             data = try gifData(sprite, frames: animation.frames, loopCount: animation.loopCount, scale: scale)
+        case .slices:
+            guard let first = sliceImages(sprite, frameIndex: frameIndex).first else { throw ExportError.encodingFailed }
+            data = try pngData(first.image.scaled(by: scale))
         }
         var safeName = name.components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
         if let tag, format != .png { safeName += "-\(tag.name)" }

@@ -222,6 +222,11 @@ final class SpriteDocument {
     /// over the same pixel twice in one stroke doesn't build up opacity or shading.
     @ObservationIgnored private var strokeCoverage: [UInt8] = []
     @ObservationIgnored private var strokePressure: Double = 1
+    /// The slice the slice tool works on.
+    var activeSliceID: UUID? { didSet { onOverlayChange?() } }
+    /// A slice being drawn, moved or resized: which edges follow the drag
+    /// (all four when moving), and the sprite before the drag for undo.
+    @ObservationIgnored private var sliceDrag: (slice: UUID, start: PixelPoint, bounds: PixelRect, edges: SliceEdges, before: Sprite)?
     /// The area a gradient drag fills, found like the paint bucket's at the touch-down point.
     @ObservationIgnored private var gradientRegion: SelectionMask?
     /// The contour tool's path, filled when the stroke ends.
@@ -284,6 +289,7 @@ final class SpriteDocument {
         change(&storage)
         // Whatever moved, groups stay right above their children.
         if storage.layers.contains(where: { $0.isGroup || $0.parent != nil }) { storage.normalizeGroups() }
+        storage.normalizeSlices()
         guard storage != before else { return }
         registerUndo(DocumentSnapshot(sprite: before, selection: selection))
         fixSelection()
@@ -333,6 +339,8 @@ final class SpriteDocument {
         if newTool != tool { previousTool = tool }
         tool = newTool
         toolInGroup[ToolGroup.of(newTool)] = newTool
+        // Slices show more strongly with the slice tool.
+        onOverlayChange?()
     }
 
     /// The last tool used in each tool rail group.
@@ -389,6 +397,7 @@ final class SpriteDocument {
         }
         cancelStroke()
         stopPlayback()
+        if tool == .slice { return beginSliceDrag(at: p) }
         if tool == .eyedropper {
             pickColor(at: p)
             return
@@ -448,6 +457,7 @@ final class SpriteDocument {
     /// samples of one touch event), redrawing the canvas only once.
     func continueStroke(through points: [PixelPoint], pressures: [Double]? = nil) {
         if selectionDrag != nil { return updateSelection(through: points) }
+        if sliceDrag != nil, let p = points.last { return continueSliceDrag(to: p) }
         guard strokeStart != nil, let target = points.last else { return }
         if pendingDragging {
             movePendingPoint(to: target)
@@ -478,6 +488,7 @@ final class SpriteDocument {
 
     func endStroke() {
         if selectionDrag != nil { return finishSelection() }
+        if sliceDrag != nil { return endSliceDrag() }
         if isBuildingShape {
             pendingDragging = false
             if tool == .curve {
@@ -507,6 +518,12 @@ final class SpriteDocument {
     /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be
     /// a pinch. While a curve or polygon is being built only the drag is undone.
     func cancelStroke() {
+        if let drag = sliceDrag {
+            sliceDrag = nil
+            storage = drag.before
+            changed()
+            return
+        }
         if let drag = selectionDrag {
             selectionDrag = nil
             selection = drag.before
@@ -886,6 +903,112 @@ final class SpriteDocument {
     func centerSymmetryAxes() {
         symmetry.axisX2 = nil
         symmetry.axisY2 = nil
+    }
+
+    // MARK: Slices
+
+    /// The active slice's shape on the active frame.
+    var activeSliceKey: SliceKey? {
+        guard let slice = sprite.slices.first(where: { $0.id == activeSliceID }) else { return nil }
+        return slice.key(at: activeFrameIndex, frames: sprite.frames)
+    }
+
+    /// Slice tool: touching the active slice's edge resizes it, inside it
+    /// moves it, inside another slice picks that one, elsewhere draws a new one.
+    private func beginSliceDrag(at p: PixelPoint) {
+        let frames = storage.frames
+        let hit = storage.slices.reversed().first { $0.key(at: activeFrameIndex, frames: frames)?.bounds.contains(p) == true }
+        if let active = storage.slices.first(where: { $0.id == activeSliceID }),
+           let bounds = active.key(at: activeFrameIndex, frames: frames)?.bounds,
+           bounds.insetBy(-1).contains(p) {
+            let edges = SliceEdges(p, bounds)
+            sliceDrag = (active.id, p, bounds, edges, storage)
+            return
+        }
+        if let hit, let bounds = hit.key(at: activeFrameIndex, frames: frames)?.bounds {
+            activeSliceID = hit.id
+            sliceDrag = (hit.id, p, bounds, .all, storage)
+            return
+        }
+        let before = storage
+        let names = Set(storage.slices.map(\.name))
+        var n = storage.slices.count + 1
+        while names.contains(L10n.string("Slice %d", n)) { n += 1 }
+        let color = Slice.colors[storage.slices.count % Slice.colors.count]
+        let bounds = PixelRect(minX: p.x, minY: p.y, maxX: p.x, maxY: p.y)
+        let slice = Slice(name: L10n.string("Slice %d", n), color: color, keys: [SliceKey(frame: frames[0].id, bounds: bounds)])
+        storage.slices.append(slice)
+        activeSliceID = slice.id
+        sliceDrag = (slice.id, p, bounds, .drawing, before)
+        onOverlayChange?()
+    }
+
+    private func continueSliceDrag(to p: PixelPoint) {
+        guard let drag = sliceDrag else { return }
+        var b = drag.bounds
+        let dx = p.x - drag.start.x, dy = p.y - drag.start.y
+        switch drag.edges {
+        case .drawing:
+            b = PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
+        case .all:
+            b = b.offsetBy(dx: dx, dy: dy)
+        default:
+            if drag.edges.contains(.left) { b.minX = min(b.maxX, b.minX + dx) }
+            if drag.edges.contains(.right) { b.maxX = max(b.minX, b.maxX + dx) }
+            if drag.edges.contains(.top) { b.minY = min(b.maxY, b.minY + dy) }
+            if drag.edges.contains(.bottom) { b.maxY = max(b.minY, b.maxY + dy) }
+        }
+        updateSliceKey(drag.slice, in: &storage) { $0.bounds = b }
+        onOverlayChange?()
+    }
+
+    private func endSliceDrag() {
+        guard let drag = sliceDrag else { return }
+        sliceDrag = nil
+        // A tap on empty canvas only deselects; slices are drawn by dragging.
+        if drag.edges == .drawing, activeSliceKey.map({ $0.bounds.width == 1 && $0.bounds.height == 1 }) ?? false {
+            storage = drag.before
+            activeSliceID = nil
+            changed()
+            return
+        }
+        if drag.before != storage { registerUndo(DocumentSnapshot(sprite: drag.before, selection: selection)) }
+        changed()
+    }
+
+    /// Changes the slice's key on the active frame, adding one there (from the
+    /// shape it had) when the change is on a later frame, as in Aseprite.
+    private func updateSliceKey(_ id: UUID, in sprite: inout Sprite, _ change: (inout SliceKey) -> Void) {
+        guard let i = sprite.slices.firstIndex(where: { $0.id == id }),
+              var key = sprite.slices[i].key(at: activeFrameIndex, frames: sprite.frames) else { return }
+        let frame = sprite.frames[activeFrameIndex].id
+        change(&key)
+        if let k = sprite.slices[i].keys.firstIndex(where: { $0.frame == frame }) {
+            sprite.slices[i].keys[k] = key
+        } else {
+            key.frame = frame
+            sprite.slices[i].keys.append(key)
+        }
+    }
+
+    func editActiveSlice(_ change: @escaping (inout SliceKey) -> Void) {
+        guard let id = activeSliceID else { return }
+        perform { s in self.updateSliceKey(id, in: &s, change) }
+    }
+
+    func renameSlice(_ id: UUID, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        perform { s in if let i = s.slices.firstIndex(where: { $0.id == id }) { s.slices[i].name = trimmed } }
+    }
+
+    func setSliceColor(_ id: UUID, _ color: PixelColor) {
+        perform { s in if let i = s.slices.firstIndex(where: { $0.id == id }) { s.slices[i].color = color } }
+    }
+
+    func deleteSlice(_ id: UUID) {
+        perform { $0.slices.removeAll { $0.id == id } }
+        if activeSliceID == id { activeSliceID = nil }
     }
 
     /// View > Grid Settings. Part of the sprite, so it's undoable and saved.
@@ -2543,4 +2666,26 @@ private struct Painter {
         let ramp = ramp, direction = direction
         image.pixels[i] = ink.apply(color ?? self.color, over: original?.pixels[i] ?? .clear, alpha: alpha) { direction.step($0, in: ramp) }
     }
+}
+
+/// Which edges of a slice follow a drag.
+struct SliceEdges: OptionSet {
+    let rawValue: Int
+    static let left = SliceEdges(rawValue: 1), right = SliceEdges(rawValue: 2)
+    static let top = SliceEdges(rawValue: 4), bottom = SliceEdges(rawValue: 8)
+    /// Moving: the whole slice.
+    static let all: SliceEdges = [.left, .right, .top, .bottom]
+    /// A new slice drawn from the touch-down point.
+    static let drawing = SliceEdges(rawValue: 16)
+
+    /// The edges a touch at `p` grabs: on (or just outside) an edge resizes
+    /// it, a corner both; inside moves the slice. Tiny slices only move.
+    init(_ p: PixelPoint, _ b: PixelRect) {
+        var e: SliceEdges = []
+        if b.width > 2 { if p.x <= b.minX { e.insert(.left) } else if p.x >= b.maxX { e.insert(.right) } }
+        if b.height > 2 { if p.y <= b.minY { e.insert(.top) } else if p.y >= b.maxY { e.insert(.bottom) } }
+        self = e.isEmpty ? .all : e
+    }
+
+    init(rawValue: Int) { self.rawValue = rawValue }
 }

@@ -554,3 +554,26 @@
 "Show the grid" = "Mostrar la cuadrícula";
 "Stop at grid" = "Parar en la cuadrícula";
 "Marquees snap to whole cells and moves go cell by cell. The paint bucket can stop at the grid lines, and tilemaps use this size." = "Las selecciones se ajustan a celdas enteras y los movimientos van de celda en celda. El cubo puede parar en las líneas de la cuadrícula, y los tilemaps usan este tamaño.";
+
+/* Slices */
+"Slice" = "Slice";
+"Slice %d" = "Slice %d";
+"Slice properties" = "Propiedades del slice";
+"Delete slice" = "Eliminar el slice";
+"Drag to draw a slice" = "Arrastra para dibujar un slice";
+"Drag an edge to resize, inside to move" = "Arrastra un borde para redimensionar, o el interior para mover";
+"Bounds" = "Límites";
+"9-slice" = "9-slice";
+"Pivot" = "Pivote";
+"Left" = "Izquierda";
+"Right" = "Derecha";
+"Top" = "Arriba";
+"Bottom" = "Abajo";
+"X" = "X";
+"Y" = "Y";
+"Changes on a later frame start a new key there, so a slice can move with the animation." = "Los cambios en un frame posterior crean una clave nueva ahí, así el slice puede moverse con la animación.";
+"Center area" = "Área central";
+"Slices" = "Slices";
+"Each slice as a PNG" = "Cada slice en un PNG";
+"Include JSON data" = "Incluir datos JSON";
+"Frames, durations, tags and slices, in Aseprite's format, for game engines." = "Frames, duraciones, tags y slices, en el formato de Aseprite, para motores de juego.";

@@ -15,8 +15,10 @@ struct GridSettingsView: View {
                 NumberChip(title: "Offset X", value: binding(\.offsetX), range: 0...max(0, document.sprite.grid.width - 1), unit: "px")
                 NumberChip(title: "Offset Y", value: binding(\.offsetY), range: 0...max(0, document.sprite.grid.height - 1), unit: "px")
             }
-            Toggle("Show the grid", isOn: $document.showTileGrid).tint(Theme.accent)
-            Toggle("Snap to grid", isOn: $document.snapToGrid).tint(Theme.accent)
+            HStack(spacing: 8) {
+                PillToggle(title: "Show the grid", isOn: $document.showTileGrid)
+                PillToggle(title: "Snap to grid", isOn: $document.snapToGrid)
+            }
             Text("Marquees snap to whole cells and moves go cell by cell. The paint bucket can stop at the grid lines, and tilemaps use this size.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.muted)

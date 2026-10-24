@@ -7,7 +7,9 @@ struct ExportView: View {
     @State private var scale = 4
     /// nil exports every frame.
     @State private var tagID: UUID?
-    @State private var fileURL: URL?
+    @State private var fileURLs: [URL] = []
+    /// A sprite sheet comes with Aseprite's JSON data (frames, tags, slices).
+    @AppStorage("exportSheetData") private var includeData = false
     @State private var errorMessage: String?
 
     private let scales = [1, 2, 4, 6, 8, 10]
@@ -16,7 +18,7 @@ struct ExportView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 22) {
                 HStack(spacing: 10) {
-                    ForEach(ExportFormat.allCases) { f in
+                    ForEach(formats) { f in
                         Button { format = f } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(f.title).font(.system(size: 15, weight: .semibold))
@@ -31,7 +33,19 @@ struct ExportView: View {
                     }
                 }
 
-                if format != .png && !document.sprite.tags.isEmpty {
+                if format == .spriteSheet {
+                    Toggle(isOn: $includeData) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Include JSON data")
+                            Text("Frames, durations, tags and slices, in Aseprite's format, for game engines.")
+                                .font(.footnote)
+                                .foregroundStyle(Theme.muted)
+                        }
+                    }
+                    .tint(Theme.accent)
+                }
+
+                if format != .png && format != .slices && !document.sprite.tags.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         SectionLabel("Frames")
                         Picker("Frames", selection: $tagID) {
@@ -67,7 +81,9 @@ struct ExportView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border))
                     HStack {
-                        Text(verbatim: fileURL?.lastPathComponent ?? "…")
+                        Text(verbatim: fileURLs.isEmpty ? "…" : fileURLs.map(\.lastPathComponent).joined(separator: " + "))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                         Spacer()
                         Text(verbatim: outputSize)
                     }
@@ -80,8 +96,8 @@ struct ExportView: View {
                 HStack {
                     if let errorMessage { Text(verbatim: errorMessage).foregroundStyle(.red) }
                     Spacer()
-                    if let fileURL {
-                        ShareLink(item: fileURL) {
+                    if !fileURLs.isEmpty {
+                        ShareLink(items: fileURLs) {
                             Label("Share or save…", systemImage: "square.and.arrow.up")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(Theme.onAccent)
@@ -99,12 +115,17 @@ struct ExportView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
             }
-            .task(id: "\(format.rawValue)-\(scale)-\(tagID?.uuidString ?? "all")") { render() }
+            .task(id: "\(format.rawValue)-\(scale)-\(tagID?.uuidString ?? "all")-\(includeData)") { render() }
         }
     }
 
     private var tag: FrameTag? {
-        format == .png ? nil : document.sprite.tags.first { $0.id == tagID }
+        format == .png || format == .slices ? nil : document.sprite.tags.first { $0.id == tagID }
+    }
+
+    /// Slices are offered only when the sprite has some.
+    private var formats: [ExportFormat] {
+        ExportFormat.allCases.filter { $0 != .slices || !document.sprite.slices.isEmpty }
     }
 
     private var previewImage: CGImage? {
@@ -113,6 +134,7 @@ struct ExportView: View {
         case .png: return sprite.composite(frameIndex: document.activeFrameIndex).makeCGImage()
         case .gif: return sprite.composite(frameIndex: Exporter.animation(sprite, tag: tag).frames[0]).makeCGImage()
         case .spriteSheet: return Exporter.spriteSheet(sprite, frames: tag.map { Array($0.from...$0.to) }).makeCGImage()
+        case .slices: return Exporter.sliceImages(sprite, frameIndex: document.activeFrameIndex).first?.image.makeCGImage()
         }
     }
 
@@ -129,15 +151,18 @@ struct ExportView: View {
             let frames = Exporter.animation(s, tag: tag).frames
             let duration = frames.reduce(0) { $0 + s.frames[$1].duration }
             return "\(w) × \(h) px · \(frames.count) frames · \(duration) ms"
+        case .slices:
+            return "\(s.slices.count) PNG"
         }
     }
 
     private func render() {
         do {
-            fileURL = try Exporter.export(document.sprite, name: document.name, frameIndex: document.activeFrameIndex, format: format, scale: scale, tag: tag)
+            fileURLs = try Exporter.exportFiles(document.sprite, name: document.name, frameIndex: document.activeFrameIndex,
+                                                format: format, scale: scale, tag: tag, includeData: includeData)
             errorMessage = nil
         } catch {
-            fileURL = nil
+            fileURLs = []
             errorMessage = error.localizedDescription
         }
     }

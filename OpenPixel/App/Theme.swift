@@ -202,3 +202,30 @@ struct PixelLogo: View {
             .offset(x: CGFloat(x) * unit, y: CGFloat(y) * unit)
     }
 }
+
+/// An on/off option as a pill: the whole label is the touch target, and it
+/// fills with the accent color when on. Used instead of switches in the
+/// tool options and their popovers.
+struct PillToggle: View {
+    let title: LocalizedStringKey
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button { isOn.toggle() } label: {
+            HStack(spacing: 6) {
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(isOn ? Theme.accent : Theme.muted)
+                Text(title).foregroundStyle(isOn ? Theme.accentText : Theme.text)
+            }
+            .font(.system(size: 13, weight: .medium))
+            .fixedSize()
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .background(isOn ? Theme.accentSoft : Theme.chip, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+}

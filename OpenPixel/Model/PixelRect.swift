@@ -32,6 +32,18 @@ struct PixelRect: Equatable, Sendable {
         self.maxY = maxY
     }
 
+    var width: Int { maxX - minX + 1 }
+    var height: Int { maxY - minY + 1 }
+
+    func contains(_ p: PixelPoint) -> Bool { p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY }
+
+    /// Grown (negative) or shrunk (positive) on every side.
+    func insetBy(_ d: Int) -> PixelRect { PixelRect(minX: minX + d, minY: minY + d, maxX: maxX - d, maxY: maxY - d) }
+
+    func offsetBy(dx: Int, dy: Int) -> PixelRect {
+        PixelRect(minX: minX + dx, minY: minY + dy, maxX: maxX + dx, maxY: maxY + dy)
+    }
+
     func union(_ other: PixelRect) -> PixelRect {
         PixelRect(minX: min(minX, other.minX), minY: min(minY, other.minY), maxX: max(maxX, other.maxX), maxY: max(maxY, other.maxY))
     }

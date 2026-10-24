@@ -93,12 +93,10 @@ struct InkOptions: View {
             }
             if hasDynamics {
                 section("Apple Pencil pressure") {
-                    VStack(spacing: 0) {
-                        Toggle("Changes the size", isOn: $document.pressureSize).frame(minHeight: 44)
-                        Toggle("Changes the opacity", isOn: $document.pressureOpacity).frame(minHeight: 44)
+                    HStack(spacing: 8) {
+                        PillToggle(title: "Changes the size", isOn: $document.pressureSize)
+                        PillToggle(title: "Changes the opacity", isOn: $document.pressureOpacity)
                     }
-                    .font(.system(size: 14))
-                    .tint(Theme.accent)
                 }
             }
         }

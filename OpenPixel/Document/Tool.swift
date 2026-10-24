@@ -2,7 +2,7 @@ import SwiftUI
 
 enum Tool: String, CaseIterable, Identifiable {
     case pencil, spray, eraser, bucket, gradient, eyedropper, line, curve, rectangle, ellipse, contour, polygon
-    case selectRectangle, selectEllipse, lasso, magicWand, move, text
+    case selectRectangle, selectEllipse, lasso, magicWand, move, slice, text
 
     var id: String { rawValue }
 
@@ -25,6 +25,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .lasso: "Lasso"
         case .magicWand: "Magic wand"
         case .move: "Move"
+        case .slice: "Slice"
         case .text: "Text"
         }
     }
@@ -48,6 +49,7 @@ enum Tool: String, CaseIterable, Identifiable {
         case .lasso: "lasso"
         case .magicWand: "wand.and.stars"
         case .move: "arrow.up.and.down.and.arrow.left.and.right"
+        case .slice: "rectangle.split.3x3"
         case .text: "textformat"
         }
     }
@@ -67,11 +69,12 @@ enum Tool: String, CaseIterable, Identifiable {
         case .lasso: "q"
         case .magicWand: "w"
         case .move: "v"
+        case .slice: "c"
         case .text: "t"
         }
     }
 
-    var shortcutModifiers: EventModifiers { [.ellipse, .selectEllipse, .curve, .polygon, .gradient, .spray].contains(self) ? .shift : [] }
+    var shortcutModifiers: EventModifiers { [.ellipse, .selectEllipse, .curve, .polygon, .gradient, .spray, .slice].contains(self) ? .shift : [] }
 
     /// Tools whose strokes are stamped with the brush.
     var usesBrush: Bool {
@@ -111,7 +114,7 @@ enum ToolGroup: CaseIterable, Identifiable {
         case .shapes: [.line, .curve, .rectangle, .ellipse, .contour, .polygon]
         case .text: [.text]
         case .select: [.selectRectangle, .selectEllipse, .lasso, .magicWand]
-        case .move: [.move]
+        case .move: [.move, .slice]
         }
     }
 
