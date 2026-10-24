@@ -57,10 +57,12 @@ struct EditorView: View {
                         }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {
+                                // With the timeline open, the bars leave room for its grab bar below them.
+                                let barBottom: CGFloat = !focusMode && !timelineCollapsed ? 44 : 14
                                 if document.isTransforming {
-                                    TransformBar(document: document).padding(14)
+                                    TransformBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
                                 } else if document.hasSelection {
-                                    SelectionActionBar(document: document).padding(14)
+                                    SelectionActionBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
                                 }
                                 // Also in focus mode, so the animation can be played and scrubbed full screen.
                                 if focusMode || timelineCollapsed {
