@@ -482,3 +482,8 @@
 "Text size" = "Tamaño del texto";
 "Brush size" = "Tamaño del pincel";
 "Brush angle" = "Ángulo del pincel";
+
+/* Collapsed timeline */
+"Drag to resize, or down to hide it. Double tap to fit every layer." = "Arrastra para cambiar el tamaño, o hacia abajo para ocultarlo. Doble toque para ver todas las capas.";
+"Hide timeline" = "Ocultar el timeline";
+"Show timeline" = "Mostrar el timeline";

@@ -16,7 +16,14 @@ struct EditorView: View {
     /// Timeline height, set by dragging its top edge (Aseprite's splitter). Kept between sessions.
     @AppStorage("timelineHeight") private var timelineHeight = 200.0
     @State private var timelineDragStart: Double?
+    /// Pushed down past its smallest size, the timeline hides behind a small
+    /// capsule with play and the frame number (as in Calco).
+    @AppStorage("timelineCollapsed") private var timelineCollapsed = false
+    /// How far the timeline has been dragged below its smallest size, to show it giving way.
+    @State private var timelinePull = 0.0
     private static let timelineHeights = 120.0...560.0
+    /// Dragging this far below the smallest size collapses the timeline.
+    private static let collapsePull = 50.0
 
     var body: some View {
         let sprite = document.sprite
@@ -46,7 +53,7 @@ struct EditorView: View {
                                 onZoomChanged: { zoom = $0 },
                                 onFocusToggle: toggleFocus
                             )
-                            if !focusMode && !document.hasSelection && !document.isTransforming { statusPills }
+                            if !focusMode && !timelineCollapsed && !document.hasSelection && !document.isTransforming { statusPills }
                         }
                         .overlay(alignment: .topLeading) {
                             if !focusMode { ToolOptionsBar(document: document).padding(14) }
@@ -55,19 +62,31 @@ struct EditorView: View {
                             if focusMode { focusExitButton }
                         }
                         .overlay(alignment: .bottom) {
-                            if document.isTransforming {
-                                TransformBar(document: document).padding(14)
-                            } else if document.hasSelection {
-                                SelectionActionBar(document: document).padding(14)
+                            VStack(spacing: 0) {
+                                if document.isTransforming {
+                                    TransformBar(document: document).padding(14)
+                                } else if document.hasSelection {
+                                    SelectionActionBar(document: document).padding(14)
+                                }
+                                if !focusMode && timelineCollapsed {
+                                    TimelineCapsule(document: document, expand: expandTimeline)
+                                        .padding(.bottom, 14)
+                                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                                }
                             }
                         }
                         .overlay(alignment: .top) { noticeBanner.padding(.top, 58) }
                     }
-                    if !focusMode {
-                        FrameTimeline(document: document)
-                            .frame(height: CGFloat(timelineHeight))
-                            .overlay(alignment: .top) { timelineResizeHandle }
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    if !focusMode && !timelineCollapsed {
+                        VStack(spacing: 0) {
+                            timelineResizeHandle
+                            FrameTimeline(document: document)
+                                .frame(height: CGFloat(timelineHeight))
+                        }
+                        // While pulled past its smallest size it slides down and fades, to show it's about to hide.
+                        .offset(y: timelinePull)
+                        .opacity(1 - 0.5 * min(1, timelinePull / Self.collapsePull))
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
                 if !focusMode {
@@ -173,23 +192,40 @@ struct EditorView: View {
         store.save(document)
     }
 
-    /// Grab bar on the timeline's top edge: drag to resize, double tap to fit every layer.
+    /// Grab bar on the timeline's top edge: drag to resize, keep pushing down to
+    /// hide it behind a capsule, double tap to fit every layer.
     private var timelineResizeHandle: some View {
         Capsule()
-            .fill(Theme.strongBorder)
-            .frame(width: 40, height: 5)
+            .fill(timelineDragStart != nil ? Theme.accent : Theme.strongBorder)
+            .frame(width: 56, height: 6)
             .frame(maxWidth: .infinity)
-            .frame(height: 18)
+            .frame(height: 22)
+            .background(Theme.panel)
+            .overlay(alignment: .top) { Rectangle().fill(Theme.border).frame(height: 1) }
             .contentShape(Rectangle())
-            .offset(y: -9)
             .gesture(
                 DragGesture(minimumDistance: 2, coordinateSpace: .global)
                     .onChanged { drag in
                         let start = timelineDragStart ?? timelineHeight
                         timelineDragStart = start
-                        timelineHeight = min(max(start - drag.translation.height, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
+                        let proposed = start - drag.translation.height
+                        timelineHeight = min(max(proposed, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
+                        timelinePull = max(0, Self.timelineHeights.lowerBound - proposed)
                     }
-                    .onEnded { _ in timelineDragStart = nil }
+                    .onEnded { _ in
+                        let start = timelineDragStart ?? timelineHeight
+                        timelineDragStart = nil
+                        if timelinePull >= Self.collapsePull {
+                            // Come back at the height it had before this drag.
+                            timelineHeight = min(max(start, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                timelineCollapsed = true
+                                timelinePull = 0
+                            }
+                        } else {
+                            withAnimation(.easeOut(duration: 0.2)) { timelinePull = 0 }
+                        }
+                    }
             )
             .onTapGesture(count: 2) {
                 let fit = Double(FrameTimeline.fittingHeight(for: document.sprite))
@@ -200,11 +236,18 @@ struct EditorView: View {
             .accessibilityElement()
             .accessibilityLabel(Text("Timeline height"))
             .accessibilityValue(Text(verbatim: "\(Int(timelineHeight)) pt"))
-            .accessibilityHint(Text("Drag to resize. Double tap to fit every layer."))
+            .accessibilityHint(Text("Drag to resize, or down to hide it. Double tap to fit every layer."))
             .accessibilityAdjustableAction { direction in
                 let step = direction == .increment ? 40.0 : -40.0
                 timelineHeight = min(max(timelineHeight + step, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
             }
+            .accessibilityAction(named: Text("Hide timeline")) {
+                withAnimation(.easeOut(duration: 0.25)) { timelineCollapsed = true }
+            }
+    }
+
+    private func expandTimeline() {
+        withAnimation(.easeOut(duration: 0.25)) { timelineCollapsed = false }
     }
 
     private var topBar: some View {

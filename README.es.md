@@ -31,7 +31,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - La **presión del Apple Pencil** puede cambiar el grosor y/o la opacidad.
   - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.
   - Deshacer y rehacer (hasta 100 pasos).
-- **Timeline** al estilo Aseprite, compacto como el suyo: arrastra su borde superior para hacerlo más alto o más bajo (doble toque en el borde para ver todas las capas). Mantiene a la vista la capa con la que trabajas, y la fila de tags solo aparece cuando el sprite tiene tags.
+- **Timeline** al estilo Aseprite, compacto como el suyo: arrastra el tirador de su borde superior para hacerlo más alto o más bajo (doble toque para ver todas las capas); si sigues empujando hacia abajo se esconde tras una pequeña cápsula con el play, el número de frame y un deslizador, como en Calco (toca su flecha o arrástrala hacia arriba para recuperar el timeline). Mantiene a la vista la capa con la que trabajas, y la fila de tags solo aparece cuando el sprite tiene tags.
   - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, eliminar y reordenar arrastrando. Los iconos de ojo, candado y continuidad de la cabecera actúan sobre todas las capas.
   - **Capa de fondo** como en Aseprite: opaca, subrayada, siempre abajo, y al borrar o vaciar deja el color secundario. Se convierte en capa normal (y al revés) desde su menú.
   - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden reordenar arrastrando su número, eliminar y fijar la duración de cada uno: con −/+, con valores rápidos de hasta 4 s o escribiendo cualquier valor hasta 65 535 ms. Los frames que duran distinto que la mayoría muestran su duración bajo el número.
