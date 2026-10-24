@@ -248,6 +248,15 @@ final class TimelineAdvancedTests: XCTestCase {
         XCTAssertEqual(doc.sprite.frames.map(\.duration), [100, 250, 250, 100])
     }
 
+    func testLongFrameDurations() {
+        let doc = makeDocument()
+        doc.setDuration(4000, frameIndex: 1)
+        XCTAssertEqual(doc.sprite.frames[1].duration, 4000, "a frame can hold for 4 seconds")
+        doc.setDuration(1_000_000, frameIndex: 1)
+        XCTAssertEqual(doc.sprite.frames[1].duration, SpriteDocument.maxFrameDuration)
+        XCTAssertEqual(doc.sprite.totalDuration, 300 + SpriteDocument.maxFrameDuration)
+    }
+
     // MARK: Cel opacity
 
     func testCelOpacityBlendsAndIsSharedByLinkedCels() throws {

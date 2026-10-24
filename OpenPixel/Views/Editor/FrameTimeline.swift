@@ -16,7 +16,12 @@ struct FrameTimeline: View {
     private let rowHeight: CGFloat = 36
     private let headerHeight: CGFloat = 28
     private let tagLaneHeight: CGFloat = 24
-    private static let durationPresets = [50, 80, 100, 120, 150, 200, 250, 300, 500, 1000]
+    private static let durationPresets = [50, 80, 100, 150, 200, 300, 500, 1000, 2000, 4000]
+    /// The duration being typed: for the active frame, or for every selected frame.
+    @State private var typingDuration: DurationTarget?
+    @State private var durationText = ""
+
+    private enum DurationTarget { case activeFrame, range }
     private static let speeds: [Double] = [0.25, 0.5, 1, 1.5, 2, 3]
 
     var body: some View {
@@ -37,6 +42,14 @@ struct FrameTimeline: View {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}
             Button("Save") { if let layer = renaming { document.renameLayer(layer.id, to: renameText) } }
+        }
+        .alert("Frame duration", isPresented: Binding(get: { typingDuration != nil }, set: { if !$0 { typingDuration = nil } })) {
+            TextField("Milliseconds", text: $durationText)
+                .keyboardType(.numberPad)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") { saveTypedDuration() }
+        } message: {
+            Text("In milliseconds: 1000 ms is 1 second.")
         }
         .sheet(item: $editingTag) { tag in
             TagEditor(
@@ -152,8 +165,10 @@ struct FrameTimeline: View {
             Button("Set loop section", systemImage: "repeat") { document.setLoopSection() }
             Menu("Frame duration") {
                 ForEach(Self.durationPresets, id: \.self) { ms in
-                    Button(String("\(ms) ms")) { document.setRangeDuration(ms) }
+                    Button(Self.durationLabel(ms)) { document.setRangeDuration(ms) }
                 }
+                Divider()
+                Button("Custom…", systemImage: "keyboard") { typeDuration(.range) }
             }
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -285,20 +300,22 @@ struct FrameTimeline: View {
                     .foregroundStyle(Theme.muted)
                     .padding(.leading, 10)
                     .accessibilityLabel(Text("Frame duration"))
-                Button(String("−")) { changeDuration(by: -10) }
+                Button(String("−")) { changeDuration(by: -durationStep) }
                     .frame(width: 34, height: 34)
                     .accessibilityLabel(Text("Shorter duration"))
                 Menu {
                     ForEach(Self.durationPresets, id: \.self) { ms in
-                        Button(String("\(ms) ms")) { document.setDuration(ms, frameIndex: document.activeFrameIndex) }
+                        Button(Self.durationLabel(ms)) { document.setDuration(ms, frameIndex: document.activeFrameIndex) }
                     }
+                    Divider()
+                    Button("Custom…", systemImage: "keyboard") { typeDuration(.activeFrame) }
                 } label: {
                     Text(verbatim: "\(document.activeFrame.duration) ms")
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                         .foregroundStyle(Theme.text)
                         .frame(width: 70)
                 }
-                Button(String("+")) { changeDuration(by: 10) }
+                Button(String("+")) { changeDuration(by: durationStep) }
                     .frame(width: 34, height: 34)
                     .accessibilityLabel(Text("Longer duration"))
             }
@@ -349,6 +366,27 @@ struct FrameTimeline: View {
 
     private static func speedLabel(_ speed: Double) -> String {
         speed == speed.rounded() ? "\(Int(speed))×" : "\(speed.formatted(.number.precision(.fractionLength(0...2))))×"
+    }
+
+    /// Long frames change in bigger steps.
+    private var durationStep: Int { document.activeFrame.duration >= 1000 ? 100 : 10 }
+
+    private static func durationLabel(_ ms: Int) -> String {
+        ms >= 1000 && ms % 1000 == 0 ? "\(ms) ms · \(ms / 1000) s" : "\(ms) ms"
+    }
+
+    private func typeDuration(_ target: DurationTarget) {
+        durationText = target == .activeFrame ? "\(document.activeFrame.duration)" : ""
+        typingDuration = target
+    }
+
+    private func saveTypedDuration() {
+        guard let ms = Int(durationText.filter(\.isNumber)), ms > 0 else { return }
+        switch typingDuration {
+        case .activeFrame: document.setDuration(ms, frameIndex: document.activeFrameIndex)
+        case .range: document.setRangeDuration(ms)
+        case nil: break
+        }
     }
 
     private func changeDuration(by delta: Int) {

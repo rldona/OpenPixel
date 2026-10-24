@@ -670,9 +670,12 @@ final class SpriteDocument {
         if wasActive { activeFrameIndex = destination }
     }
 
+    /// Aseprite stores durations as 16-bit milliseconds.
+    static let maxFrameDuration = 65_535
+
     func setDuration(_ ms: Int, frameIndex: Int) {
         guard sprite.frames.indices.contains(frameIndex) else { return }
-        perform { $0.frames[frameIndex].duration = min(10_000, max(10, ms)) }
+        perform { $0.frames[frameIndex].duration = min(Self.maxFrameDuration, max(10, ms)) }
     }
 
     func goToFrame(_ index: Int) {
@@ -1366,7 +1369,7 @@ extension SpriteDocument {
     func setRangeDuration(_ ms: Int) {
         guard let range = timelineRange else { return }
         perform { s in
-            for f in range.frames where s.frames.indices.contains(f) { s.frames[f].duration = min(10_000, max(10, ms)) }
+            for f in range.frames where s.frames.indices.contains(f) { s.frames[f].duration = min(Self.maxFrameDuration, max(10, ms)) }
         }
     }
 

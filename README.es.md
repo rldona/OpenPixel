@@ -24,7 +24,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Timeline** al estilo Aseprite
   - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, eliminar y reordenar arrastrando. Los iconos de ojo, candado y continuidad de la cabecera actúan sobre todas las capas.
   - **Capa de fondo** como en Aseprite: opaca, subrayada, siempre abajo, y al borrar o vaciar deja el color secundario. Se convierte en capa normal (y al revés) desde su menú.
-  - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden reordenar arrastrando su número, eliminar y fijar la duración en ms de cada uno.
+  - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden reordenar arrastrando su número, eliminar y fijar la duración de cada uno: con −/+, con valores rápidos de hasta 4 s o escribiendo cualquier valor hasta 65 535 ms.
   - **Tags**: rangos de frames con nombre y color, dirección (adelante, atrás, ping-pong, ping-pong inverso) y repeticiones.
   - **Reproducción**: reproduce el tag del frame actual (o todos los frames), a velocidad de 0,25× a 3×, con botones de primer, anterior, siguiente y último frame (Inicio y Fin en teclado).
   - **Onion skin** configurable: de 0 a 3 frames antes y después, opacidad, tinte rojo/azul y opción de limitarlo al tag.

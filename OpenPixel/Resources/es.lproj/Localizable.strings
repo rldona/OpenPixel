@@ -302,3 +302,6 @@
 "Convert to layer" = "Convertir en capa";
 "Convert to background" = "Convertir en fondo";
 "The sprite already has a background layer" = "El sprite ya tiene una capa de fondo";
+"Custom…" = "Personalizada…";
+"Milliseconds" = "Milisegundos";
+"In milliseconds: 1000 ms is 1 second." = "En milisegundos: 1000 ms es 1 segundo.";
