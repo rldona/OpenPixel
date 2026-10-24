@@ -28,7 +28,7 @@ struct NewSpriteView: View {
     @State private var width = 32
     @State private var height = 32
     @State private var background = Background.transparent
-    @State private var palette = Palette.pico8
+    @State private var palette = Palette.newSpriteDefault
 
     private let presets = [16, 32, 64, 128, 256]
     private let limit = 1024

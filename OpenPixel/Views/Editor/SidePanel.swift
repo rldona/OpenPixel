@@ -1,7 +1,16 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SidePanel: View {
     @Bindable var document: SpriteDocument
+    @State private var editingPrimary = false
+    @State private var editingSecondary = false
+    /// Palette edit mode: taps select a run of entries instead of picking a color.
+    @State private var isEditingPalette = false
+    @State private var paletteRange: ClosedRange<Int>?
+    @State private var paletteAnchor: Int?
+    @State private var editingEntry: PaletteEntry?
+    @State private var importingPalette = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 8)
 
@@ -17,47 +26,8 @@ struct SidePanel: View {
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Color")
-                    HStack(spacing: 12) {
-                        ColorPicker(
-                            "Primary color",
-                            selection: Binding(get: { document.primary.color }, set: { document.primary = PixelColor($0) }),
-                            supportsOpacity: true
-                        )
-                        .labelsHidden()
-                        .scaleEffect(1.3)
-                        .frame(width: 44, height: 44)
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(document.primary.color)
-                            .frame(width: 52, height: 52)
-                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.15)))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(document.primary.hex).font(.system(size: 15, weight: .medium, design: .monospaced))
-                            Text("Secondary \(document.secondary.hex)").font(.system(size: 12)).foregroundStyle(Theme.muted)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    HStack {
-                        Button("Swap", systemImage: "arrow.left.arrow.right") { document.swapColors() }
-                        Spacer()
-                        Button("Add to palette", systemImage: "plus") { document.addToPalette(document.primary) }
-                            .disabled(document.sprite.palette.contains(document.primary))
-                    }
-                    .font(.system(size: 13, weight: .medium))
-                }
-
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Palette")
-                    LazyVGrid(columns: columns, spacing: 5) {
-                        ForEach(Array(document.sprite.palette.enumerated()), id: \.offset) { index, color in
-                            swatch(color, index: index)
-                        }
-                    }
-                    Text("Tap a color to use it. Touch and hold for more options.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.muted)
-                }
+                colorSection
+                paletteSection
 
                 VStack(spacing: 8) {
                     infoRow("Active cel", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)")
@@ -78,27 +48,304 @@ struct SidePanel: View {
             }
             .ignoresSafeArea(edges: .bottom)
         }
+        .sheet(item: $editingEntry) { entry in
+            PaletteEntryEditor(color: entry.color, index: entry.index) { document.setPaletteColor($0, at: entry.index) }
+        }
+        .fileImporter(isPresented: $importingPalette, allowedContentTypes: [.data]) { result in
+            importPalette(result)
+        }
+    }
+
+    // MARK: Colors
+
+    /// Primary over secondary, like Aseprite's foreground and background colors.
+    private var colorSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionLabel("Color")
+            HStack(alignment: .top, spacing: 14) {
+                ZStack(alignment: .topLeading) {
+                    colorButton(document.secondary, size: 40, label: "Secondary color") { editingSecondary = true }
+                        .offset(x: 30, y: 30)
+                        .popover(isPresented: $editingSecondary) {
+                            ColorEditor(color: $document.secondary, palette: document.sprite.palette) { document.addToPalette($0) }
+                                .presentationCompactAdaptation(.popover)
+                        }
+                    colorButton(document.primary, size: 52, label: "Primary color") { editingPrimary = true }
+                        .popover(isPresented: $editingPrimary) {
+                            ColorEditor(color: $document.primary, palette: document.sprite.palette) { document.addToPalette($0) }
+                                .presentationCompactAdaptation(.popover)
+                        }
+                }
+                .frame(width: 72, height: 72, alignment: .topLeading)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(verbatim: document.primary.hex).font(.system(size: 15, weight: .medium, design: .monospaced))
+                    if let index = document.paletteIndex(of: document.primary) {
+                        Text("Palette index \(index)").font(.system(size: 12)).foregroundStyle(Theme.muted)
+                    } else {
+                        Button { document.addToPalette(document.primary) } label: {
+                            Label("Not in palette", systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Theme.accentText)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint(Text("Adds it to the palette"))
+                    }
+                    Text("Secondary \(document.secondary.hex)").font(.system(size: 12)).foregroundStyle(Theme.muted)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack {
+                Button("Swap", systemImage: "arrow.left.arrow.right") { document.swapColors() }
+                Spacer()
+                Button("Replace…", systemImage: "drop.halffull") { document.isReplacingColor = true }
+                    .accessibilityLabel(Text("Replace color…"))
+            }
+            .font(.system(size: 13, weight: .medium))
+            .lineLimit(1)
+        }
+    }
+
+    private func colorButton(_ color: PixelColor, size: CGFloat, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            ZStack {
+                Checkerboard(cell: 6)
+                color.color
+            }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 11))
+            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.strongBorder))
+            .overlay(RoundedRectangle(cornerRadius: 11).inset(by: 1).strokeBorder(Theme.panel, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(verbatim: color.hex))
+    }
+
+    // MARK: Palette
+
+    private var paletteSection: some View {
+        let palette = document.sprite.palette
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                SectionLabel("Palette")
+                Text(verbatim: "\(palette.count)")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
+                Spacer()
+                Button {
+                    isEditingPalette.toggle()
+                    paletteRange = nil
+                    paletteAnchor = nil
+                } label: {
+                    Text(isEditingPalette ? "Done" : "Edit colors").font(.system(size: 13, weight: .semibold))
+                }
+                paletteMenu
+            }
+            LazyVGrid(columns: columns, spacing: 5) {
+                ForEach(Array(palette.enumerated()), id: \.offset) { index, color in
+                    swatch(color, index: index)
+                }
+            }
+            if isEditingPalette {
+                paletteEditBar
+            } else {
+                Text("Tap a color to use it. Touch and hold for more options.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.muted)
+            }
+        }
+    }
+
+    private var paletteMenu: some View {
+        Menu {
+            Menu("Load preset") {
+                ForEach(Palette.all) { preset in
+                    Button(LocalizedStringKey(preset.name)) { document.setPalette(preset.colors) }
+                }
+            }
+            Button("Palette from sprite", systemImage: "eyedropper.halffull") { document.paletteFromSprite() }
+            Divider()
+            Button("Import palette…", systemImage: "square.and.arrow.down") { importingPalette = true }
+            Menu("Export palette") {
+                ForEach(PaletteFile.Format.allCases) { format in
+                    ShareLink(item: PaletteExport(colors: document.sprite.palette, name: document.name, format: format),
+                              preview: SharePreview(Text(verbatim: "\(document.name).\(format.rawValue)"))) {
+                        Text(verbatim: format.title)
+                    }
+                }
+            }
+            Divider()
+            Button("Save as default palette", systemImage: "star") {
+                Palette.saveDefault(document.sprite.palette)
+                document.notice = L10n.string("New sprites will start with this palette")
+            }
+            if Palette.savedDefault != nil {
+                Button("Forget default palette", systemImage: "star.slash") { Palette.clearSavedDefault() }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 17, weight: .medium))
+                .frame(width: 32, height: 32)
+                .foregroundStyle(Theme.text)
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel(Text("Palette options"))
     }
 
     private func swatch(_ color: PixelColor, index: Int) -> some View {
-        Button {
-            document.primary = color
-            if document.tool == .eraser || document.tool == .eyedropper { document.select(.pencil) }
+        let selected = isEditingPalette && (paletteRange?.contains(index) ?? false)
+        let isPrimary = color == document.primary, isSecondary = color == document.secondary
+        let tile = Button {
+            if isEditingPalette { extendPaletteSelection(to: index) } else { pick(color) }
         } label: {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(color.color)
-                .frame(height: 26)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(color == document.primary ? Theme.text : .white.opacity(0.08), lineWidth: color == document.primary ? 2 : 1)
-                )
+            ZStack {
+                Checkerboard(cell: 4)
+                color.color
+            }
+            .frame(height: 26)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(
+                selected ? Theme.accent : (isPrimary && !isEditingPalette ? Theme.text : .white.opacity(0.08)),
+                lineWidth: selected ? 2.5 : (isPrimary && !isEditingPalette ? 2 : 1)
+            ))
+            // Corner marks for the primary and secondary colors, as in Aseprite's color bar.
+            .overlay(alignment: .topLeading) { if isPrimary { CornerMark().fill(Theme.text).frame(width: 9, height: 9).padding(2) } }
+            .overlay(alignment: .bottomTrailing) { if isSecondary { CornerMark().rotation(.degrees(180)).fill(Theme.text).frame(width: 9, height: 9).padding(2) } }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Color \(color.hex)"))
+        .accessibilityValue(selected ? Text("Selected") : Text(verbatim: ""))
         .contextMenu {
+            Button("Use as primary", systemImage: "paintbrush.pointed") { pick(color) }
             Button("Use as secondary", systemImage: "square.2.layers.3d.bottom.filled") { document.secondary = color }
+            Button("Edit color…", systemImage: "slider.horizontal.3") { editingEntry = PaletteEntry(index: index, color: color) }
+            Divider()
             Button("Remove from palette", systemImage: "trash", role: .destructive) { document.removeFromPalette(at: index) }
+                .disabled(document.sprite.palette.count <= 1)
         }
+        return Group {
+            if isEditingPalette {
+                // Drag to reorder: a selected run moves together.
+                tile
+                    .draggable("palette:\(index)") {
+                        RoundedRectangle(cornerRadius: 6).fill(color.color).frame(width: 30, height: 30)
+                    }
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let source = items.first.flatMap(Self.paletteIndex) else { return false }
+                        let run = paletteRange.flatMap { $0.contains(source) ? $0 : nil } ?? source...source
+                        let placed = document.movePaletteColors(run, to: index)
+                        paletteRange = placed
+                        paletteAnchor = placed.lowerBound
+                        return true
+                    }
+            } else {
+                tile
+            }
+        }
+    }
+
+    private static func paletteIndex(_ payload: String) -> Int? {
+        guard payload.hasPrefix("palette:") else { return nil }
+        return Int(payload.dropFirst(8))
+    }
+
+    private func pick(_ color: PixelColor) {
+        document.primary = color
+        if document.tool == .eraser || document.tool == .eyedropper { document.select(.pencil) }
+    }
+
+    /// First tap anchors, the next ones extend the run; tapping a lone selected entry clears it.
+    private func extendPaletteSelection(to index: Int) {
+        if let anchor = paletteAnchor, paletteRange != nil {
+            if paletteRange == index...index {
+                paletteRange = nil
+                paletteAnchor = nil
+            } else {
+                paletteRange = min(anchor, index)...max(anchor, index)
+            }
+        } else {
+            paletteAnchor = index
+            paletteRange = index...index
+        }
+    }
+
+    /// Actions on the selected entries (Aseprite's Sort & Gradients).
+    private var paletteEditBar: some View {
+        let range = paletteRange
+        return VStack(alignment: .leading, spacing: 8) {
+            Group {
+                if let range {
+                    range.count == 1 ? Text("1 color selected") : Text("\(range.count) colors selected")
+                } else {
+                    Text("Tap colors to select them. Drag to reorder.")
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.muted)
+            HStack(spacing: 2) {
+                editButton("Edit color…", "slider.horizontal.3", enabled: range != nil) {
+                    if let i = range?.lowerBound { editingEntry = PaletteEntry(index: i, color: document.sprite.palette[i]) }
+                }
+                editButton("Gradient", "square.split.diagonal.2x2", enabled: (range?.count ?? 0) > 2) {
+                    if let range { document.paletteGradient(range) }
+                }
+                editButton("Reverse", "arrow.left.arrow.right", enabled: (range?.count ?? 0) > 1) {
+                    if let range { document.reversePalette(range) }
+                }
+                Menu {
+                    ForEach(PaletteSort.allCases) { order in
+                        Button(order.title) { document.sortPalette(sortRange, by: order) }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(size: 15, weight: .medium))
+                        .frame(width: 38, height: 34)
+                        .foregroundStyle(Theme.text)
+                }
+                .accessibilityLabel(Text("Sort"))
+                editButton("Duplicate", "plus.square.on.square", enabled: range != nil) {
+                    if let range { document.duplicatePaletteColors(range) }
+                }
+                editButton("Delete", "trash", enabled: range != nil) {
+                    if let range {
+                        document.removePaletteColors(range)
+                        paletteRange = nil
+                        paletteAnchor = nil
+                    }
+                }
+            }
+        }
+    }
+
+    /// Sorting applies to the selection, or to the whole palette when nothing is selected.
+    private var sortRange: ClosedRange<Int> {
+        paletteRange.flatMap { $0.count > 1 ? $0 : nil } ?? 0...max(0, document.sprite.palette.count - 1)
+    }
+
+    private func editButton(_ title: LocalizedStringKey, _ systemImage: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 15, weight: .medium))
+                .frame(width: 38, height: 34)
+                .foregroundStyle(Theme.text)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.35)
+        .accessibilityLabel(Text(title))
+    }
+
+    private func importPalette(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url),
+              let colors = PaletteFile.colors(from: data, fileExtension: url.pathExtension) else {
+            document.notice = L10n.string("Couldn't read a palette from that file")
+            return
+        }
+        document.setPalette(colors)
     }
 
     private func infoRow(_ title: LocalizedStringKey, _ value: String) -> some View {
@@ -108,5 +355,76 @@ struct SidePanel: View {
             Text(verbatim: value)
         }
         .font(.system(size: 13))
+    }
+}
+
+extension PaletteSort {
+    var title: LocalizedStringKey {
+        switch self {
+        case .hue: "By hue"
+        case .saturation: "By saturation"
+        case .brightness: "By brightness"
+        case .luminance: "By luminance"
+        }
+    }
+}
+
+private struct PaletteEntry: Identifiable {
+    let index: Int
+    let color: PixelColor
+    var id: Int { index }
+}
+
+/// Edits one palette entry; the change is one undo step, applied on Save.
+private struct PaletteEntryEditor: View {
+    @State var color: PixelColor
+    let index: Int
+    let onSave: (PixelColor) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView { ColorEditor(color: $color) }
+                .navigationTitle(Text("Palette color \(index)"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            onSave(color)
+                            dismiss()
+                        }
+                    }
+                }
+        }
+        .presentationDetents([.large])
+    }
+}
+
+/// A small right triangle in the top-left corner.
+private struct CornerMark: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { p in
+            p.move(to: rect.origin)
+            p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            p.closeSubpath()
+        }
+    }
+}
+
+/// A palette file for the share sheet (Save to Files, AirDrop…).
+struct PaletteExport: Transferable {
+    let colors: [PixelColor]
+    let name: String
+    let format: PaletteFile.Format
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(exportedContentType: .data) { item in
+            let safeName = item.name.components(separatedBy: CharacterSet(charactersIn: "/\\:")).joined(separator: "-")
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(safeName).\(item.format.rawValue)")
+            try PaletteFile.data(item.colors, name: item.name, format: item.format).write(to: url, options: .atomic)
+            return SentTransferredFile(url)
+        }
     }
 }

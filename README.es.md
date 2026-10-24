@@ -28,7 +28,11 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - **Tags**: rangos de frames con nombre y color, dirección (adelante, atrás, ping-pong, ping-pong inverso) y repeticiones.
   - **Reproducción**: reproduce el tag del frame actual (o todos los frames), a velocidad de 0,25× a 3×, con botones de primer, anterior, siguiente y último frame (Inicio y Fin en teclado).
   - **Onion skin** configurable: de 0 a 3 frames antes y después, opacidad, tinte rojo/azul y opción de limitarlo al tag.
-- **Color**: color principal y secundario, selector de color del sistema y paleta editable.
+- **Color y paletas**, como en Aseprite:
+  - Editor de color con espectro, deslizadores RGB y HSB, hex, opacidad, sombras y luces, y armonías (complementario, análogos, tríada…), con aviso y «añadir a la paleta» cuando el color no está en ella.
+  - Color principal y secundario (marcados en la paleta), intercambiar y **Reemplazar color** (⇧R) con tolerancia, en la cel actual o en todas, dentro de la selección.
+  - Edición de paleta: seleccionar un tramo de colores para editarlo, degradado, invertir, ordenar (tono, saturación, brillo, luminancia), duplicar, eliminar y reordenar arrastrando. Todo se puede deshacer.
+  - Paletas predefinidas (DawnBringer 32, PICO-8, Sweetie 16, Endesga 32, DawnBringer 16, Game Boy, grises), paleta desde los colores del sprite, importar (.gpl, .hex, .pal, .txt, .png, .gif) y exportar (.gpl, .hex), y paleta por defecto para los sprites nuevos.
 - **Exportar**: PNG del frame actual, hoja de sprites o GIF animado, a escala 1×–10× sin suavizado. La hoja de sprites y el GIF pueden limitarse a un tag; el GIF respeta su dirección y sus repeticiones. Se comparte con la hoja de compartir de iOS.
 - **Autoguardado** en `Documentos/Sprites` (visible desde la app Archivos), en un JSON `.openpixel` legible, en segundo plano.
 - **Selección y transformar** como en Aseprite: marco rectangular y elíptico, lazo y varita mágica; modos añadir, restar e intersecar; hormigas; cortar, copiar y pegar; mover, escalar, rotar con RotSprite y pivote, voltear, rotar 90° y recortar el lienzo.

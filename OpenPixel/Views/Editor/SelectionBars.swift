@@ -117,6 +117,7 @@ struct EditMenu: View {
                 Button("Delete", systemImage: "trash") { document.deleteSelection() }
                     .disabled(!document.hasSelection)
                 Button("Fill with primary color", systemImage: "paintbrush.pointed.fill") { document.fillSelection() }
+                Button("Replace color…", systemImage: "drop.halffull") { document.isReplacingColor = true }
             }
             Section {
                 Button("Select all", systemImage: "rectangle.dashed") { document.selectAll() }
@@ -186,6 +187,7 @@ struct EditorShortcuts: View {
             shortcut("h", .shift) { document.flip(horizontal: true) }
             shortcut("v", .shift) { document.flip(horizontal: false) }
             shortcut(.delete, []) { document.deleteSelection() }
+            shortcut("r", .shift) { document.isReplacingColor = true }
             if document.isTransforming {
                 shortcut(.return, []) { document.applyTransform() }
                 shortcut(.escape, []) { document.cancelTransform() }

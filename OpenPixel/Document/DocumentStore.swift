@@ -145,7 +145,7 @@ final class DocumentStore {
         guard image.width <= Self.maxImportSize, image.height <= Self.maxImportSize else {
             throw ImportError.tooLarge
         }
-        var sprite = Sprite.blank(width: image.width, height: image.height, background: nil, palette: Palette.pico8.colors)
+        var sprite = Sprite.blank(width: image.width, height: image.height, background: nil, palette: Palette.newSpriteDefault.colors)
         sprite.layers[0].name = L10n.string("Image")
         sprite.cels[CelKey(layer: sprite.layers[0].id, frame: sprite.frames[0].id)] = image
         return try create(name: fileURL.deletingPathExtension().lastPathComponent, sprite: sprite)

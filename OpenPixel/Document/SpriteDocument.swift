@@ -96,6 +96,8 @@ final class SpriteDocument {
     // Timeline range selection
     var isSelectingRange = false
     var timelineRange: TimelineRange?
+    /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
+    var isReplacingColor = false
     /// Dragging a selected block copies it instead of moving it.
     var dragCopies = false
     /// The tag band (row) the timeline focuses; playback stays inside its tags.
@@ -714,6 +716,90 @@ final class SpriteDocument {
     func removeFromPalette(at index: Int) {
         guard sprite.palette.indices.contains(index) else { return }
         perform { $0.palette.remove(at: index) }
+    }
+
+    /// Replaces the whole palette (a preset, a file, the sprite's colors). Pixels don't change.
+    func setPalette(_ colors: [PixelColor]) {
+        guard !colors.isEmpty else { return }
+        perform { $0.palette = Array(colors.prefix(PaletteFile.maxColors)) }
+    }
+
+    func setPaletteColor(_ color: PixelColor, at index: Int) {
+        guard sprite.palette.indices.contains(index) else { return }
+        perform { $0.palette[index] = color }
+    }
+
+    func removePaletteColors(_ range: ClosedRange<Int>) {
+        guard sprite.palette.indices.contains(range.upperBound), range.count < sprite.palette.count else {
+            notice = L10n.string("A palette needs at least one color")
+            return
+        }
+        perform { $0.palette.removeSubrange(range) }
+    }
+
+    /// Inserts copies of a run of entries right after it.
+    func duplicatePaletteColors(_ range: ClosedRange<Int>) {
+        guard sprite.palette.indices.contains(range.upperBound) else { return }
+        perform { s in s.palette.insert(contentsOf: s.palette[range], at: range.upperBound + 1) }
+    }
+
+    @discardableResult
+    func movePaletteColors(_ range: ClosedRange<Int>, to destination: Int) -> ClosedRange<Int> {
+        var placed = range
+        perform { placed = PaletteEditing.move(&$0.palette, range, to: destination) }
+        return placed
+    }
+
+    func paletteGradient(_ range: ClosedRange<Int>) { perform { PaletteEditing.gradient(&$0.palette, range) } }
+    func reversePalette(_ range: ClosedRange<Int>) { perform { PaletteEditing.reverse(&$0.palette, range) } }
+
+    func sortPalette(_ range: ClosedRange<Int>, by order: PaletteSort, descending: Bool = false) {
+        perform { PaletteEditing.sort(&$0.palette, range, by: order, descending: descending) }
+    }
+
+    /// Aseprite's "Palette from sprite": the colors the sprite actually uses.
+    func paletteFromSprite() {
+        let colors = Palette.colors(in: sprite)
+        guard !colors.isEmpty else {
+            notice = L10n.string("The sprite has no colors yet")
+            return
+        }
+        setPalette(colors)
+    }
+
+    /// Where `color` is in the palette, if it is.
+    func paletteIndex(of color: PixelColor) -> Int? { sprite.palette.firstIndex(of: color) }
+
+    // MARK: - Replace color
+
+    /// Edit > Replace Color: pixels within `tolerance` of `from` become `to`,
+    /// in the active cel or in every cel, inside the selection if there is one.
+    /// Locked layers are left alone. Returns how many pixels changed (linked cels count once each).
+    @discardableResult
+    func replaceColor(_ from: PixelColor, with to: PixelColor, tolerance: Int, everyCel: Bool) -> Int {
+        applyTransformIfNeeded()
+        let mask = selection
+        let editable = Set(sprite.layers.filter { !$0.isLocked }.map(\.id))
+        let keys = everyCel ? sprite.cels.keys.filter { editable.contains($0.layer) } : (editable.contains(activeLayerID) ? [activeCelKey] : [])
+        guard !keys.isEmpty else {
+            notice = L10n.string("The layer is locked")
+            return 0
+        }
+        var changedPixels = 0
+        perform { s in
+            for key in keys {
+                guard var cel = s.cels[key] else { continue }
+                var touched = false
+                for i in cel.pixels.indices where (mask?.bits[i] ?? true) && cel.pixels[i].matches(from, tolerance: tolerance) && cel.pixels[i] != to {
+                    cel.pixels[i] = to.a == 0 ? .clear : to
+                    touched = true
+                    changedPixels += 1
+                }
+                if touched { s.cels[key] = cel.isEmpty ? nil : cel }
+            }
+            s.normalizeLinks()
+        }
+        return changedPixels
     }
 
     // MARK: - Playback

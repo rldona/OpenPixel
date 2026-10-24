@@ -81,6 +81,7 @@ struct EditorView: View {
         .background { EditorShortcuts(document: document) }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) { ExportView(document: document) }
+        .sheet(isPresented: $document.isReplacingColor) { ReplaceColorSheet(document: document) }
         .alert("Rename project", isPresented: $showingRename) {
             TextField("Name", text: $renameText)
             Button("Cancel", role: .cancel) {}

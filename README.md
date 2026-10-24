@@ -45,7 +45,11 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - **Loop section**, new tags over the selected frames and duration for several frames at once. **Focus a tag band** so playback stays inside its tags.
   - **Cel opacity** (shared by linked cels), duplicate layer, double tap to rename, first frame numbered 0 or 1, and Aseprite's keys: `,` `.` for previous/next frame and ⇧X to show or hide the layer.
   - Configurable **onion skin**: 0–3 frames before and after, opacity, red/blue tint, and an option to stay inside the tag.
-- **Color**: primary and secondary colors, the system color picker and an editable palette.
+- **Color and palettes**, as in Aseprite:
+  - Color editor with a spectrum, RGB and HSB sliders, hex, opacity, shades and harmonies (complementary, analogous, triadic…), and a warning with “add to palette” when the color isn't in it.
+  - Primary and secondary colors (marked on the palette), swap, and **Replace color** (⇧R) with tolerance, in the current cel or every cel, inside the selection.
+  - Palette editing: select a run of colors to edit, gradient, reverse, sort (hue, saturation, brightness, luminance), duplicate, delete and drag to reorder. Everything can be undone.
+  - Presets (DawnBringer 32, PICO-8, Sweetie 16, Endesga 32, DawnBringer 16, Game Boy, grays), palette from the sprite's colors, import (.gpl, .hex, .pal, .txt, .png, .gif) and export (.gpl, .hex), and a default palette for new sprites.
 - **Export**: PNG of the current frame, sprite sheet or animated GIF, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.
 - **Autosave** to `Documents/Sprites` (visible in the Files app), as readable `.openpixel` JSON. Saving runs in the background.
 - **Preferences**: English (default) or Spanish, and light, dark or system appearance.
