@@ -65,8 +65,18 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     /// A tap outside the transform box: drop the floating pixels.
     var onTransformOutsideTap: (() -> Void)?
 
-    /// Screen points per sprite pixel.
+    /// Screen points per sprite pixel (its height and width when the pixel ratio is 1:1).
     private(set) var scale: CGFloat = 1
+    /// Aseprite's pixel ratio: 2:1 shows each sprite pixel twice as wide as tall.
+    var pixelRatio = PixelRatio.square {
+        didSet {
+            guard pixelRatio != oldValue else { return }
+            needsFit = true
+            setNeedsLayout()
+        }
+    }
+    private var scaleX: CGFloat { scale * CGFloat(pixelRatio.width) }
+    private var scaleY: CGFloat { scale * CGFloat(pixelRatio.height) }
     /// Top-left corner of the sprite in view coordinates.
     private var origin: CGPoint = .zero
     private var needsFit = true
@@ -377,7 +387,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         let layers = (referencesBelow.sublayers ?? []) + (referencesAbove.sublayers ?? [])
         let frames = references.filter { !$0.above }.map(\.frame) + references.filter(\.above).map(\.frame)
         for (l, f) in zip(layers, frames) {
-            l.frame = CGRect(x: f.minX * scale, y: f.minY * scale, width: f.width * scale, height: f.height * scale)
+            l.frame = CGRect(x: f.minX * scaleX, y: f.minY * scaleY, width: f.width * scaleX, height: f.height * scaleY)
         }
     }
 
@@ -411,11 +421,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             checkerKey = key
         }
         let cell = scale * CGFloat(pixelsPerCell)
-        checkerLayer.frame = CGRect(x: 0, y: 0, width: CGFloat(columns) * cell, height: CGFloat(rows) * cell)
+        checkerLayer.frame = CGRect(x: 0, y: 0, width: CGFloat(columns) * cell * CGFloat(pixelRatio.width), height: CGFloat(rows) * cell * CGFloat(pixelRatio.height))
     }
 
     private var spriteRect: CGRect {
-        CGRect(origin: origin, size: CGSize(width: spriteSize.width * scale, height: spriteSize.height * scale))
+        CGRect(origin: origin, size: CGSize(width: spriteSize.width * scaleX, height: spriteSize.height * scaleY))
     }
 
     /// Moves and resizes the layers after a pan, zoom or rotation. Nothing is redrawn.
@@ -440,11 +450,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     private func toView(_ p: CGPoint) -> CGPoint {
-        CGPoint(x: origin.x + p.x * scale, y: origin.y + p.y * scale)
+        CGPoint(x: origin.x + p.x * scaleX, y: origin.y + p.y * scaleY)
     }
 
     private func toSprite(_ p: CGPoint) -> CGPoint {
-        CGPoint(x: (p.x - origin.x) / scale, y: (p.y - origin.y) / scale)
+        CGPoint(x: (p.x - origin.x) / scaleX, y: (p.y - origin.y) / scaleY)
     }
 
     /// Where the rotation knob sits: above the middle of the box's top edge.
@@ -511,20 +521,20 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             let color = UIColor(red: CGFloat(slice.color.r) / 255, green: CGFloat(slice.color.g) / 255, blue: CGFloat(slice.color.b) / 255, alpha: 1)
             let isActive = editing && slice.id == document.activeSliceID
             let b = key.bounds
-            let rect = CGRect(origin: toView(CGPoint(x: b.minX, y: b.minY)), size: CGSize(width: CGFloat(b.width) * scale, height: CGFloat(b.height) * scale))
+            let rect = CGRect(origin: toView(CGPoint(x: b.minX, y: b.minY)), size: CGSize(width: CGFloat(b.width) * scaleX, height: CGFloat(b.height) * scaleY))
             let shape = CAShapeLayer()
             shape.actions = Self.noAnimations
             let path = CGMutablePath()
             path.addRect(rect)
             if let c = key.center {
                 // The 9-slice centre's lines across the slice.
-                let x0 = rect.minX + CGFloat(c.minX) * scale, x1 = rect.minX + CGFloat(c.maxX + 1) * scale
-                let y0 = rect.minY + CGFloat(c.minY) * scale, y1 = rect.minY + CGFloat(c.maxY + 1) * scale
+                let x0 = rect.minX + CGFloat(c.minX) * scaleX, x1 = rect.minX + CGFloat(c.maxX + 1) * scaleX
+                let y0 = rect.minY + CGFloat(c.minY) * scaleY, y1 = rect.minY + CGFloat(c.maxY + 1) * scaleY
                 for x in [x0, x1] { path.move(to: CGPoint(x: x, y: rect.minY)); path.addLine(to: CGPoint(x: x, y: rect.maxY)) }
                 for y in [y0, y1] { path.move(to: CGPoint(x: rect.minX, y: y)); path.addLine(to: CGPoint(x: rect.maxX, y: y)) }
             }
             if let pivot = key.pivot {
-                let c = CGPoint(x: rect.minX + (CGFloat(pivot.x) + 0.5) * scale, y: rect.minY + (CGFloat(pivot.y) + 0.5) * scale)
+                let c = CGPoint(x: rect.minX + (CGFloat(pivot.x) + 0.5) * scaleX, y: rect.minY + (CGFloat(pivot.y) + 0.5) * scaleY)
                 path.move(to: CGPoint(x: c.x - 8, y: c.y)); path.addLine(to: CGPoint(x: c.x + 8, y: c.y))
                 path.move(to: CGPoint(x: c.x, y: c.y - 8)); path.addLine(to: CGPoint(x: c.x, y: c.y + 8))
             }
@@ -612,20 +622,20 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         if showGrid, scale >= 6, !visible.isNull {
             gridLayer.lineWidth = 1 / max(1, traitCollection.displayScale)
             let path = CGMutablePath()
-            let firstX = max(1, Int(((visible.minX - rect.minX) / scale).rounded(.down)))
-            let lastX = min(Int(spriteSize.width) - 1, Int(((visible.maxX - rect.minX) / scale).rounded(.up)))
-            let firstY = max(1, Int(((visible.minY - rect.minY) / scale).rounded(.down)))
-            let lastY = min(Int(spriteSize.height) - 1, Int(((visible.maxY - rect.minY) / scale).rounded(.up)))
+            let firstX = max(1, Int(((visible.minX - rect.minX) / scaleX).rounded(.down)))
+            let lastX = min(Int(spriteSize.width) - 1, Int(((visible.maxX - rect.minX) / scaleX).rounded(.up)))
+            let firstY = max(1, Int(((visible.minY - rect.minY) / scaleY).rounded(.down)))
+            let lastY = min(Int(spriteSize.height) - 1, Int(((visible.maxY - rect.minY) / scaleY).rounded(.up)))
             if firstX <= lastX {
                 for x in firstX...lastX {
-                    let px = rect.minX + CGFloat(x) * scale
+                    let px = rect.minX + CGFloat(x) * scaleX
                     path.move(to: CGPoint(x: px, y: visible.minY))
                     path.addLine(to: CGPoint(x: px, y: visible.maxY))
                 }
             }
             if firstY <= lastY {
                 for y in firstY...lastY {
-                    let py = rect.minY + CGFloat(y) * scale
+                    let py = rect.minY + CGFloat(y) * scaleY
                     path.move(to: CGPoint(x: visible.minX, y: py))
                     path.addLine(to: CGPoint(x: visible.maxX, y: py))
                 }
@@ -644,7 +654,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             let w = Int(spriteSize.width), h = Int(spriteSize.height)
             var x = ((grid.offsetX % grid.width) + grid.width) % grid.width
             while x <= w {
-                let px = rect.minX + CGFloat(x) * scale
+                let px = rect.minX + CGFloat(x) * scaleX
                 if px >= visible.minX && px <= visible.maxX {
                     path.move(to: CGPoint(x: px, y: visible.minY))
                     path.addLine(to: CGPoint(x: px, y: visible.maxY))
@@ -653,7 +663,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             }
             var y = ((grid.offsetY % grid.height) + grid.height) % grid.height
             while y <= h {
-                let py = rect.minY + CGFloat(y) * scale
+                let py = rect.minY + CGFloat(y) * scaleY
                 if py >= visible.minY && py <= visible.maxY {
                     path.move(to: CGPoint(x: visible.minX, y: py))
                     path.addLine(to: CGPoint(x: visible.maxX, y: py))
@@ -696,11 +706,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         let w = Int(spriteSize.width), h = Int(spriteSize.height)
         var handles: [(Bool, CGPoint)] = []
         if symmetry.horizontal {
-            let x = rect.minX + CGFloat(symmetry.axisX2(width: w)) / 2 * scale
+            let x = rect.minX + CGFloat(symmetry.axisX2(width: w)) / 2 * scaleX
             handles.append((false, CGPoint(x: x, y: rect.maxY + 18)))
         }
         if symmetry.vertical {
-            let y = rect.minY + CGFloat(symmetry.axisY2(height: h)) / 2 * scale
+            let y = rect.minY + CGFloat(symmetry.axisY2(height: h)) / 2 * scaleY
             handles.append((true, CGPoint(x: rect.maxX + 18, y: y)))
         }
         return handles
@@ -726,11 +736,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         let margin: CGFloat = 32
         // Leave room below for the floating selection and transform bars.
         let available = CGSize(width: bounds.width - margin * 2, height: bounds.height - Self.topInset - Self.bottomInset)
-        let fit = min(available.width / spriteSize.width, available.height / spriteSize.height)
+        let fit = min(available.width / (spriteSize.width * CGFloat(pixelRatio.width)), available.height / (spriteSize.height * CGFloat(pixelRatio.height)))
         scale = max(Self.minScale, min(Self.maxScale, fit >= 1 ? fit.rounded(.down) : fit))
         origin = CGPoint(
-            x: ((bounds.width - spriteSize.width * scale) / 2).rounded(),
-            y: (Self.topInset + (available.height - spriteSize.height * scale) / 2).rounded()
+            x: ((bounds.width - spriteSize.width * scaleX) / 2).rounded(),
+            y: (Self.topInset + (available.height - spriteSize.height * scaleY) / 2).rounded()
         )
         needsFit = false
         updateGeometry()
@@ -742,18 +752,18 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     private func setScale(_ newScale: CGFloat, anchor: CGPoint) {
         let clamped = min(Self.maxScale, max(Self.minScale, newScale))
-        let sx = (anchor.x - origin.x) / scale
-        let sy = (anchor.y - origin.y) / scale
+        let sx = (anchor.x - origin.x) / scaleX
+        let sy = (anchor.y - origin.y) / scaleY
         scale = clamped
-        origin = CGPoint(x: anchor.x - sx * scale, y: anchor.y - sy * scale)
+        origin = CGPoint(x: anchor.x - sx * scaleX, y: anchor.y - sy * scaleY)
         updateGeometry()
     }
 
     /// The sprite pixel under `location`; in tiled mode also on the copies
     /// around the sprite (outside 0..<size, the document wraps them).
     private func spritePoint(_ location: CGPoint) -> PixelPoint? {
-        let x = Int(((location.x - origin.x) / scale).rounded(.down))
-        let y = Int(((location.y - origin.y) / scale).rounded(.down))
+        let x = Int(((location.x - origin.x) / scaleX).rounded(.down))
+        let y = Int(((location.y - origin.y) / scaleY).rounded(.down))
         let w = Int(spriteSize.width), h = Int(spriteSize.height)
         let xRange = tiledMode.wrapsX ? -w..<(2 * w) : 0..<w
         let yRange = tiledMode.wrapsY ? -h..<(2 * h) : 0..<h

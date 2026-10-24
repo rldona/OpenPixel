@@ -25,6 +25,7 @@ struct PixelCanvas: UIViewRepresentable {
     let tileGrid: GridSettings?
     let symmetry: Symmetry
     let tiledMode: TiledMode
+    let pixelRatio: PixelRatio
     var onFocusToggle: () -> Void = {}
 
     func makeUIView(context: Context) -> PixelCanvasView {
@@ -68,6 +69,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.tileGrid = tileGrid
         view.symmetry = symmetry
         view.tiledMode = tiledMode
+        view.pixelRatio = pixelRatio
         view.onionLayers = onionLayers
         view.references = references
         if view.renderedRevision != revision || view.renderedFrame != frameIndex {

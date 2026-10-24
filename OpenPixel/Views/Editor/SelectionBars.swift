@@ -180,6 +180,12 @@ struct EditMenu: View {
                     Button("Horizontally") { document.flipCanvas(horizontal: true) }
                     Button("Vertically") { document.flipCanvas(horizontal: false) }
                 }
+                Picker(selection: Binding(get: { document.sprite.pixelRatio }, set: { document.setPixelRatio($0) })) {
+                    ForEach(PixelRatio.presets, id: \.self) { Text(verbatim: $0.title) }
+                } label: {
+                    Label("Pixel ratio", systemImage: "aspectratio")
+                }
+                .pickerStyle(.menu)
             }
         } label: {
             Image(systemName: "ellipsis.circle")

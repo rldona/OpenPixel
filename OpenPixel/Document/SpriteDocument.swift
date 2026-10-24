@@ -2199,6 +2199,12 @@ extension SpriteDocument {
         changed()
     }
 
+    /// Aseprite's pixel ratio (Sprite Properties): how wide and tall each pixel shows.
+    func setPixelRatio(_ ratio: PixelRatio) {
+        guard ratio != storage.pixelRatio else { return }
+        performCanvasChange { $0.pixelRatio = ratio }
+    }
+
     /// Crops the canvas to the selection's bounds.
     func cropToSelection() {
         applyTransformIfNeeded()

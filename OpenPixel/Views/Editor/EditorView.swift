@@ -499,6 +499,7 @@ private struct CanvasHost: View {
                 ?? (document.showTileGrid ? sprite.grid : nil),
             symmetry: document.symmetry,
             tiledMode: document.tiledMode,
+            pixelRatio: sprite.pixelRatio,
             onFocusToggle: onFocusToggle
         )
         .onChange(of: document.revision) { onRevision() }

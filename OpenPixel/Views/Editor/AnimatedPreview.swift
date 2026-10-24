@@ -65,7 +65,8 @@ final class FrameImageCache {
             self.revision = revision
         }
         if let cached = images[frame] { return cached }
-        let made = sprite.composite(frameIndex: frame).makeCGImage()
+        // Stretched by the pixel ratio, as on the canvas.
+        let made = sprite.composite(frameIndex: frame).scaled(x: sprite.pixelRatio.width, y: sprite.pixelRatio.height).makeCGImage()
         images[frame] = made
         return made
     }
