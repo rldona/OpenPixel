@@ -179,4 +179,58 @@ final class SmartSelectionTests: XCTestCase {
         XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .black)
         XCTAssertEqual(pixel(doc, layer: 1, 5, 5), .clear)
     }
+
+    // MARK: Every frame
+
+    /// The same sprite with a second frame copied from the first.
+    private func makeTwoFrameDocument() -> SpriteDocument {
+        let doc = makeDocument()
+        doc.addFrame()
+        doc.goToFrame(0)
+        return doc
+    }
+
+    private func pixel(_ doc: SpriteDocument, layer: Int, frame: Int, _ x: Int, _ y: Int) -> PixelColor {
+        doc.sprite.cel(layer: doc.sprite.layers[layer].id, frame: doc.sprite.frames[frame].id)?[x, y] ?? .clear
+    }
+
+    func testMoveInEveryFrame() {
+        let doc = makeTwoFrameDocument()
+        doc.selectionAllFrames = true
+        selectEverything(doc)
+        doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
+        XCTAssertEqual(doc.transformExtraCels, 3, "the other layer, and both layers of frame 2")
+        doc.continueTransformDrag(to: CGPoint(x: 6.5, y: 5.5))
+        doc.endTransformDrag()
+        doc.applyTransform()
+        for frame in 0..<2 {
+            XCTAssertEqual(pixel(doc, layer: 0, frame: frame, 2, 1), .black, "frame \(frame)")
+            XCTAssertEqual(pixel(doc, layer: 0, frame: frame, 1, 1), .clear, "frame \(frame)")
+            XCTAssertEqual(pixel(doc, layer: 1, frame: frame, 6, 5), .black, "frame \(frame)")
+        }
+    }
+
+    func testDeleteInEveryFrameOnlyWhenAsked() {
+        let doc = makeTwoFrameDocument()
+        selectEverything(doc)
+        doc.deleteSelection()
+        XCTAssertEqual(pixel(doc, layer: 0, frame: 1, 1, 1), .black, "off: other frames untouched")
+        doc.undo()
+        doc.selectionAllFrames = true
+        doc.deleteSelection()
+        XCTAssertEqual(pixel(doc, layer: 0, frame: 1, 1, 1), .clear)
+        XCTAssertEqual(pixel(doc, layer: 1, frame: 1, 5, 5), .clear)
+    }
+
+    func testTappedElementMovesInEveryFrame() {
+        let doc = makeTwoFrameDocument()
+        doc.selectionAllFrames = true
+        tap(doc, 1, 1)
+        doc.beginTransformDrag(.move, at: CGPoint(x: 1.5, y: 1.5))
+        XCTAssertEqual(doc.transformExtraCels, 1, "the bar in frame 2")
+        doc.continueTransformDrag(to: CGPoint(x: 1.5, y: 3.5))
+        doc.applyTransform()
+        XCTAssertEqual(pixel(doc, layer: 0, frame: 1, 1, 3), .black)
+        XCTAssertEqual(pixel(doc, layer: 1, frame: 1, 5, 5), .black, "the other layer stays")
+    }
 }

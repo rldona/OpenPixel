@@ -43,17 +43,22 @@ struct ToolOptionsBar: View {
                     divider
                     toggle("Fit to content", isOn: $document.selectionFitsContent)
                 }
+                toggle("All frames", isOn: $document.selectionAllFrames)
                 if document.tool != .magicWand {
-                    Group {
-                        if document.hasSelection && document.selectionMode == .replace {
-                            Text("Drag inside to move")
-                        } else {
-                            Text("Tap an element to select it")
+                    // The hint gives way when the bar runs out of room.
+                    ViewThatFits(in: .horizontal) {
+                        Group {
+                            if document.hasSelection && document.selectionMode == .replace {
+                                Text("Drag inside to move")
+                            } else {
+                                Text("Tap an element to select it")
+                            }
                         }
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.muted)
+                        .fixedSize()
+                        Color.clear.frame(width: 0, height: 0)
                     }
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.muted)
-                    .fixedSize()
                 }
             }
             if document.tool == .magicWand {

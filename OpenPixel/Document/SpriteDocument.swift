@@ -97,6 +97,9 @@ final class SpriteDocument {
     var wandSampleAllLayers = false
     /// Marquee and lasso selections shrink to the drawn pixels inside them.
     var selectionFitsContent = true
+    /// Edits on the selection (move, transform, delete, fill) change every
+    /// frame, not just the one on screen.
+    var selectionAllFrames = false
     /// Layers a marquee caught besides the active one: moving or transforming
     /// the selection changes them too. Nil when the selection is one layer's.
     @ObservationIgnored private(set) var selectionLayers: Set<UUID>?
@@ -230,8 +233,9 @@ final class SpriteDocument {
 
     private func restore(_ snapshot: DocumentSnapshot) {
         storage = snapshot.sprite
+        // Undoing an edit keeps the selection's layers; a different selection drops them.
+        if snapshot.selection != selection { selectionLayers = nil }
         selection = snapshot.selection
-        selectionLayers = nil
         fixSelection()
         changed()
     }
@@ -976,7 +980,8 @@ extension SpriteDocument {
             return (storage.layers.filter { r.layers.contains($0.id) && $0.isVisible && !$0.isBackground },
                     r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil })
         }
-        return (storage.layers.filter { $0.isVisible && !$0.isBackground }, [activeFrame.id])
+        return (storage.layers.filter { $0.isVisible && !$0.isBackground },
+                selectionAllFrames ? storage.frames.map(\.id) : [activeFrame.id])
     }
 
     /// The layers in scope with drawn pixels inside `shape`.
@@ -1044,6 +1049,17 @@ extension SpriteDocument {
         return true
     }
 
+    /// The cels a selection spans besides the timeline range: the layers a
+    /// marquee caught (or the active one), in the active frame or in every
+    /// frame. Nil when it's just the active cel.
+    private var selectionScopeKeys: [CelKey]? {
+        guard selection != nil else { return nil }
+        let layers = storage.layers.filter { (selectionLayers ?? [activeLayerID]).contains($0.id) }.map(\.id)
+        let frames = selectionAllFrames ? storage.frames.map(\.id) : [activeFrame.id]
+        guard layers.count > 1 || frames.count > 1 else { return nil }
+        return frames.flatMap { frame in layers.map { CelKey(layer: $0, frame: frame) } }
+    }
+
     /// The cels an edit on the selection changes: every layer a marquee caught
     /// (in the active frame), every cel of the timeline range, or just the
     /// active cel. Hidden and locked layers are left out.
@@ -1051,8 +1067,8 @@ extension SpriteDocument {
         let keys: [CelKey]
         if let range = timelineRange {
             keys = rangeKeys(range).flatMap { $0 }
-        } else if let layers = selectionLayers, selection != nil {
-            keys = storage.layers.filter { layers.contains($0.id) }.map { CelKey(layer: $0.id, frame: activeFrame.id) }
+        } else if let scope = selectionScopeKeys {
+            keys = scope
         } else {
             return activeLayerEditable ? [activeCelKey] : []
         }
@@ -1281,8 +1297,8 @@ extension SpriteDocument {
         let keys: [CelKey]
         if let range = timelineRange {
             keys = rangeKeys(range).flatMap { $0 }
-        } else if let layers = selectionLayers, selection != nil {
-            keys = storage.layers.filter { layers.contains($0.id) }.map { CelKey(layer: $0.id, frame: activeFrame.id) }
+        } else if let scope = selectionScopeKeys {
+            keys = scope
         } else {
             return []
         }
