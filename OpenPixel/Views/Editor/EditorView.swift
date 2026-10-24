@@ -46,9 +46,17 @@ struct EditorView: View {
                                 onRevision: scheduleSave
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
+                            // The canvas shows the Hue/Saturation preview; drawing waits until it's applied.
+                            .allowsHitTesting(!document.isAdjustingHueSaturation)
                         }
                         .overlay(alignment: .topTrailing) {
                             if focusMode { focusExitButton }
+                            if document.isAdjustingHueSaturation {
+                                HueSaturationPanel(document: document)
+                                    .padding(16)
+                                    .padding(.top, focusMode ? 56 : 0)
+                                    .transition(.opacity)
+                            }
                         }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {

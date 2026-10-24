@@ -133,6 +133,7 @@ struct EditMenu: View {
                     .disabled(!document.hasSelection)
                 Button("Fill with primary color", systemImage: "paintbrush.pointed.fill") { document.fillSelection() }
                 Button("Replace color…", systemImage: "drop.halffull") { document.isReplacingColor = true }
+                Button("Hue/Saturation…", systemImage: "slider.horizontal.3") { document.beginHueSaturation() }
                 Button("New brush from selection", systemImage: "paintbrush.pointed") { document.newBrushFromSelection() }
                     .disabled(!document.hasSelection)
                 Button("New layer from selection", systemImage: "square.on.square") { document.newLayerFromSelection(cut: false) }
@@ -218,6 +219,7 @@ struct EditorShortcuts: View {
             shortcut("v", .shift) { document.flip(horizontal: false) }
             shortcut(.delete, []) { document.deleteSelection() }
             shortcut("r", .shift) { document.isReplacingColor = true }
+            shortcut("u", .command) { document.beginHueSaturation() }
             // Aseprite's X: swap primary and secondary colors (the button is in the side panel).
             shortcut("x", []) { document.swapColors() }
             if document.isTransforming {

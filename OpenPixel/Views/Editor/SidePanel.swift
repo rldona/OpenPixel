@@ -12,6 +12,9 @@ struct SidePanel: View {
     @State private var paletteAnchor: Int?
     @State private var editingEntry: PaletteEntry?
     @State private var importingPalette = false
+    /// Color Shading's base: it follows the primary color until a ramp color is
+    /// picked, so the ramps stay put while choosing from them.
+    @State private var shadingBase: PixelColor?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 8)
 
@@ -30,6 +33,7 @@ struct SidePanel: View {
 
                 paletteSection
                 colorSection
+                shadingSection
                 // Only while a tilemap layer is active.
                 if let tileset = document.activeLayer?.tileset {
                     TilesetPanel(document: document, tileset: tileset)
@@ -144,6 +148,63 @@ struct SidePanel: View {
         }
     }
 
+    // MARK: Color shading
+
+    /// Ramps around a base color, like the Color Shading extension for Aseprite:
+    /// tap a color to use it, touch and hold for more.
+    private var shadingSection: some View {
+        let base = shadingBase ?? document.primary
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionLabel("Color shading")
+                Spacer()
+                if shadingBase != nil {
+                    Button("Follow color", systemImage: "arrow.triangle.2.circlepath") { shadingBase = nil }
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(1)
+                }
+            }
+            shadingRow("Shade", ColorShading.shades(base), base: base)
+            shadingRow("Lightness", ColorShading.lights(base), base: base)
+            shadingRow("Saturation", ColorShading.saturations(base), base: base)
+            shadingRow("Hue", ColorShading.hues(base), base: base)
+        }
+    }
+
+    private func shadingRow(_ title: LocalizedStringKey, _ colors: [PixelColor], base: PixelColor) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.muted)
+            HStack(spacing: 0) {
+                ForEach(Array(colors.enumerated()), id: \.offset) { _, color in
+                    Button {
+                        if shadingBase == nil { shadingBase = base }
+                        document.primary = color
+                    } label: {
+                        ZStack {
+                            Checkerboard(cell: 5)
+                            color.color
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 30)
+                        .overlay {
+                            if color == document.primary {
+                                Rectangle().strokeBorder(Theme.panel, lineWidth: 2).padding(1)
+                                    .overlay(Rectangle().strokeBorder(Theme.text, lineWidth: 1))
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button("Use as secondary", systemImage: "square.on.square") { document.secondary = color }
+                        Button("Add to palette", systemImage: "plus.square") { document.addToPalette(color) }
+                    }
+                    .accessibilityLabel(Text(verbatim: color.hex))
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border))
+        }
+    }
+
     private func colorButton(_ color: PixelColor, size: CGFloat, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             ZStack {
@@ -187,13 +248,7 @@ struct SidePanel: View {
                 ScrollView { paletteGrid(palette) }
             }
             .frame(maxHeight: 200)
-            if isEditingPalette {
-                paletteEditBar
-            } else {
-                Text("Tap a color to use it. Touch and hold for more options.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.muted)
-            }
+            if isEditingPalette { paletteEditBar }
         }
     }
 
@@ -322,15 +377,6 @@ struct SidePanel: View {
     private var paletteEditBar: some View {
         let range = paletteRange
         return VStack(alignment: .leading, spacing: 8) {
-            Group {
-                if let range {
-                    range.count == 1 ? Text("1 color selected") : Text("\(range.count) colors selected")
-                } else {
-                    Text("Tap colors to select them. Drag to reorder.")
-                }
-            }
-            .font(.system(size: 12))
-            .foregroundStyle(Theme.muted)
             HStack(spacing: 2) {
                 editButton("Edit color…", "slider.horizontal.3", enabled: range != nil) {
                     if let i = range?.lowerBound { editingEntry = PaletteEntry(index: i, color: document.structure.palette[i]) }

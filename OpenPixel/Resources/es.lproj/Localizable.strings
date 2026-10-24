@@ -102,7 +102,6 @@
 "Swap" = "Intercambiar";
 "Add to palette" = "A la paleta";
 "Palette" = "Paleta";
-"Tap a color to use it. Touch and hold for more options." = "Toca un color para usarlo. Mantén pulsado para más opciones.";
 "Color %@" = "Color %@";
 "Use as secondary" = "Usar como secundario";
 "Remove from palette" = "Eliminar de la paleta";
@@ -333,9 +332,6 @@
 "Palette options" = "Opciones de paleta";
 "Use as primary" = "Usar como principal";
 "Edit color…" = "Editar color…";
-"1 color selected" = "1 color seleccionado";
-"%lld colors selected" = "%lld colores seleccionados";
-"Tap colors to select them. Drag to reorder." = "Toca colores para seleccionarlos. Arrastra para reordenar.";
 "Gradient" = "Degradado";
 "Sort" = "Ordenar";
 "By hue" = "Por tono";
@@ -618,3 +614,11 @@
 "Pixel ratio" = "Pixel ratio";
 "Fit screen" = "Ajustar";
 "Actual size" = "Tamaño real";
+"Lightness" = "Luminosidad";
+"Color shading" = "Sombreado de color";
+"Shade" = "Sombra";
+"Saturation" = "Saturación";
+"Follow color" = "Seguir color";
+"Hue/Saturation…" = "Tono/Saturación…";
+"Hue/Saturation" = "Tono/Saturación";
+"Reset" = "Restablecer";

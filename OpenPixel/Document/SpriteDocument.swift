@@ -330,6 +330,7 @@ final class SpriteDocument {
 
     /// While transforming, undo cancels the transform.
     func undo() {
+        if isAdjustingHueSaturation { return endHueSaturation(apply: nil, everyCel: false) }
         if isTransforming { return cancelTransform() }
         if isBuildingShape { return cancelPendingShape() }
         cancelStroke()
@@ -1494,6 +1495,77 @@ final class SpriteDocument {
             s.normalizeLinks()
         }
         return changedPixels
+    }
+
+    // MARK: - Hue/Saturation
+
+    /// The sprite as it was when the Hue/Saturation panel opened; the sliders preview on a copy of it.
+    private var adjustmentBase: DocumentSnapshot?
+    var isAdjustingHueSaturation: Bool { adjustmentBase != nil }
+
+    /// Edit > Adjustments > Hue/Saturation (⌘U): opens the panel.
+    func beginHueSaturation() {
+        guard adjustmentBase == nil else { return }
+        applyTransformIfNeeded()
+        stopPlayback()
+        adjustmentBase = DocumentSnapshot(sprite: storage, selection: selection)
+    }
+
+    /// Shows the adjustment on the canvas without committing it.
+    func previewHueSaturation(_ adjustment: HueSaturation, everyCel: Bool) {
+        guard let base = adjustmentBase else { return }
+        var adjusted = base.sprite
+        applyHueSaturation(adjustment, everyCel: everyCel, to: &adjusted)
+        guard adjusted != storage else { return }
+        storage = adjusted
+        revision &+= 1
+    }
+
+    /// Applies the adjustment as one undoable step, or puts the pixels back.
+    func endHueSaturation(apply adjustment: HueSaturation?, everyCel: Bool) {
+        guard let base = adjustmentBase else { return }
+        adjustmentBase = nil
+        storage = base.sprite
+        guard let adjustment, !adjustment.isIdentity else {
+            revision &+= 1
+            return
+        }
+        var adjusted = base.sprite
+        if applyHueSaturation(adjustment, everyCel: everyCel, to: &adjusted) == 0 {
+            notice = L10n.string("The layer is locked")
+        }
+        guard adjusted != base.sprite else {
+            revision &+= 1
+            return
+        }
+        registerUndo(base)
+        storage = adjusted
+        changed()
+    }
+
+    /// The active cel, or every cel, inside the selection if there is one; locked layers
+    /// are left alone. Returns how many cels it could change.
+    @discardableResult
+    private func applyHueSaturation(_ adjustment: HueSaturation, everyCel: Bool, to s: inout Sprite) -> Int {
+        let editable = Set(s.layers.filter { !s.locks($0) && !$0.isReference }.map(\.id))
+        let keys = everyCel ? s.cels.keys.filter { editable.contains($0.layer) } : (editable.contains(activeLayerID) ? [activeCelKey] : [])
+        guard !adjustment.isIdentity else { return keys.count }
+        let mask = selection
+        // Each color is worked out once.
+        var cache: [PixelColor: PixelColor] = [:]
+        for key in keys {
+            guard var cel = s.cels[key] else { continue }
+            for i in cel.pixels.indices where cel.pixels[i].a != 0 && (mask?.bits[i] ?? true) {
+                let c = cel.pixels[i]
+                if let done = cache[c] { cel.pixels[i] = done; continue }
+                let out = adjustment.apply(c)
+                cache[c] = out
+                cel.pixels[i] = out
+            }
+            s.cels[key] = cel.isEmpty ? nil : cel
+            if !everyCel { s.syncLinks(from: key) }
+        }
+        return keys.count
     }
 
     // MARK: - Playback
