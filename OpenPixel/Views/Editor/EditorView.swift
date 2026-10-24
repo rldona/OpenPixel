@@ -58,6 +58,9 @@ struct EditorView: View {
                                 onZoomChanged: { zoom = $0 },
                                 onFocusToggle: toggleFocus
                             )
+                            // With no timeline under it, the canvas runs to the bottom edge
+                            // instead of leaving the home indicator's strip empty.
+                            .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
                             if !focusMode && !timelineCollapsed && !document.hasSelection && !document.isTransforming { statusPills }
                         }
                         .overlay(alignment: .topLeading) {
