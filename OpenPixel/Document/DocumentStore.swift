@@ -70,16 +70,42 @@ final class DocumentStore {
         return SpriteDocument(id: id, name: file.name, sprite: file.sprite)
     }
 
-    func save(_ document: SpriteDocument) throws {
-        try write(document.file, id: document.id)
+    /// Saves in the background: encoding a big sprite takes long enough to
+    /// stutter drawing if done on the main thread. Saves of the same sprite
+    /// are queued so an older one can never overwrite a newer one.
+    func save(_ document: SpriteDocument) {
+        let file = document.file, id = document.id, url = url(for: id)
         document.markSaved()
+        let previous = pendingSaves[id]
+        let task = Task.detached(priority: .utility) {
+            await previous?.value
+            do {
+                try JSONEncoder().encode(file).write(to: url, options: .atomic)
+            } catch {
+                print("OpenPixel: could not save \(url.lastPathComponent): \(error)")
+            }
+        }
+        pendingSaves[id] = task
+        updateSummary(Self.summary(id: id, file: file, modified: Date()))
+    }
+
+    @ObservationIgnored private var pendingSaves: [UUID: Task<Void, Never>] = [:]
+
+    /// Waits for background saves, so the gallery reads the latest files.
+    func flush() async {
+        let tasks = pendingSaves.values
+        pendingSaves = [:]
+        for task in tasks { await task.value }
     }
 
     private func write(_ file: SpriteFile, id: UUID) throws {
         let data = try JSONEncoder().encode(file)
         try data.write(to: url(for: id), options: .atomic)
-        let summary = Self.summary(id: id, file: file, modified: Date())
-        items.removeAll { $0.id == id }
+        updateSummary(Self.summary(id: id, file: file, modified: Date()))
+    }
+
+    private func updateSummary(_ summary: SpriteSummary) {
+        items.removeAll { $0.id == summary.id }
         items.insert(summary, at: 0)
     }
 

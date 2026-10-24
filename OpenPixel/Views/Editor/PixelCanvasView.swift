@@ -13,17 +13,22 @@ struct OnionLayer {
 /// - Apple Pencil (or a single finger while no Pencil has been used) draws.
 /// - Two fingers pinch/pan; two-finger tap undoes, three-finger tap redoes.
 /// - Once a Pencil is seen, a long press with a finger is a quick eyedropper.
+///
+/// Rendering is built from Core Animation layers so the GPU does the scaling:
+/// panning and zooming only move layers, and a stroke recomposites just the
+/// pixels it touched (`render(_:)`) instead of redrawing the whole view.
 final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilInteractionDelegate {
+    weak var document: SpriteDocument?
+
     var spriteSize = CGSize(width: 32, height: 32) {
         didSet { if oldValue != spriteSize { needsFit = true; setNeedsLayout() } }
     }
-    var image: CGImage? { didSet { setNeedsDisplay() } }
-    var onionLayers: [OnionLayer] = [] { didSet { setNeedsDisplay() } }
-    var showGrid = true { didSet { if oldValue != showGrid { setNeedsDisplay() } } }
-    var mirrorX = false { didSet { if oldValue != mirrorX { setNeedsDisplay() } } }
+    var onionLayers: [OnionLayer] = [] { didSet { updateOnionLayers() } }
+    var showGrid = true { didSet { if oldValue != showGrid { updateOverlays() } } }
+    var mirrorX = false { didSet { if oldValue != mirrorX { updateOverlays() } } }
 
     var onStrokeBegan: ((PixelPoint) -> Void)?
-    var onStrokeMoved: ((PixelPoint) -> Void)?
+    var onStrokeMoved: (([PixelPoint]) -> Void)?
     var onStrokeEnded: (() -> Void)?
     var onStrokeCancelled: (() -> Void)?
     var onUndo: (() -> Void)?
@@ -41,24 +46,79 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private var pencilOnly = false
     private weak var drawingTouch: UITouch?
     private var strokeActive = false
-    private var lastLocation: CGPoint?
+
+    /// What the document looked like the last time the whole image was rendered.
+    private(set) var renderedRevision = -1
+    private(set) var renderedFrame = -1
+    /// The current frame's composite, updated in place while drawing.
+    private var buffer: [PixelColor] = []
+    private var bufferSize = (width: 0, height: 0)
+
+    private let shadowLayer = CALayer()
+    private let spriteLayer = CALayer()
+    private let checkerLayer = CALayer()
+    private let onionHost = CALayer()
+    private let imageLayer = CALayer()
+    private let gridLayer = CAShapeLayer()
+    private let mirrorLayer = CAShapeLayer()
+    private var checkerPixelsPerCell = 0
 
     private static let minScale: CGFloat = 1
     private static let maxScale: CGFloat = 128
+    /// Room kept free at the top for the floating tool options bar.
+    private static let topInset: CGFloat = 72
     private static let background = UIColor(red: 0x0F / 255, green: 0x0F / 255, blue: 0x12 / 255, alpha: 1)
-    private static let checkerLight = UIColor(white: 0.27, alpha: 1)
-    private static let checkerDark = UIColor(white: 0.21, alpha: 1)
+    private static let checkerLight = PixelColor(r: 69, g: 69, b: 69)
+    private static let checkerDark = PixelColor(r: 54, g: 54, b: 54)
     private static let accent = UIColor(red: 1, green: 0x7A / 255, blue: 0x59 / 255, alpha: 1)
+    /// Layer properties we change every frame must not animate.
+    private static let noAnimations: [String: CAAction] = [
+        "contents": NSNull(), "position": NSNull(), "bounds": NSNull(), "frame": NSNull(),
+        "path": NSNull(), "hidden": NSNull(), "opacity": NSNull(), "shadowPath": NSNull(), "sublayers": NSNull()
+    ]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = Self.background
         isMultipleTouchEnabled = true
-        contentMode = .redraw
+        setUpLayers()
         setUpGestures()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    private func setUpLayers() {
+        for l in [shadowLayer, spriteLayer, checkerLayer, onionHost, imageLayer, gridLayer, mirrorLayer] {
+            l.actions = Self.noAnimations
+        }
+        shadowLayer.shadowColor = UIColor.black.cgColor
+        shadowLayer.shadowOpacity = 0.5
+        shadowLayer.shadowRadius = 16
+        shadowLayer.shadowOffset = CGSize(width: 0, height: 12)
+
+        spriteLayer.masksToBounds = true
+        spriteLayer.borderWidth = 1
+        spriteLayer.borderColor = UIColor(white: 1, alpha: 0.12).cgColor
+        for l in [checkerLayer, imageLayer] {
+            l.magnificationFilter = .nearest
+            l.minificationFilter = .nearest
+        }
+        spriteLayer.addSublayer(checkerLayer)
+        spriteLayer.addSublayer(onionHost)
+        spriteLayer.addSublayer(imageLayer)
+
+        gridLayer.fillColor = nil
+        gridLayer.strokeColor = UIColor(white: 1, alpha: 0.22).cgColor
+        mirrorLayer.fillColor = nil
+        mirrorLayer.strokeColor = Self.accent.cgColor
+        mirrorLayer.lineWidth = 2
+        mirrorLayer.lineDashPattern = [6, 5]
+
+        layer.addSublayer(shadowLayer)
+        layer.addSublayer(spriteLayer)
+        layer.addSublayer(gridLayer)
+        layer.addSublayer(mirrorLayer)
+    }
 
     private func setUpGestures() {
         let fingers = [NSNumber(value: UITouch.TouchType.direct.rawValue)]
@@ -102,6 +162,129 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         addInteraction(pencil)
     }
 
+    // MARK: - Rendering
+
+    /// Recomposites the whole current frame, e.g. after undo or a frame change.
+    func renderAll() {
+        guard let document else { return }
+        let sprite = document.sprite
+        if bufferSize != (sprite.width, sprite.height) {
+            buffer = [PixelColor](repeating: .clear, count: sprite.width * sprite.height)
+            bufferSize = (sprite.width, sprite.height)
+        }
+        sprite.composite(frameIndex: document.activeFrameIndex, into: &buffer, rect: .full(width: sprite.width, height: sprite.height))
+        renderedRevision = document.revision
+        renderedFrame = document.activeFrameIndex
+        pushImage()
+    }
+
+    /// Recomposites only `rect` while a stroke is in progress.
+    func render(_ rect: PixelRect) {
+        guard let document else { return }
+        let sprite = document.sprite
+        guard bufferSize == (sprite.width, sprite.height) else { return renderAll() }
+        sprite.composite(frameIndex: document.activeFrameIndex, into: &buffer, rect: rect)
+        pushImage()
+    }
+
+    private func pushImage() {
+        imageLayer.contents = PixelImage.makeCGImage(pixels: buffer, width: bufferSize.width, height: bufferSize.height)
+    }
+
+    private func updateOnionLayers() {
+        onionHost.sublayers = onionLayers.map { onion in
+            let l = CALayer()
+            l.actions = Self.noAnimations
+            l.contents = onion.image
+            l.opacity = Float(onion.alpha)
+            l.magnificationFilter = .nearest
+            l.minificationFilter = .nearest
+            l.frame = onionHost.bounds
+            return l
+        }
+    }
+
+    /// Checker squares are a whole number of sprite pixels (1, 2, 4…) so they line up
+    /// with the pixel grid; at high zoom each square is exactly one pixel.
+    private func updateChecker() {
+        var pixelsPerCell = 1
+        while scale * CGFloat(pixelsPerCell) < 8 { pixelsPerCell *= 2 }
+        let columns = Int((spriteSize.width / CGFloat(pixelsPerCell)).rounded(.up))
+        let rows = Int((spriteSize.height / CGFloat(pixelsPerCell)).rounded(.up))
+        if pixelsPerCell != checkerPixelsPerCell || checkerLayer.contents == nil {
+            var tile = PixelImage(width: columns, height: rows, fill: Self.checkerLight)
+            for y in 0..<rows {
+                for x in 0..<columns where (x + y) % 2 == 0 { tile[x, y] = Self.checkerDark }
+            }
+            checkerLayer.contents = tile.makeCGImage()
+            checkerPixelsPerCell = pixelsPerCell
+        }
+        let cell = scale * CGFloat(pixelsPerCell)
+        checkerLayer.frame = CGRect(x: 0, y: 0, width: CGFloat(columns) * cell, height: CGFloat(rows) * cell)
+    }
+
+    private var spriteRect: CGRect {
+        CGRect(origin: origin, size: CGSize(width: spriteSize.width * scale, height: spriteSize.height * scale))
+    }
+
+    /// Moves and resizes the layers after a pan, zoom or rotation. Nothing is redrawn.
+    private func updateGeometry() {
+        let rect = spriteRect
+        spriteLayer.frame = rect
+        shadowLayer.frame = rect
+        shadowLayer.shadowPath = UIBezierPath(rect: CGRect(origin: .zero, size: rect.size)).cgPath
+        imageLayer.frame = spriteLayer.bounds
+        onionHost.frame = spriteLayer.bounds
+        onionHost.sublayers?.forEach { $0.frame = onionHost.bounds }
+        updateChecker()
+        updateOverlays()
+    }
+
+    /// Grid and symmetry lines are drawn in view coordinates, only over the visible part.
+    private func updateOverlays() {
+        gridLayer.frame = bounds
+        mirrorLayer.frame = bounds
+        let rect = spriteRect
+        let visible = rect.intersection(bounds)
+
+        if showGrid, scale >= 6, !visible.isNull {
+            gridLayer.lineWidth = 1 / max(1, traitCollection.displayScale)
+            let path = CGMutablePath()
+            let firstX = max(1, Int(((visible.minX - rect.minX) / scale).rounded(.down)))
+            let lastX = min(Int(spriteSize.width) - 1, Int(((visible.maxX - rect.minX) / scale).rounded(.up)))
+            let firstY = max(1, Int(((visible.minY - rect.minY) / scale).rounded(.down)))
+            let lastY = min(Int(spriteSize.height) - 1, Int(((visible.maxY - rect.minY) / scale).rounded(.up)))
+            if firstX <= lastX {
+                for x in firstX...lastX {
+                    let px = rect.minX + CGFloat(x) * scale
+                    path.move(to: CGPoint(x: px, y: visible.minY))
+                    path.addLine(to: CGPoint(x: px, y: visible.maxY))
+                }
+            }
+            if firstY <= lastY {
+                for y in firstY...lastY {
+                    let py = rect.minY + CGFloat(y) * scale
+                    path.move(to: CGPoint(x: visible.minX, y: py))
+                    path.addLine(to: CGPoint(x: visible.maxX, y: py))
+                }
+            }
+            gridLayer.path = path
+            gridLayer.isHidden = false
+        } else {
+            gridLayer.isHidden = true
+        }
+
+        if mirrorX {
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+            mirrorLayer.path = path
+            mirrorLayer.isHidden = false
+        } else {
+            mirrorLayer.isHidden = true
+        }
+    }
+
     // MARK: - Viewport
 
     override func layoutSubviews() {
@@ -113,13 +296,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             // Keep the sprite where it was relative to the centre, e.g. on rotation.
             origin.x += (bounds.width - lastBoundsSize.width) / 2
             origin.y += (bounds.height - lastBoundsSize.height) / 2
-            setNeedsDisplay()
+            updateGeometry()
         }
         lastBoundsSize = bounds.size
     }
-
-    /// Room kept free at the top for the floating tool options bar.
-    private static let topInset: CGFloat = 72
 
     func fitToScreen() {
         let margin: CGFloat = 32
@@ -132,7 +312,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         )
         needsFit = false
         onZoomChanged?(scale)
-        setNeedsDisplay()
+        updateGeometry()
     }
 
     func zoom(by factor: CGFloat) {
@@ -146,7 +326,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         scale = clamped
         origin = CGPoint(x: anchor.x - sx * scale, y: anchor.y - sy * scale)
         onZoomChanged?(scale)
-        setNeedsDisplay()
+        updateGeometry()
     }
 
     private func spritePoint(_ location: CGPoint) -> PixelPoint? {
@@ -176,20 +356,20 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     @objc private func handlePan(_ g: UIPanGestureRecognizer) {
         if g.state == .began { cancelActiveStroke() }
         guard g.state == .changed else { return }
-        let t = g.translation(in: self)
-        origin.x += t.x
-        origin.y += t.y
+        translate(by: g.translation(in: self))
         g.setTranslation(.zero, in: self)
-        setNeedsDisplay()
     }
 
     @objc private func handleScroll(_ g: UIPanGestureRecognizer) {
         guard g.state == .changed else { return }
-        let t = g.translation(in: self)
+        translate(by: g.translation(in: self))
+        g.setTranslation(.zero, in: self)
+    }
+
+    private func translate(by t: CGPoint) {
         origin.x += t.x
         origin.y += t.y
-        g.setTranslation(.zero, in: self)
-        setNeedsDisplay()
+        updateGeometry()
     }
 
     @objc private func handleUndoTap(_ g: UITapGestureRecognizer) {
@@ -255,9 +435,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         if touch.type == .pencil { pencilOnly = true }
         if touch.type == .direct, (event?.allTouches?.filter { $0.type == .direct }.count ?? 1) > 1 { return }
         drawingTouch = touch
-        let location = touch.location(in: self)
-        lastLocation = location
-        if let p = spritePoint(location) {
+        if let p = spritePoint(touch.location(in: self)) {
             strokeActive = true
             onStrokeBegan?(p)
         }
@@ -265,17 +443,19 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = drawingTouch, touches.contains(touch) else { return }
+        // The Pencil reports up to 240 samples per second; handle all of an
+        // event's samples in one batch so the canvas updates once per event.
+        var points: [PixelPoint] = []
         for sample in event?.coalescedTouches(for: touch) ?? [touch] {
-            let location = sample.location(in: self)
-            lastLocation = location
-            guard let p = spritePoint(location) else { continue }
-            if strokeActive {
-                onStrokeMoved?(p)
-            } else {
+            guard let p = spritePoint(sample.location(in: self)) else { continue }
+            if !strokeActive {
                 strokeActive = true
                 onStrokeBegan?(p)
+            } else if points.last != p {
+                points.append(p)
             }
         }
+        if !points.isEmpty { onStrokeMoved?(points) }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -294,90 +474,5 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         if strokeActive { onStrokeCancelled?() }
         drawingTouch = nil
         strokeActive = false
-    }
-
-    // MARK: - Rendering
-
-    override func draw(_ rect: CGRect) {
-        guard let ctx = UIGraphicsGetCurrentContext() else { return }
-        let spriteRect = CGRect(origin: origin, size: CGSize(width: spriteSize.width * scale, height: spriteSize.height * scale))
-        let visible = spriteRect.intersection(bounds)
-
-        ctx.setShadow(offset: CGSize(width: 0, height: 12), blur: 32, color: UIColor.black.withAlphaComponent(0.5).cgColor)
-        ctx.setFillColor(Self.checkerLight.cgColor)
-        ctx.fill(spriteRect)
-        ctx.setShadow(offset: .zero, blur: 0)
-
-        guard !visible.isNull else { return }
-        ctx.saveGState()
-        ctx.clip(to: visible)
-        drawCheckerboard(in: visible, spriteRect: spriteRect, ctx: ctx)
-
-        ctx.interpolationQuality = .none
-        for onion in onionLayers {
-            UIImage(cgImage: onion.image).draw(in: spriteRect, blendMode: .normal, alpha: onion.alpha)
-        }
-        if let image {
-            UIImage(cgImage: image).draw(in: spriteRect)
-        }
-        if showGrid, scale >= 6 { drawGrid(in: visible, spriteRect: spriteRect, ctx: ctx) }
-        ctx.restoreGState()
-
-        ctx.setStrokeColor(UIColor(white: 1, alpha: 0.12).cgColor)
-        ctx.setLineWidth(1)
-        ctx.stroke(spriteRect.insetBy(dx: -0.5, dy: -0.5))
-
-        if mirrorX {
-            ctx.setStrokeColor(Self.accent.cgColor)
-            ctx.setLineWidth(2)
-            ctx.setLineDash(phase: 0, lengths: [6, 5])
-            ctx.move(to: CGPoint(x: spriteRect.midX, y: spriteRect.minY))
-            ctx.addLine(to: CGPoint(x: spriteRect.midX, y: spriteRect.maxY))
-            ctx.strokePath()
-        }
-    }
-
-    /// Checker squares are a whole number of sprite pixels (1, 2, 4…) so they line up
-    /// with the pixel grid; at high zoom each square is exactly one pixel.
-    private func drawCheckerboard(in visible: CGRect, spriteRect: CGRect, ctx: CGContext) {
-        var pixelsPerCell: CGFloat = 1
-        while scale * pixelsPerCell < 8 { pixelsPerCell *= 2 }
-        let cell = scale * pixelsPerCell
-        ctx.setFillColor(Self.checkerDark.cgColor)
-        let firstCol = Int(((visible.minX - spriteRect.minX) / cell).rounded(.down))
-        let lastCol = Int(((visible.maxX - spriteRect.minX) / cell).rounded(.up))
-        let firstRow = Int(((visible.minY - spriteRect.minY) / cell).rounded(.down))
-        let lastRow = Int(((visible.maxY - spriteRect.minY) / cell).rounded(.up))
-        guard firstCol <= lastCol, firstRow <= lastRow else { return }
-        for row in firstRow...lastRow {
-            for col in firstCol...lastCol where (row + col) % 2 == 0 {
-                ctx.fill(CGRect(x: spriteRect.minX + CGFloat(col) * cell, y: spriteRect.minY + CGFloat(row) * cell, width: cell, height: cell))
-            }
-        }
-    }
-
-    private func drawGrid(in visible: CGRect, spriteRect: CGRect, ctx: CGContext) {
-        let pixel = 1 / max(1, traitCollection.displayScale)
-        ctx.setStrokeColor(UIColor(white: 1, alpha: 0.22).cgColor)
-        ctx.setLineWidth(pixel)
-        let firstX = max(1, Int(((visible.minX - spriteRect.minX) / scale).rounded(.down)))
-        let lastX = min(Int(spriteSize.width) - 1, Int(((visible.maxX - spriteRect.minX) / scale).rounded(.up)))
-        let firstY = max(1, Int(((visible.minY - spriteRect.minY) / scale).rounded(.down)))
-        let lastY = min(Int(spriteSize.height) - 1, Int(((visible.maxY - spriteRect.minY) / scale).rounded(.up)))
-        if firstX <= lastX {
-            for x in firstX...lastX {
-                let px = spriteRect.minX + CGFloat(x) * scale
-                ctx.move(to: CGPoint(x: px, y: visible.minY))
-                ctx.addLine(to: CGPoint(x: px, y: visible.maxY))
-            }
-        }
-        if firstY <= lastY {
-            for y in firstY...lastY {
-                let py = spriteRect.minY + CGFloat(y) * scale
-                ctx.move(to: CGPoint(x: visible.minX, y: py))
-                ctx.addLine(to: CGPoint(x: visible.maxX, y: py))
-            }
-        }
-        ctx.strokePath()
     }
 }

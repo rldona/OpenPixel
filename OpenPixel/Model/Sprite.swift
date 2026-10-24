@@ -55,16 +55,41 @@ struct Sprite: Equatable, Sendable {
 
     /// Flattens the visible layers of a frame.
     func composite(frameIndex: Int) -> PixelImage {
-        var out = PixelImage(width: width, height: height)
-        guard frames.indices.contains(frameIndex) else { return out }
-        let frameID = frames[frameIndex].id
-        for layer in layers where layer.isVisible && layer.opacity > 0 {
-            guard let image = cel(layer: layer.id, frame: frameID) else { continue }
-            for i in out.pixels.indices where image.pixels[i].a != 0 {
-                out.pixels[i] = image.pixels[i].blended(over: out.pixels[i], opacity: layer.opacity)
+        var pixels = [PixelColor](repeating: .clear, count: width * height)
+        composite(frameIndex: frameIndex, into: &pixels, rect: .full(width: width, height: height))
+        return PixelImage(width: width, height: height, pixels: pixels)
+    }
+
+    /// Recomposites only `rect` of a frame into an existing `width × height` buffer.
+    /// This is the per-stroke hot path, so it works on raw buffers.
+    func composite(frameIndex: Int, into out: inout [PixelColor], rect: PixelRect) {
+        precondition(out.count == width * height, "Buffer does not match sprite size")
+        let w = width
+        out.withUnsafeMutableBufferPointer { dst in
+            for y in rect.minY...rect.maxY {
+                for x in rect.minX...rect.maxX { dst[y * w + x] = .clear }
+            }
+            guard frames.indices.contains(frameIndex) else { return }
+            let frameID = frames[frameIndex].id
+            for layer in layers where layer.isVisible && layer.opacity > 0 {
+                guard let image = cel(layer: layer.id, frame: frameID) else { continue }
+                let opaqueLayer = layer.opacity >= 1
+                image.pixels.withUnsafeBufferPointer { src in
+                    for y in rect.minY...rect.maxY {
+                        var i = y * w + rect.minX
+                        for _ in rect.minX...rect.maxX {
+                            let s = src[i]
+                            if s.a == 255 && opaqueLayer {
+                                dst[i] = s
+                            } else if s.a != 0 {
+                                dst[i] = s.blended(over: dst[i], opacity: layer.opacity)
+                            }
+                            i += 1
+                        }
+                    }
+                }
             }
         }
-        return out
     }
 
     var totalDuration: Int { frames.reduce(0) { $0 + $1.duration } }
@@ -108,7 +133,7 @@ extension Sprite: Codable {
 }
 
 /// What is written to disk: one `.openpixel` JSON file per sprite.
-struct SpriteFile: Codable {
+struct SpriteFile: Codable, Sendable {
     var version = 1
     var name: String
     var sprite: Sprite

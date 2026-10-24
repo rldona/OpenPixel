@@ -14,7 +14,6 @@ struct EditorView: View {
 
     var body: some View {
         let sprite = document.sprite
-        let composite = sprite.composite(frameIndex: document.activeFrameIndex).makeCGImage()
 
         VStack(spacing: 0) {
             topBar
@@ -26,7 +25,8 @@ struct EditorView: View {
                             PixelCanvas(
                                 document: document,
                                 controller: canvas,
-                                image: composite,
+                                revision: document.revision,
+                                frameIndex: document.activeFrameIndex,
                                 onionLayers: onionLayers(sprite),
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
@@ -43,7 +43,7 @@ struct EditorView: View {
                     FrameTimeline(document: document)
                         .frame(height: 200)
                 }
-                SidePanel(document: document, preview: composite)
+                SidePanel(document: document)
                     .frame(width: 280)
             }
         }
@@ -109,7 +109,7 @@ struct EditorView: View {
     private func save() {
         saveTask?.cancel()
         guard document.hasUnsavedChanges else { return }
-        try? store.save(document)
+        store.save(document)
     }
 
     private var topBar: some View {

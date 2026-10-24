@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SidePanel: View {
     @Bindable var document: SpriteDocument
-    let preview: CGImage?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 8)
 
@@ -11,7 +10,8 @@ struct SidePanel: View {
             VStack(alignment: .leading, spacing: 22) {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel("Vista previa")
-                    PixelThumbnail(image: preview)
+                    // Updates when a stroke is committed, not on every stroke sample.
+                    PixelThumbnail(image: document.sprite.composite(frameIndex: document.activeFrameIndex).makeCGImage())
                         .frame(height: 180)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))

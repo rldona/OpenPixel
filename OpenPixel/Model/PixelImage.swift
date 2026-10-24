@@ -41,26 +41,21 @@ struct PixelImage: Equatable, Sendable {
 
     var isEmpty: Bool { !pixels.contains { $0.a != 0 } }
 
-    /// Non-premultiplied RGBA bytes, row by row.
+    /// Non-premultiplied RGBA bytes, row by row. `PixelColor` is four `UInt8`
+    /// fields in RGBA order, so this is a plain memory copy.
     var rgbaData: Data {
-        var bytes = [UInt8](repeating: 0, count: pixels.count * 4)
-        for (i, p) in pixels.enumerated() {
-            bytes[i * 4] = p.r
-            bytes[i * 4 + 1] = p.g
-            bytes[i * 4 + 2] = p.b
-            bytes[i * 4 + 3] = p.a
-        }
-        return Data(bytes)
+        PixelImage.rgbaData(pixels)
+    }
+
+    static func rgbaData(_ pixels: [PixelColor]) -> Data {
+        assert(MemoryLayout<PixelColor>.stride == 4)
+        return pixels.withUnsafeBytes { Data($0) }
     }
 
     init?(width: Int, height: Int, rgbaData data: Data) {
         guard width > 0, height > 0, data.count == width * height * 4 else { return nil }
-        let bytes = [UInt8](data)
-        var pixels = [PixelColor]()
-        pixels.reserveCapacity(width * height)
-        for i in stride(from: 0, to: bytes.count, by: 4) {
-            pixels.append(PixelColor(r: bytes[i], g: bytes[i + 1], b: bytes[i + 2], a: bytes[i + 3]))
-        }
+        var pixels = [PixelColor](repeating: .clear, count: width * height)
+        pixels.withUnsafeMutableBytes { _ = data.copyBytes(to: $0) }
         self.init(width: width, height: height, pixels: pixels)
     }
 

@@ -19,9 +19,18 @@ struct OnionSkinSettings: Equatable {
 final class SpriteDocument {
     let id: UUID
     var name: String { didSet { hasUnsavedChanges = true } }
-    private(set) var sprite: Sprite
-    /// Bumped on every change to `sprite`; views observe it to redraw.
+    /// The sprite itself is not observed: changing pixels mid-stroke must not
+    /// invalidate SwiftUI views. Views depend on `revision`, which `sprite`
+    /// reads, and which is bumped once per committed change.
+    @ObservationIgnored private var storage: Sprite
+    var sprite: Sprite {
+        _ = revision
+        return storage
+    }
     private(set) var revision = 0
+    /// Called with the changed area while a stroke is in progress, so the
+    /// canvas can redraw just that area without a SwiftUI update.
+    @ObservationIgnored var onCanvasChange: ((PixelRect) -> Void)?
     private(set) var hasUnsavedChanges = false
 
     var activeLayerID: UUID
@@ -49,19 +58,21 @@ final class SpriteDocument {
 
     private var undoStack: [Sprite] = []
     private var redoStack: [Sprite] = []
-    private var strokeStart: Sprite?
-    private var lastPoint: PixelPoint?
-    private var shapeOrigin: PixelPoint?
+    @ObservationIgnored private var strokeStart: Sprite?
+    @ObservationIgnored private var lastPoint: PixelPoint?
+    @ObservationIgnored private var shapeOrigin: PixelPoint?
+    /// Area the shape preview covered last time, to clear it when it moves.
+    @ObservationIgnored private var shapeRect: PixelRect?
     /// Pixels plotted so far in a 1 px freehand stroke, for pixel-perfect.
-    private var strokePath: [PixelPoint] = []
+    @ObservationIgnored private var strokePath: [PixelPoint] = []
     static let maxBrushSize = 8
-    private var playTask: Task<Void, Never>?
+    @ObservationIgnored private var playTask: Task<Void, Never>?
     private static let historyLimit = 100
 
     init(id: UUID = UUID(), name: String, sprite: Sprite) {
         self.id = id
         self.name = name
-        self.sprite = sprite
+        self.storage = sprite
         self.activeLayerID = sprite.layers.last!.id
         // Start with the most saturated color, so the first stroke stands out on the checkerboard.
         let opaque = sprite.palette.filter { !$0.isTransparent }
@@ -95,9 +106,9 @@ final class SpriteDocument {
     /// Applies a structural change as one undoable step.
     private func perform(_ change: (inout Sprite) -> Void) {
         stopPlayback()
-        let before = sprite
-        change(&sprite)
-        guard sprite != before else { return }
+        let before = storage
+        change(&storage)
+        guard storage != before else { return }
         registerUndo(before)
         fixSelection()
         changed()
@@ -107,8 +118,8 @@ final class SpriteDocument {
         cancelStroke()
         guard let previous = undoStack.popLast() else { return }
         stopPlayback()
-        redoStack.append(sprite)
-        sprite = previous
+        redoStack.append(storage)
+        storage = previous
         fixSelection()
         changed()
     }
@@ -116,8 +127,8 @@ final class SpriteDocument {
     func redo() {
         guard let next = redoStack.popLast() else { return }
         stopPlayback()
-        undoStack.append(sprite)
-        sprite = next
+        undoStack.append(storage)
+        storage = next
         fixSelection()
         changed()
     }
@@ -156,6 +167,12 @@ final class SpriteDocument {
     }
 
     // MARK: - Strokes
+    //
+    // While a stroke is in progress pixels change in `storage` without bumping
+    // `revision`; the canvas is told which area changed through `onCanvasChange`.
+    // The stroke is committed (one undo step, one SwiftUI update) when it ends.
+
+    private var activeCelKey: CelKey { CelKey(layer: activeLayerID, frame: activeFrame.id) }
 
     func beginStroke(at p: PixelPoint) {
         cancelStroke()
@@ -168,11 +185,11 @@ final class SpriteDocument {
         if !layer.isVisible { notice = "La capa «\(layer.name)» está oculta"; return }
         if layer.isLocked { notice = "La capa «\(layer.name)» está bloqueada"; return }
 
-        strokeStart = sprite
+        strokeStart = storage
         switch tool {
         case .bucket:
             let color = primary, contiguous = fillContiguous
-            mutateActiveCel { image in
+            mutateActiveCel(dirty: nil) { image in
                 if contiguous {
                     Raster.floodFill(&image, at: p, with: color)
                 } else {
@@ -182,6 +199,7 @@ final class SpriteDocument {
             endStroke()
         case .line, .rectangle, .ellipse:
             shapeOrigin = p
+            shapeRect = nil
             drawShape(to: p)
         default:
             lastPoint = p
@@ -191,40 +209,62 @@ final class SpriteDocument {
     }
 
     func continueStroke(to p: PixelPoint) {
-        guard strokeStart != nil else { return }
+        continueStroke(through: [p])
+    }
+
+    /// Extends the stroke through several points at once (all the Pencil
+    /// samples of one touch event), redrawing the canvas only once.
+    func continueStroke(through points: [PixelPoint]) {
+        guard strokeStart != nil, let target = points.last else { return }
         if tool.isShape {
-            drawShape(to: p)
+            drawShape(to: target)
             return
         }
-        guard let last = lastPoint, p != last else { return }
-        plotFreehand(Raster.line(from: last, to: p))
-        lastPoint = p
+        guard var last = lastPoint else { return }
+        var path: [PixelPoint] = []
+        for p in points where p != last {
+            path.append(contentsOf: Raster.line(from: last, to: p).dropFirst())
+            last = p
+        }
+        guard !path.isEmpty else { return }
+        lastPoint = last
+        plotFreehand(path)
     }
 
     func endStroke() {
         guard let start = strokeStart else { return }
         resetStroke()
-        if start != sprite { registerUndo(start) }
+        let key = activeCelKey
+        if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
+        if start != storage { registerUndo(start) }
+        changed()
     }
 
     /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be a pinch.
     func cancelStroke() {
         guard let start = strokeStart else { return }
         resetStroke()
-        if start != sprite {
-            sprite = start
-            changed()
-        }
+        storage = start
+        changed()
     }
 
     private func resetStroke() {
         strokeStart = nil
         lastPoint = nil
         shapeOrigin = nil
+        shapeRect = nil
         strokePath = []
     }
 
     var strokeColor: PixelColor { tool == .eraser ? .clear : primary }
+
+    /// Area covered by stamping the brush on `points`, including its mirror.
+    private func dirtyRect(for points: some Sequence<PixelPoint>) -> PixelRect? {
+        let lower = -(brushSize - 1) / 2, upper = brushSize / 2
+        guard var rect = PixelRect(bounding: points, lower: lower, upper: upper) else { return nil }
+        if mirrorX { rect = rect.union(rect.mirrored(width: storage.width)) }
+        return rect.clipped(width: storage.width, height: storage.height)
+    }
 
     /// Stamps the brush on every point (and its mirror when symmetry is on).
     private func stamp(_ points: [PixelPoint], on image: inout PixelImage, color: PixelColor) {
@@ -242,8 +282,10 @@ final class SpriteDocument {
     private func plotFreehand(_ points: [PixelPoint]) {
         let color = strokeColor
         let usePixelPerfect = pixelPerfect && brushSize == 1
-        let original = strokeStart?.cel(layer: activeLayerID, frame: activeFrame.id)
-        mutateActiveCel { image in
+        let original = strokeStart?.cels[activeCelKey]
+        // Pixel-perfect may restore the pixel before these points, so include it.
+        let dirty = dirtyRect(for: points + strokePath.suffix(2))
+        mutateActiveCel(dirty: dirty) { image in
             for p in points {
                 if strokePath.last == p { continue }
                 stamp([p], on: &image, color: color)
@@ -275,8 +317,6 @@ final class SpriteDocument {
     /// when the stroke began, so dragging previews it live.
     private func drawShape(to p: PixelPoint) {
         guard let start = strokeStart, let origin = shapeOrigin else { return }
-        let key = CelKey(layer: activeLayerID, frame: activeFrame.id)
-        sprite.cels[key] = start.cels[key]
         let points: [PixelPoint]
         switch tool {
         case .line: points = Raster.line(from: origin, to: p)
@@ -284,22 +324,46 @@ final class SpriteDocument {
         case .ellipse: points = Raster.ellipse(from: origin, to: p, filled: shapeFilled)
         default: return
         }
+        let key = activeCelKey
+        let newRect = dirtyRect(for: points)
+        // Repaint where the previous preview was, too, so it disappears.
+        let dirty = [shapeRect, newRect].compactMap { $0 }.reduce(nil as PixelRect?) { $0?.union($1) ?? $1 }
+        let previous = shapeRect
+        shapeRect = newRect
         let color = strokeColor
-        mutateActiveCel { image in stamp(points, on: &image, color: color) }
+        mutateActiveCel(dirty: dirty) { image in
+            if let previous, let original = start.cels[key] {
+                // Restore only the area the last preview touched.
+                for y in previous.minY...previous.maxY {
+                    for x in previous.minX...previous.maxX { image[x, y] = original[x, y] }
+                }
+            } else if let previous {
+                for y in previous.minY...previous.maxY {
+                    for x in previous.minX...previous.maxX { image[x, y] = .clear }
+                }
+            }
+            stamp(points, on: &image, color: color)
+        }
     }
 
     func setBrushSize(_ size: Int) {
         brushSize = min(Self.maxBrushSize, max(1, size))
     }
 
-    private func mutateActiveCel(_ body: (inout PixelImage) -> Void) {
-        let key = CelKey(layer: activeLayerID, frame: activeFrame.id)
-        var image = sprite.cels[key] ?? PixelImage(width: sprite.width, height: sprite.height)
+    /// Edits the active cel in place. During a stroke only `dirty` is redrawn
+    /// on the canvas; outside a stroke it's a normal committed change.
+    private func mutateActiveCel(dirty: PixelRect?, _ body: (inout PixelImage) -> Void) {
+        let key = activeCelKey
+        var image = storage.cels[key] ?? PixelImage(width: storage.width, height: storage.height)
         // Drop the dictionary's reference so the mutation below doesn't copy.
-        sprite.cels[key] = nil
+        storage.cels[key] = nil
         body(&image)
-        sprite.cels[key] = image.isEmpty ? nil : image
-        changed()
+        storage.cels[key] = image
+        if strokeStart != nil {
+            if let dirty { onCanvasChange?(dirty) }
+        } else {
+            changed()
+        }
     }
 
     // MARK: - Layers

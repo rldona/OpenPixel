@@ -79,7 +79,11 @@ struct GalleryView: View {
                 Text(errorMessage ?? "")
             }
         }
-        .onAppear { store.reload() }
+        .task {
+            // Let background saves from the editor finish before reading the files.
+            await store.flush()
+            store.reload()
+        }
     }
 
     private func attempt(_ work: () throws -> Void) {
@@ -163,6 +167,7 @@ struct EditorContainer: View {
             }
         }
         .task(id: id) {
+            await store.flush()
             do { document = try store.load(id) } catch { loadError = error.localizedDescription }
         }
     }

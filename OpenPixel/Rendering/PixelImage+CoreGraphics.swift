@@ -5,7 +5,11 @@ extension PixelImage {
     private static let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
 
     func makeCGImage() -> CGImage? {
-        guard let provider = CGDataProvider(data: rgbaData as CFData) else { return nil }
+        Self.makeCGImage(pixels: pixels, width: width, height: height)
+    }
+
+    static func makeCGImage(pixels: [PixelColor], width: Int, height: Int) -> CGImage? {
+        guard let provider = CGDataProvider(data: rgbaData(pixels) as CFData) else { return nil }
         return CGImage(
             width: width,
             height: height,

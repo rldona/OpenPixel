@@ -10,10 +10,14 @@ final class CanvasController {
     func fit() { view?.fitToScreen() }
 }
 
+/// SwiftUI only redraws the canvas for committed changes (`revision`) and frame
+/// changes. While a stroke is in progress the document notifies the canvas
+/// directly with the area that changed, without going through SwiftUI.
 struct PixelCanvas: UIViewRepresentable {
     let document: SpriteDocument
     let controller: CanvasController
-    let image: CGImage?
+    let revision: Int
+    let frameIndex: Int
     let onionLayers: [OnionLayer]
     let spriteSize: CGSize
     let showGrid: Bool
@@ -22,9 +26,11 @@ struct PixelCanvas: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PixelCanvasView {
         let view = PixelCanvasView()
+        view.document = document
         controller.view = view
+        document.onCanvasChange = { [weak view] rect in view?.render(rect) }
         view.onStrokeBegan = { [weak document] in document?.beginStroke(at: $0) }
-        view.onStrokeMoved = { [weak document] in document?.continueStroke(to: $0) }
+        view.onStrokeMoved = { [weak document] in document?.continueStroke(through: $0) }
         view.onStrokeEnded = { [weak document] in document?.endStroke() }
         view.onStrokeCancelled = { [weak document] in document?.cancelStroke() }
         view.onUndo = { [weak document] in document?.undo() }
@@ -37,9 +43,15 @@ struct PixelCanvas: UIViewRepresentable {
     func updateUIView(_ view: PixelCanvasView, context: Context) {
         view.onZoomChanged = onZoomChanged
         view.spriteSize = spriteSize
-        view.image = image
-        view.onionLayers = onionLayers
         view.showGrid = showGrid
         view.mirrorX = mirrorX
+        view.onionLayers = onionLayers
+        if view.renderedRevision != revision || view.renderedFrame != frameIndex {
+            view.renderAll()
+        }
+    }
+
+    static func dismantleUIView(_ view: PixelCanvasView, coordinator: ()) {
+        view.document?.onCanvasChange = nil
     }
 }
