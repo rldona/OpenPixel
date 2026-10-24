@@ -35,7 +35,7 @@ struct SidePanel: View {
                 VStack(spacing: 8) {
                     infoRow("Active cel", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)")
                     infoRow("Layer opacity", "\(Int((document.activeLayer?.opacity ?? 1) * 100)) %")
-                    infoRow("Animation", "\(document.sprite.totalDuration) ms")
+                    infoRow("Animation", "\(document.structure.totalDuration) ms")
                 }
                 .padding(14)
                 .background(Theme.field, in: RoundedRectangle(cornerRadius: 12))
@@ -70,12 +70,12 @@ struct SidePanel: View {
                     colorButton(document.secondary, size: 40, label: "Secondary color") { editingSecondary = true }
                         .offset(x: 30, y: 30)
                         .popover(isPresented: $editingSecondary) {
-                            ColorEditor(color: $document.secondary, palette: document.sprite.palette) { document.addToPalette($0) }
+                            ColorEditor(color: $document.secondary, palette: document.structure.palette) { document.addToPalette($0) }
                                 .presentationCompactAdaptation(.popover)
                         }
                     colorButton(document.primary, size: 52, label: "Primary color") { editingPrimary = true }
                         .popover(isPresented: $editingPrimary) {
-                            ColorEditor(color: $document.primary, palette: document.sprite.palette) { document.addToPalette($0) }
+                            ColorEditor(color: $document.primary, palette: document.structure.palette) { document.addToPalette($0) }
                                 .presentationCompactAdaptation(.popover)
                         }
                 }
@@ -128,7 +128,7 @@ struct SidePanel: View {
     // MARK: Palette
 
     private var paletteSection: some View {
-        let palette = document.sprite.palette
+        let palette = document.structure.palette
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 SectionLabel("Palette")
@@ -172,7 +172,7 @@ struct SidePanel: View {
             Button("Import palette…", systemImage: "square.and.arrow.down") { importingPalette = true }
             Menu("Export palette") {
                 ForEach(PaletteFile.Format.allCases) { format in
-                    ShareLink(item: PaletteExport(colors: document.sprite.palette, name: document.name, format: format),
+                    ShareLink(item: PaletteExport(colors: document.structure.palette, name: document.name, format: format),
                               preview: SharePreview(Text(verbatim: "\(document.name).\(format.rawValue)"))) {
                         Text(verbatim: format.title)
                     }
@@ -180,7 +180,7 @@ struct SidePanel: View {
             }
             Divider()
             Button("Save as default palette", systemImage: "star") {
-                Palette.saveDefault(document.sprite.palette)
+                Palette.saveDefault(document.structure.palette)
                 document.notice = L10n.string("New sprites will start with this palette")
             }
             if Palette.savedDefault != nil {
@@ -225,7 +225,7 @@ struct SidePanel: View {
             Button("Edit color…", systemImage: "slider.horizontal.3") { editingEntry = PaletteEntry(index: index, color: color) }
             Divider()
             Button("Remove from palette", systemImage: "trash", role: .destructive) { document.removeFromPalette(at: index) }
-                .disabled(document.sprite.palette.count <= 1)
+                .disabled(document.structure.palette.count <= 1)
         }
         return Group {
             if isEditingPalette {
@@ -288,7 +288,7 @@ struct SidePanel: View {
             .foregroundStyle(Theme.muted)
             HStack(spacing: 2) {
                 editButton("Edit color…", "slider.horizontal.3", enabled: range != nil) {
-                    if let i = range?.lowerBound { editingEntry = PaletteEntry(index: i, color: document.sprite.palette[i]) }
+                    if let i = range?.lowerBound { editingEntry = PaletteEntry(index: i, color: document.structure.palette[i]) }
                 }
                 editButton("Gradient", "square.split.diagonal.2x2", enabled: (range?.count ?? 0) > 2) {
                     if let range { document.paletteGradient(range) }
@@ -323,7 +323,7 @@ struct SidePanel: View {
 
     /// Sorting applies to the selection, or to the whole palette when nothing is selected.
     private var sortRange: ClosedRange<Int> {
-        paletteRange.flatMap { $0.count > 1 ? $0 : nil } ?? 0...max(0, document.sprite.palette.count - 1)
+        paletteRange.flatMap { $0.count > 1 ? $0 : nil } ?? 0...max(0, document.structure.palette.count - 1)
     }
 
     private func editButton(_ title: LocalizedStringKey, _ systemImage: String, enabled: Bool, action: @escaping () -> Void) -> some View {

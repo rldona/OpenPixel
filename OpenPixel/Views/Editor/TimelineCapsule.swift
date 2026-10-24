@@ -21,13 +21,13 @@ struct TimelineCapsule: View {
             .accessibilityLabel(Text("Play or pause"))
             .keyboardShortcut(document.isTransforming || document.isBuildingShape ? nil : KeyboardShortcut(.return, modifiers: []))
 
-            Text(verbatim: "\(document.activeFrameIndex + firstFrame) / \(document.sprite.frames.count - 1 + firstFrame)")
+            Text(verbatim: "\(document.activeFrameIndex + firstFrame) / \(document.structure.frames.count - 1 + firstFrame)")
                 .font(.system(size: 15, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.text)
                 .fixedSize()
 
-            if document.sprite.frames.count > 1 {
-                Slider(value: frameBinding, in: 0...Double(document.sprite.frames.count - 1), step: 1)
+            if document.structure.frames.count > 1 {
+                Slider(value: frameBinding, in: 0...Double(document.structure.frames.count - 1), step: 1)
                     .tint(Theme.accent)
                     .frame(width: 140)
                     .accessibilityLabel(Text("Frame"))

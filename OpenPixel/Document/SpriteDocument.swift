@@ -48,7 +48,26 @@ final class SpriteDocument {
         _ = revision
         return storage
     }
-    private(set) var revision = 0
+    private(set) var revision = 0 {
+        didSet {
+            let key = StructureKey(storage)
+            if key != structureKey {
+                structureKey = key
+                structureRevision &+= 1
+            }
+        }
+    }
+    /// Bumped only when something besides the pixels changes: layers,
+    /// frames, tags, palette, links, which cels have content, grid, slices.
+    /// Most of the interface (timeline, side panel, options bar) reads
+    /// `structure`, so a stroke that only changes pixels doesn't rebuild it.
+    private(set) var structureRevision = 0
+    @ObservationIgnored private var structureKey: StructureKey?
+    /// The sprite, for views that don't show its pixels.
+    var structure: Sprite {
+        _ = structureRevision
+        return storage
+    }
     /// Called with the changed area while a stroke is in progress, so the
     /// canvas can redraw just that area without a SwiftUI update.
     @ObservationIgnored var onCanvasChange: ((PixelRect) -> Void)?
@@ -208,8 +227,10 @@ final class SpriteDocument {
     /// The floating pixels' box, for the canvas handles.
     var transformBox: TransformBox? { floating?.box }
 
-    private var undoStack: [DocumentSnapshot] = []
-    private var redoStack: [DocumentSnapshot] = []
+    // The stacks aren't observed: every stroke pushes onto them, and only
+    // whether they're empty matters to the interface.
+    @ObservationIgnored private var undoStack: [DocumentSnapshot] = [] { didSet { if canUndo == undoStack.isEmpty { canUndo = !undoStack.isEmpty } } }
+    @ObservationIgnored private var redoStack: [DocumentSnapshot] = [] { didSet { if canRedo == redoStack.isEmpty { canRedo = !redoStack.isEmpty } } }
     @ObservationIgnored private var strokeStart: Sprite?
     @ObservationIgnored private var lastPoint: PixelPoint?
     @ObservationIgnored private var shapeOrigin: PixelPoint?
@@ -263,13 +284,14 @@ final class SpriteDocument {
         func luma(_ c: PixelColor) -> Int { Int(c.r) * 3 + Int(c.g) * 6 + Int(c.b) }
         self.primary = opaque.max { chroma($0) < chroma($1) } ?? .black
         self.secondary = opaque.min { luma($0) < luma($1) } ?? .white
+        self.structureKey = StructureKey(sprite)
     }
 
     var file: SpriteFile { SpriteFile(name: name, sprite: sprite) }
-    var canUndo: Bool { !undoStack.isEmpty }
-    var canRedo: Bool { !redoStack.isEmpty }
-    var activeLayer: Layer? { sprite.layers.first { $0.id == activeLayerID } }
-    var activeFrame: Frame { sprite.frames[activeFrameIndex] }
+    private(set) var canUndo = false
+    private(set) var canRedo = false
+    var activeLayer: Layer? { structure.layers.first { $0.id == activeLayerID } }
+    var activeFrame: Frame { structure.frames[activeFrameIndex] }
 
     func markSaved() { hasUnsavedChanges = false }
 
@@ -282,7 +304,7 @@ final class SpriteDocument {
         // Tilemaps follow whatever was drawn on them.
         if storage.layers.contains(where: \.isTilemap) || !storage.tilemaps.isEmpty { storage.syncTilemaps(mode: tilesetMode) }
         revision &+= 1
-        hasUnsavedChanges = true
+        if !hasUnsavedChanges { hasUnsavedChanges = true }
     }
 
     private func registerUndo(_ snapshot: DocumentSnapshot) {
@@ -934,8 +956,8 @@ final class SpriteDocument {
 
     /// The active slice's shape on the active frame.
     var activeSliceKey: SliceKey? {
-        guard let slice = sprite.slices.first(where: { $0.id == activeSliceID }) else { return nil }
-        return slice.key(at: activeFrameIndex, frames: sprite.frames)
+        guard let slice = structure.slices.first(where: { $0.id == activeSliceID }) else { return nil }
+        return slice.key(at: activeFrameIndex, frames: structure.frames)
     }
 
     /// Slice tool: touching the active slice's edge resizes it, inside it
@@ -1376,7 +1398,7 @@ final class SpriteDocument {
         perform { $0.tags.removeAll { $0.id == id } }
     }
 
-    var activeTag: FrameTag? { sprite.tag(containing: activeFrameIndex) }
+    var activeTag: FrameTag? { structure.tag(containing: activeFrameIndex) }
 
     // MARK: - Palette
 
@@ -1440,7 +1462,7 @@ final class SpriteDocument {
     }
 
     /// Where `color` is in the palette, if it is.
-    func paletteIndex(of color: PixelColor) -> Int? { sprite.palette.firstIndex(of: color) }
+    func paletteIndex(of color: PixelColor) -> Int? { structure.palette.firstIndex(of: color) }
 
     // MARK: - Replace color
 
@@ -1516,7 +1538,8 @@ final class SpriteDocument {
     func stopPlayback() {
         playTask?.cancel()
         playTask = nil
-        isPlaying = false
+        // Every stroke stops playback; only notify when it was actually playing.
+        if isPlaying { isPlaying = false }
     }
 }
 
@@ -2801,4 +2824,29 @@ struct SliceEdges: OptionSet {
     }
 
     init(rawValue: Int) { self.rawValue = rawValue }
+}
+
+/// Everything about a sprite except its pixels, to tell structural changes
+/// apart from drawing.
+private struct StructureKey: Equatable {
+    let width: Int, height: Int
+    let layers: [Layer]
+    let frames: [Frame]
+    let tags: [FrameTag]
+    let palette: [PixelColor]
+    let links: [CelKey: UUID]
+    let celOpacity: [CelKey: Double]
+    let grid: GridSettings
+    let slices: [Slice]
+    let tilemaps: [CelKey: TileMap]
+    /// Which cels have content (empty cels are removed from `cels`).
+    let filled: Set<CelKey>
+
+    init(_ s: Sprite) {
+        width = s.width; height = s.height
+        layers = s.layers; frames = s.frames; tags = s.tags; palette = s.palette
+        links = s.links; celOpacity = s.celOpacity; grid = s.grid; slices = s.slices
+        tilemaps = s.tilemaps
+        filled = Set(s.cels.keys)
+    }
 }

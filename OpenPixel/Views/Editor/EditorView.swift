@@ -27,8 +27,6 @@ struct EditorView: View {
     private static let collapsePull = 50.0
 
     var body: some View {
-        let sprite = document.sprite
-
         VStack(spacing: 0) {
             if !focusMode {
                 topBar.transition(.move(edge: .top).combined(with: .opacity))
@@ -41,25 +39,13 @@ struct EditorView: View {
                 VStack(spacing: 0) {
                     Group {
                         ZStack(alignment: .bottomLeading) {
-                            PixelCanvas(
+                            CanvasHost(
                                 document: document,
                                 controller: canvas,
-                                revision: document.revision,
-                                frameIndex: document.activeFrameIndex,
-                                onionLayers: onionLayers(sprite),
-                                references: referenceOverlays(sprite),
-                                spriteSize: CGSize(width: sprite.width, height: sprite.height),
-                                showGrid: document.showGrid,
-                                // A tilemap shows its tiles' grid; otherwise the sprite grid when it's on.
-                                tileGrid: document.activeLayer?.tileset.map { GridSettings(width: $0.tileWidth, height: $0.tileHeight) }
-                                    ?? (document.showTileGrid ? sprite.grid : nil),
-                                symmetry: document.symmetry,
-                                tiledMode: document.tiledMode,
                                 onZoomChanged: { zoom = $0 },
-                                onFocusToggle: toggleFocus
+                                onFocusToggle: toggleFocus,
+                                onRevision: scheduleSave
                             )
-                            // With no timeline under it, the canvas runs to the bottom edge
-                            // instead of leaving the home indicator's strip empty.
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
                             if !focusMode && !timelineCollapsed && !document.hasSelection && !document.isTransforming { statusPills }
                         }
@@ -126,7 +112,6 @@ struct EditorView: View {
                 if !trimmed.isEmpty { document.name = trimmed }
             }
         }
-        .onChange(of: document.revision) { scheduleSave() }
         .onChange(of: document.name) { scheduleSave() }
         .onChange(of: scenePhase) { _, phase in if phase != .active { save() } }
         .onDisappear {
@@ -160,38 +145,6 @@ struct EditorView: View {
         .padding(14)
         .accessibilityLabel(Text("Exit focus mode"))
         .transition(.opacity)
-    }
-
-    private func onionLayers(_ sprite: Sprite) -> [OnionLayer] {
-        guard document.onionSkin, !document.isPlaying else { return [] }
-        let settings = document.onionSettings
-        let current = document.activeFrameIndex
-        let tag = settings.onlyInTag ? sprite.tag(containing: current) : nil
-        var offsets: [Int] = []
-        let maxDistance = max(settings.previous, settings.next)
-        if maxDistance > 0 {
-            for d in stride(from: maxDistance, through: 1, by: -1) {
-                if d <= settings.previous { offsets.append(-d) }
-                if d <= settings.next { offsets.append(d) }
-            }
-        }
-        return offsets.compactMap { offset in
-            let index = current + offset
-            guard sprite.frames.indices.contains(index), tag?.contains(index) ?? true else { return nil }
-            var image = sprite.composite(frameIndex: index)
-            if settings.tint { image = image.tinted(offset < 0 ? .onionPrevious : .onionNext) }
-            guard let cgImage = image.makeCGImage() else { return nil }
-            return OnionLayer(image: cgImage, alpha: settings.opacity / CGFloat(abs(offset)))
-        }
-    }
-
-    /// Visible reference layers, each over the drawing when no drawn layer is above it.
-    private func referenceOverlays(_ sprite: Sprite) -> [ReferenceOverlay] {
-        sprite.layers.enumerated().compactMap { index, layer in
-            guard sprite.shows(layer), let reference = layer.reference else { return nil }
-            let above = !sprite.layers[(index + 1)...].contains { !$0.isReference && !$0.isGroup && sprite.shows($0) }
-            return ReferenceOverlay(id: layer.id, data: reference.data, frame: reference.frame, opacity: layer.opacity, above: above)
-        }
     }
 
     private func scheduleSave() {
@@ -244,7 +197,7 @@ struct EditorView: View {
                     }
             )
             .onTapGesture(count: 2) {
-                let fit = Double(FrameTimeline.fittingHeight(for: document.sprite))
+                let fit = Double(FrameTimeline.fittingHeight(for: document.structure))
                 withAnimation(.easeOut(duration: 0.2)) {
                     timelineHeight = min(max(fit, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
                 }
@@ -279,10 +232,10 @@ struct EditorView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(document.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text)
-                    (Text(verbatim: "\(document.sprite.width) × \(document.sprite.height) · RGBA · ")
-                        + (document.sprite.frames.count == 1 ? Text("1 frame") : Text("\(document.sprite.frames.count) frames"))
+                    (Text(verbatim: "\(document.structure.width) × \(document.structure.height) · RGBA · ")
+                        + (document.structure.frames.count == 1 ? Text("1 frame") : Text("\(document.structure.frames.count) frames"))
                         + Text(verbatim: " · ")
-                        + (document.sprite.layers.count == 1 ? Text("1 layer") : Text("\(document.sprite.layers.count) layers")))
+                        + (document.structure.layers.count == 1 ? Text("1 layer") : Text("\(document.structure.layers.count) layers")))
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.muted)
                 }
@@ -401,7 +354,7 @@ struct EditorView: View {
                 + Text(verbatim: document.tool.usesBrush ? " \(document.brushSize) px" : "")
                 + (document.symmetry.isOn ? Text(" + symmetry") : Text(verbatim: ""))
                 + Text(verbatim: " · \(document.activeLayer?.name ?? "") · ")
-                + Text("frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)")
+                + Text("frame \(document.activeFrameIndex + 1)/\(document.structure.frames.count)")
                 + Text(verbatim: document.activeTag.map { " · \($0.name)" } ?? ""))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.muted)
@@ -538,6 +491,72 @@ struct ToolRail: View {
             .accessibilityLabel(Text(tool.title))
             .accessibilityHint(Text("Touch and hold for more tools"))
             .accessibilityAddTraits(isOn ? .isSelected : [])
+        }
+    }
+}
+
+/// The canvas and what it shows. It's the only part of the editor that
+/// depends on the pixels (`revision`), so a stroke updates it alone instead
+/// of rebuilding the toolbars, the timeline and the side panel.
+private struct CanvasHost: View {
+    let document: SpriteDocument
+    let controller: CanvasController
+    let onZoomChanged: (CGFloat) -> Void
+    let onFocusToggle: () -> Void
+    /// Called after every committed change (autosave).
+    let onRevision: () -> Void
+
+    var body: some View {
+        let sprite = document.sprite
+        PixelCanvas(
+            document: document,
+            controller: controller,
+            revision: document.revision,
+            frameIndex: document.activeFrameIndex,
+            onionLayers: onionLayers(sprite),
+            references: referenceOverlays(sprite),
+            spriteSize: CGSize(width: sprite.width, height: sprite.height),
+            showGrid: document.showGrid,
+            // A tilemap shows its tiles' grid; otherwise the sprite grid when it's on.
+            tileGrid: document.activeLayer?.tileset.map { GridSettings(width: $0.tileWidth, height: $0.tileHeight) }
+                ?? (document.showTileGrid ? sprite.grid : nil),
+            symmetry: document.symmetry,
+            tiledMode: document.tiledMode,
+            onZoomChanged: onZoomChanged,
+            onFocusToggle: onFocusToggle
+        )
+        .onChange(of: document.revision) { onRevision() }
+    }
+
+    private func onionLayers(_ sprite: Sprite) -> [OnionLayer] {
+        guard document.onionSkin, !document.isPlaying else { return [] }
+        let settings = document.onionSettings
+        let current = document.activeFrameIndex
+        let tag = settings.onlyInTag ? sprite.tag(containing: current) : nil
+        var offsets: [Int] = []
+        let maxDistance = max(settings.previous, settings.next)
+        if maxDistance > 0 {
+            for d in stride(from: maxDistance, through: 1, by: -1) {
+                if d <= settings.previous { offsets.append(-d) }
+                if d <= settings.next { offsets.append(d) }
+            }
+        }
+        return offsets.compactMap { offset in
+            let index = current + offset
+            guard sprite.frames.indices.contains(index), tag?.contains(index) ?? true else { return nil }
+            var image = sprite.composite(frameIndex: index)
+            if settings.tint { image = image.tinted(offset < 0 ? .onionPrevious : .onionNext) }
+            guard let cgImage = image.makeCGImage() else { return nil }
+            return OnionLayer(image: cgImage, alpha: settings.opacity / CGFloat(abs(offset)))
+        }
+    }
+
+    /// Visible reference layers, each over the drawing when no drawn layer is above it.
+    private func referenceOverlays(_ sprite: Sprite) -> [ReferenceOverlay] {
+        sprite.layers.enumerated().compactMap { index, layer in
+            guard sprite.shows(layer), let reference = layer.reference else { return nil }
+            let above = !sprite.layers[(index + 1)...].contains { !$0.isReference && !$0.isGroup && sprite.shows($0) }
+            return ReferenceOverlay(id: layer.id, data: reference.data, frame: reference.frame, opacity: layer.opacity, above: above)
         }
     }
 }

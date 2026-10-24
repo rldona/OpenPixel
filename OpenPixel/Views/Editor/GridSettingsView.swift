@@ -8,12 +8,12 @@ struct GridSettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Grid settings").font(.system(size: 15, weight: .semibold))
             HStack(spacing: 10) {
-                NumberChip(title: "Width", value: binding(\.width), range: 1...max(1, document.sprite.width), unit: "px", presets: [4, 8, 16, 24, 32, 48, 64])
-                NumberChip(title: "Height", value: binding(\.height), range: 1...max(1, document.sprite.height), unit: "px", presets: [4, 8, 16, 24, 32, 48, 64])
+                NumberChip(title: "Width", value: binding(\.width), range: 1...max(1, document.structure.width), unit: "px", presets: [4, 8, 16, 24, 32, 48, 64])
+                NumberChip(title: "Height", value: binding(\.height), range: 1...max(1, document.structure.height), unit: "px", presets: [4, 8, 16, 24, 32, 48, 64])
             }
             HStack(spacing: 10) {
-                NumberChip(title: "Offset X", value: binding(\.offsetX), range: 0...max(0, document.sprite.grid.width - 1), unit: "px")
-                NumberChip(title: "Offset Y", value: binding(\.offsetY), range: 0...max(0, document.sprite.grid.height - 1), unit: "px")
+                NumberChip(title: "Offset X", value: binding(\.offsetX), range: 0...max(0, document.structure.grid.width - 1), unit: "px")
+                NumberChip(title: "Offset Y", value: binding(\.offsetY), range: 0...max(0, document.structure.grid.height - 1), unit: "px")
             }
             HStack(spacing: 8) {
                 PillToggle(title: "Show the grid", isOn: $document.showTileGrid)
@@ -30,8 +30,8 @@ struct GridSettingsView: View {
     }
 
     private func binding(_ field: WritableKeyPath<GridSettings, Int>) -> Binding<Int> {
-        Binding(get: { document.sprite.grid[keyPath: field] }, set: {
-            var grid = document.sprite.grid
+        Binding(get: { document.structure.grid[keyPath: field] }, set: {
+            var grid = document.structure.grid
             grid[keyPath: field] = $0
             document.setGrid(grid)
         })

@@ -21,7 +21,7 @@ struct FrameTimeline: View {
     private let celWidth: CGFloat = 32
     private let rowHeight: CGFloat = 30
     /// Frame numbers grow a second line when some frame's duration differs.
-    private var headerHeight: CGFloat { document.sprite.usualFrameDuration == nil ? 24 : 34 }
+    private var headerHeight: CGFloat { document.structure.usualFrameDuration == nil ? 24 : 34 }
     private let tagLaneHeight: CGFloat = 20
     private static let durationPresets = [50, 80, 100, 150, 200, 300, 500, 1000, 2000, 4000]
     /// The duration being typed: for the active frame, or for every selected frame.
@@ -55,7 +55,7 @@ struct FrameTimeline: View {
                 // comes back (focus mode, reopening the sprite) or the stack changes.
                 .onAppear { revealActiveLayer(proxy, animated: false) }
                 .onChange(of: document.activeLayerID) { revealActiveLayer(proxy, animated: true) }
-                .onChange(of: document.sprite.layers.count) { revealActiveLayer(proxy, animated: true) }
+                .onChange(of: document.structure.layers.count) { revealActiveLayer(proxy, animated: true) }
             }
         }
         .background(Theme.panel.ignoresSafeArea(edges: .bottom))
@@ -77,7 +77,7 @@ struct FrameTimeline: View {
         .sheet(item: $editingTag) { tag in
             TagEditor(
                 tag: tag,
-                frameCount: document.sprite.frames.count,
+                frameCount: document.structure.frames.count,
                 firstFrame: firstFrame,
                 onSave: { document.updateTag($0) },
                 onDelete: { document.deleteTag(tag.id) }
@@ -87,7 +87,7 @@ struct FrameTimeline: View {
 
     /// Layers as the timeline lists them: top first, without the ones in collapsed groups.
     private var layersTopFirst: [Layer] {
-        let sprite = document.sprite
+        let sprite = document.structure
         guard sprite.hasGroups else { return sprite.layers.reversed() }
         return sprite.layers.reversed().filter { layer in sprite.ancestors(of: layer).allSatisfy(\.isExpanded) }
     }
@@ -285,7 +285,7 @@ struct FrameTimeline: View {
             }
             .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.rightArrow, modifiers: []))
             IconButton(systemImage: "forward.end", label: "Last frame", size: 40) {
-                document.goToFrame(document.sprite.frames.count - 1)
+                document.goToFrame(document.structure.frames.count - 1)
             }
             .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.end, modifiers: []))
             Menu {
@@ -328,7 +328,7 @@ struct FrameTimeline: View {
             IconButton(systemImage: "trash", label: "Delete frame", size: 36) {
                 document.deleteFrame(at: document.activeFrameIndex)
             }
-            .opacity(document.sprite.frames.count > 1 ? 1 : 0.35)
+            .opacity(document.structure.frames.count > 1 ? 1 : 0.35)
 
             Button { document.isSelectingRange = true } label: {
                 pill("Select", systemImage: "checkmark.rectangle.stack", isOn: false, compact: compact)
@@ -431,7 +431,7 @@ struct FrameTimeline: View {
 
     private var layerColumn: some View {
         VStack(spacing: 0) {
-            if !document.sprite.tags.isEmpty { tagBandHeaders }
+            if !document.structure.tags.isEmpty { tagBandHeaders }
 
             HStack(spacing: 0) {
                 columnHeaders
@@ -464,7 +464,7 @@ struct FrameTimeline: View {
                 }
 
                 IconButton(systemImage: "trash", label: "Delete layer", size: 28) { document.deleteLayer(document.activeLayerID) }
-                    .opacity(document.sprite.layers.count > 1 ? 1 : 0.35)
+                    .opacity(document.structure.layers.count > 1 ? 1 : 0.35)
             }
             .padding(.leading, 6)
             .padding(.trailing, 8)
@@ -491,7 +491,7 @@ struct FrameTimeline: View {
 
     /// Above the layer buttons, the same icons act on every layer at once.
     private var columnHeaders: some View {
-        let layers = document.sprite.layers
+        let layers = document.structure.layers
         let allVisible = layers.allSatisfy(\.isVisible), allLocked = layers.allSatisfy(\.isLocked)
         let allContinuous = layers.allSatisfy(\.isContinuous)
         return HStack(spacing: 0) {
@@ -569,7 +569,7 @@ struct FrameTimeline: View {
             Button { document.toggleVisibility(layer.id) } label: {
                 Image(systemName: layer.isVisible ? "eye" : "eye.slash")
                     .frame(width: 34, height: rowHeight)
-                    .foregroundStyle(document.sprite.shows(layer) ? Theme.text : Theme.muted)
+                    .foregroundStyle(document.structure.shows(layer) ? Theme.text : Theme.muted)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isVisible ? Text("Hide \(layer.name)") : Text("Show \(layer.name)"))
@@ -634,7 +634,7 @@ struct FrameTimeline: View {
                     .accessibilityLabel(layer.isExpanded ? Text("Collapse \(layer.name)") : Text("Expand \(layer.name)"))
                 }
             }
-            .padding(.leading, CGFloat(document.sprite.depth(of: layer)) * 14 + (layer.isGroup ? 12 : 0))
+            .padding(.leading, CGFloat(document.structure.depth(of: layer)) * 14 + (layer.isGroup ? 12 : 0))
             // Double tap renames, as double-click does in Aseprite.
             .simultaneousGesture(TapGesture(count: 2).onEnded {
                 guard !document.isSelectingRange else { return }
@@ -686,7 +686,7 @@ struct FrameTimeline: View {
             }
             if layer.isBackground {
                 Button("Convert to layer", systemImage: "square.3.layers.3d.top.filled") { document.convertToLayer(layer.id) }
-            } else if !layer.isReference, !document.sprite.layers.contains(where: \.isBackground) {
+            } else if !layer.isReference, !document.structure.layers.contains(where: \.isBackground) {
                 Button("Convert to background", systemImage: "square.3.layers.3d.bottom.filled") { document.convertToBackground(layer.id) }
             }
             Divider()
@@ -696,9 +696,9 @@ struct FrameTimeline: View {
                 Button("Group", systemImage: "folder.badge.plus") { document.groupLayers([layer.id]) }
             }
             if !layer.isBackground {
-                let groups = document.sprite.layers.filter { group in
+                let groups = document.structure.layers.filter { group in
                     group.isGroup && group.id != layer.id && group.id != layer.parent
-                        && !document.sprite.descendants(of: layer.id).contains { $0.id == group.id }
+                        && !document.structure.descendants(of: layer.id).contains { $0.id == group.id }
                 }
                 if !groups.isEmpty {
                     Menu("Move into group", systemImage: "folder") {
@@ -715,7 +715,7 @@ struct FrameTimeline: View {
             Button("Merge down", systemImage: "arrow.down.to.line") { document.mergeDown(layer.id) }
                 .disabled(!canMergeDown(layer))
             Button("Flatten", systemImage: "square.stack.3d.down.forward") { document.flatten() }
-                .disabled(document.sprite.layers.count <= 1)
+                .disabled(document.structure.layers.count <= 1)
             Button("Select layers", systemImage: "checkmark.rectangle.stack") {
                 document.isSelectingRange = true
                 document.extendRange(layerRow: layer.id)
@@ -730,16 +730,16 @@ struct FrameTimeline: View {
             Button("Move up", systemImage: "arrow.up") { document.moveLayer(layer.id, by: 1) }
                 .disabled(layer.isBackground)
             Button("Move down", systemImage: "arrow.down") { document.moveLayer(layer.id, by: -1) }
-                .disabled(layer.isBackground || document.sprite.layers.first.map { $0.isBackground && document.sprite.layers.count > 1 && document.sprite.layers[1].id == layer.id } == true)
+                .disabled(layer.isBackground || document.structure.layers.first.map { $0.isBackground && document.structure.layers.count > 1 && document.structure.layers[1].id == layer.id } == true)
             Divider()
             Button(layer.isGroup ? LocalizedStringKey("Delete group and its layers") : LocalizedStringKey("Delete layer"), systemImage: "trash", role: .destructive) { document.deleteLayer(layer.id) }
-                .disabled(document.sprite.layers.count <= 1)
+                .disabled(document.structure.layers.count <= 1)
         }
     }
 
     private func canMergeDown(_ layer: Layer) -> Bool {
-        guard let index = document.sprite.layers.firstIndex(where: { $0.id == layer.id }), index > 0 else { return false }
-        let lower = document.sprite.layers[index - 1]
+        guard let index = document.structure.layers.firstIndex(where: { $0.id == layer.id }), index > 0 else { return false }
+        let lower = document.structure.layers[index - 1]
         return !layer.isReference && !lower.isReference && !layer.isGroup && !lower.isGroup && layer.parent == lower.parent
     }
 
@@ -765,23 +765,23 @@ struct FrameTimeline: View {
 
     /// The focused band, if it still exists.
     private var focusedBand: Int? {
-        document.focusedTagBand.flatMap { $0 < document.sprite.tagBandCount ? $0 : nil }
+        document.focusedTagBand.flatMap { $0 < document.structure.tagBandCount ? $0 : nil }
     }
 
     /// Tag bands on screen: only the focused one when a band is focused.
     private var visibleBands: [Int] {
         if let focusedBand { return [focusedBand] }
-        return Array(0..<max(1, document.sprite.tagBandCount))
+        return Array(0..<max(1, document.structure.tagBandCount))
     }
 
     /// No room for tags until the sprite has some, like Aseprite.
     private var tagRowHeight: CGFloat {
-        document.sprite.tags.isEmpty ? 0 : CGFloat(visibleBands.count) * tagLaneHeight + 4
+        document.structure.tags.isEmpty ? 0 : CGFloat(visibleBands.count) * tagLaneHeight + 4
     }
 
     /// Next to each tag band, the button that focuses it (only with several bands).
     private var tagBandHeaders: some View {
-        let bandCount = document.sprite.tagBandCount
+        let bandCount = document.structure.tagBandCount
         return VStack(spacing: 0) {
             ForEach(Array(visibleBands.enumerated()), id: \.element) { row, band in
                 HStack(spacing: 4) {
@@ -810,9 +810,9 @@ struct FrameTimeline: View {
     }
 
     private var tagRow: some View {
-        let frames = document.sprite.frames.count
+        let frames = document.structure.frames.count
         let bands = visibleBands
-        let shown = document.sprite.tagBands.filter { bands.contains($0.band) }
+        let shown = document.structure.tagBands.filter { bands.contains($0.band) }
         return ZStack(alignment: .topLeading) {
             Color.clear
             ForEach(shown, id: \.tag.id) { item in
@@ -868,11 +868,11 @@ struct FrameTimeline: View {
     }
 
     private var celGrid: some View {
-        let frames = document.sprite.frames
+        let frames = document.structure.frames
         let activeTag = document.activeTag
-        let usualDuration = document.sprite.usualFrameDuration
+        let usualDuration = document.structure.usualFrameDuration
         return VStack(alignment: .leading, spacing: 0) {
-            if !document.sprite.tags.isEmpty { tagRow }
+            if !document.structure.tags.isEmpty { tagRow }
             HStack(spacing: 0) {
                 ForEach(frames.indices, id: \.self) { index in
                     frameHeader(index, count: frames.count, inActiveTag: activeTag?.contains(index) ?? false,
@@ -956,7 +956,7 @@ struct FrameTimeline: View {
         let isActive = index == document.activeFrameIndex
         let range = document.timelineRange
         let inRange = range.map { $0.kind == .frames && $0.frames.contains(index) } ?? false
-        let payload = inRange ? RangePayload(layer: document.sprite.layers.last!.id, frame: index).string : "frame:\(index)"
+        let payload = inRange ? RangePayload(layer: document.structure.layers.last!.id, frame: index).string : "frame:\(index)"
         return Button {
             if document.isSelectingRange { document.extendRange(frameIndex: index) } else { document.goToFrame(index) }
         } label: {
@@ -1028,8 +1028,8 @@ struct FrameTimeline: View {
 
     private func celButton(layer: Layer, frameIndex: Int, frame: Frame) -> some View {
         let key = CelKey(layer: layer.id, frame: frame.id)
-        let filled = document.sprite.cels[key] != nil
-        let opacity = document.sprite.celOpacity[key] ?? 1
+        let filled = document.structure.cels[key] != nil
+        let opacity = document.structure.celOpacity[key] ?? 1
         let isActive = layer.id == document.activeLayerID && frameIndex == document.activeFrameIndex
         let isActiveFrame = frameIndex == document.activeFrameIndex
         let inRange = document.timelineRange.map { $0.layers.contains(layer.id) && $0.frames.contains(frameIndex) } ?? false
@@ -1077,7 +1077,7 @@ struct FrameTimeline: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(filled ? Text("Cel \(layer.name), frame \(frameIndex + firstFrame)") : Text("Cel \(layer.name), frame \(frameIndex + firstFrame), empty"))
-        .accessibilityValue(document.sprite.isLinked(key) ? Text("Linked") : Text(verbatim: ""))
+        .accessibilityValue(document.structure.isLinked(key) ? Text("Linked") : Text(verbatim: ""))
         .dropDestination(for: String.self) { items, _ in dropRange(items, layer: layer.id, frame: frameIndex) }
         .contextMenu {
             if filled {
@@ -1087,7 +1087,7 @@ struct FrameTimeline: View {
                     }
                 }
             }
-            if document.sprite.isLinked(key) {
+            if document.structure.isLinked(key) {
                 Button("Unlink cel", systemImage: "personalhotspot.slash") { document.unlinkCel(layer: layer.id, frameIndex: frameIndex) }
             }
             Button("Select cels", systemImage: "checkmark.rectangle.stack") {
@@ -1117,7 +1117,7 @@ struct FrameTimeline: View {
 
     /// Whether this cel is linked with the cel in the previous / next frame of its layer.
     private func linkNeighbours(layer: Layer, frameIndex: Int) -> (before: Bool, after: Bool) {
-        let sprite = document.sprite
+        let sprite = document.structure
         func group(_ i: Int) -> UUID? {
             guard sprite.frames.indices.contains(i) else { return nil }
             return sprite.links[CelKey(layer: layer.id, frame: sprite.frames[i].id)]

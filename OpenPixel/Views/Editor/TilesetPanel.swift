@@ -80,7 +80,7 @@ struct TilesetPanel: View {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let name = (document.activeLayer?.name ?? "tileset").components(separatedBy: CharacterSet(charactersIn: "/\\:?%*|\"<>")).joined(separator: "-")
         let url = directory.appendingPathComponent("\(document.name)-\(name)-tileset.png")
-        try Exporter.pngData(document.sprite.tilesetImage(tileset)).write(to: url, options: .atomic)
+        try Exporter.pngData(document.structure.tilesetImage(tileset)).write(to: url, options: .atomic)
         return url
     }
 }

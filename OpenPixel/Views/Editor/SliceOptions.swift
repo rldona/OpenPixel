@@ -45,7 +45,7 @@ struct SliceOptions: View {
         }
     }
 
-    private var activeSlice: Slice? { document.sprite.slices.first { $0.id == document.activeSliceID } }
+    private var activeSlice: Slice? { document.structure.slices.first { $0.id == document.activeSliceID } }
 }
 
 private struct SliceProperties: View {
@@ -125,7 +125,7 @@ private struct SliceProperties: View {
         .onDisappear { if name != slice.name { document.renameSlice(slice.id, to: name) } }
     }
 
-    private var currentColor: PixelColor? { document.sprite.slices.first { $0.id == slice.id }?.color }
+    private var currentColor: PixelColor? { document.structure.slices.first { $0.id == slice.id }?.color }
 
     private func chip(_ title: LocalizedStringKey, _ value: Int, _ range: ClosedRange<Int>, set: @escaping (inout SliceKey, Int) -> Void) -> some View {
         NumberChip(title: title, value: Binding(get: { value }, set: { v in document.editActiveSlice { set(&$0, v) } }), range: range, unit: "px")

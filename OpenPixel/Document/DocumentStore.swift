@@ -86,16 +86,23 @@ final class DocumentStore {
             }
         }
         pendingSaves[id] = task
-        updateSummary(Self.summary(id: id, file: file, modified: Date()))
+        // The gallery isn't on screen while editing: its card is refreshed when it
+        // shows again (`flush`), not on every autosave, which would rebuild it each stroke.
+        pendingFiles[id] = file
     }
 
     @ObservationIgnored private var pendingSaves: [UUID: Task<Void, Never>] = [:]
+    @ObservationIgnored private var pendingFiles: [UUID: SpriteFile] = [:]
 
-    /// Waits for background saves, so the gallery reads the latest files.
+    /// Waits for background saves, so the gallery reads the latest files,
+    /// and brings the saved sprites' cards up to date.
     func flush() async {
         let tasks = pendingSaves.values
         pendingSaves = [:]
         for task in tasks { await task.value }
+        let files = pendingFiles
+        pendingFiles = [:]
+        for (id, file) in files { updateSummary(Self.summary(id: id, file: file, modified: Date())) }
     }
 
     private func write(_ file: SpriteFile, id: UUID) throws {
