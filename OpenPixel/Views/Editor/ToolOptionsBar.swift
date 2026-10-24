@@ -81,6 +81,7 @@ struct ToolOptionsBar: View {
                 toggle("Contiguous", isOn: $document.fillContiguous)
                 if document.fillContiguous { toggle("Diagonals", isOn: $document.fillDiagonal) }
                 toggle("All layers", isOn: $document.fillSampleAllLayers)
+                toggle("Stop at grid", isOn: $document.fillStopsAtGrid)
             }
             if document.tool == .eyedropper {
                 divider

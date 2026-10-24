@@ -1,5 +1,6 @@
 import XCTest
 import UIKit
+import ImageIO
 @testable import OpenPixel
 
 @MainActor
@@ -70,5 +71,26 @@ final class ReferenceLayerTests: XCTestCase {
         doc.flatten()
         XCTAssertEqual(doc.sprite.layers.filter(\.isReference).count, 1)
         XCTAssertEqual(doc.sprite.layers.count, 2)
+    }
+}
+
+@MainActor
+final class ReferenceSizeTests: XCTestCase {
+    func testBigPhotosAreScaledDownAndCompressed() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let photo = UIGraphicsImageRenderer(size: CGSize(width: 4000, height: 3000), format: format).jpegData(withCompressionQuality: 0.9) { ctx in
+            UIColor.blue.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 4000, height: 3000))
+        }
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 32, height: 32, background: nil, palette: []))
+        doc.addReferenceLayer(imageData: photo)
+        let data = try XCTUnwrap(doc.activeLayer?.reference?.data)
+        let source = try XCTUnwrap(CGImageSourceCreateWithData(data as CFData, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        XCTAssertEqual(max(image.width, image.height), 2048)
+        XCTAssertLessThan(data.count, 2_000_000)
+        XCTAssertEqual(doc.activeLayer?.reference?.frame.width, 32, "still fitted to the canvas")
     }
 }

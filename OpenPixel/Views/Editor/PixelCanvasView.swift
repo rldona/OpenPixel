@@ -38,6 +38,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onionLayers: [OnionLayer] = [] { didSet { updateOnionLayers() } }
     var references: [ReferenceOverlay] = [] { didSet { if oldValue != references { updateReferences() } } }
     var showGrid = true { didSet { if oldValue != showGrid { updateOverlays() } } }
+    /// The sprite's grid, when it's shown.
+    var tileGrid: GridSettings? { didSet { if oldValue != tileGrid { updateOverlays() } } }
     var symmetry = Symmetry() { didSet { if oldValue != symmetry { updateOverlays() } } }
     var tiledMode = TiledMode.none { didSet { if oldValue != tiledMode { updateGeometry() } } }
 
@@ -100,6 +102,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     /// Copies of the sprite around it in tiled mode.
     private let tilesHost = CALayer()
     private let gridLayer = CAShapeLayer()
+    private let tileGridLayer = CAShapeLayer()
     private let mirrorLayer = CAShapeLayer()
     /// Handles to drag the symmetry axes.
     private let axisKnobsLayer = CAShapeLayer()
@@ -149,6 +152,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         let traits = traitCollection
         spriteLayer.borderColor = UIColor(Theme.border).resolvedColor(with: traits).cgColor
         gridLayer.strokeColor = (isDark ? UIColor(white: 1, alpha: 0.22) : UIColor(white: 0, alpha: 0.18)).cgColor
+        tileGridLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).withAlphaComponent(0.7).cgColor
         mirrorLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         axisKnobsLayer.fillColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         boxLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
@@ -163,7 +167,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     private func setUpLayers() {
-        for l in [shadowLayer, spriteLayer, checkerLayer, onionHost, imageLayer, gridLayer, mirrorLayer, axisKnobsLayer] {
+        for l in [shadowLayer, spriteLayer, checkerLayer, onionHost, imageLayer, gridLayer, tileGridLayer, mirrorLayer, axisKnobsLayer] {
             l.actions = Self.noAnimations
         }
         shadowLayer.shadowColor = UIColor.black.cgColor
@@ -194,6 +198,9 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         layer.addSublayer(shadowLayer)
         layer.addSublayer(spriteLayer)
         layer.addSublayer(gridLayer)
+        tileGridLayer.fillColor = nil
+        tileGridLayer.lineWidth = 1
+        layer.addSublayer(tileGridLayer)
         layer.addSublayer(mirrorLayer)
         axisKnobsLayer.strokeColor = UIColor.white.cgColor
         axisKnobsLayer.lineWidth = 2
@@ -557,6 +564,34 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
         axisKnobsLayer.frame = bounds
         axisKnobsLayer.isHidden = !symmetry.isOn
+        tileGridLayer.frame = bounds
+        if let grid = tileGrid, !visible.isNull, CGFloat(min(grid.width, grid.height)) * scale >= 4 {
+            let path = CGMutablePath()
+            let w = Int(spriteSize.width), h = Int(spriteSize.height)
+            var x = ((grid.offsetX % grid.width) + grid.width) % grid.width
+            while x <= w {
+                let px = rect.minX + CGFloat(x) * scale
+                if px >= visible.minX && px <= visible.maxX {
+                    path.move(to: CGPoint(x: px, y: visible.minY))
+                    path.addLine(to: CGPoint(x: px, y: visible.maxY))
+                }
+                x += grid.width
+            }
+            var y = ((grid.offsetY % grid.height) + grid.height) % grid.height
+            while y <= h {
+                let py = rect.minY + CGFloat(y) * scale
+                if py >= visible.minY && py <= visible.maxY {
+                    path.move(to: CGPoint(x: visible.minX, y: py))
+                    path.addLine(to: CGPoint(x: visible.maxX, y: py))
+                }
+                y += grid.height
+            }
+            tileGridLayer.path = path
+            tileGridLayer.isHidden = false
+        } else {
+            tileGridLayer.isHidden = true
+        }
+
         if symmetry.isOn {
             let path = CGMutablePath()
             let knobs = CGMutablePath()

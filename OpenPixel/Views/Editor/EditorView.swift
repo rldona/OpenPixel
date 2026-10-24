@@ -9,6 +9,7 @@ struct EditorView: View {
     @State private var zoom: CGFloat = 1
     @State private var showingExport = false
     @State private var showingRename = false
+    @State private var showingGridSettings = false
     @State private var renameText = ""
     @State private var saveTask: Task<Void, Never>?
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
@@ -49,6 +50,7 @@ struct EditorView: View {
                                 references: referenceOverlays(sprite),
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
+                                tileGrid: document.showTileGrid ? sprite.grid : nil,
                                 symmetry: document.symmetry,
                                 tiledMode: document.tiledMode,
                                 onZoomChanged: { zoom = $0 },
@@ -291,8 +293,7 @@ struct EditorView: View {
 
             EditMenu(document: document)
             IconButton(systemImage: "arrow.up.left.and.arrow.down.right", label: "Focus mode", action: toggleFocus)
-            IconButton(systemImage: "grid", label: "Pixel grid", isOn: document.showGrid) { document.showGrid.toggle() }
-                .keyboardShortcut("'", modifiers: .command)
+            gridMenu
             tiledModeMenu
             HStack(spacing: 0) {
                 IconButton(systemImage: "minus", label: "Zoom out", size: 40) { canvas.zoomOut() }
@@ -328,6 +329,40 @@ struct EditorView: View {
         .frame(height: 56)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    /// Tap toggles the pixel grid; touch and hold for the sprite's grid, snapping and its settings.
+    private var gridMenu: some View {
+        let isOn = document.showGrid || document.showTileGrid
+        return Menu {
+            Toggle(isOn: $document.showGrid) { Label("Pixel grid", systemImage: "grid") }
+            Toggle(isOn: $document.showTileGrid) { Label("Grid", systemImage: "square.grid.3x3") }
+            Toggle(isOn: $document.snapToGrid) { Label("Snap to grid", systemImage: "squareshape.split.3x3") }
+            Divider()
+            Button("Grid settings…", systemImage: "slider.horizontal.3") { showingGridSettings = true }
+        } label: {
+            Image(systemName: "grid")
+                .font(.system(size: 17.6, weight: .medium))
+                .frame(width: 44, height: 44)
+                .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
+                .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+        } primaryAction: {
+            document.showGrid.toggle()
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel(Text("Pixel grid"))
+        .accessibilityHint(Text("Touch and hold for the grid and snapping"))
+        .popover(isPresented: $showingGridSettings) {
+            GridSettingsView(document: document).presentationCompactAdaptation(.popover)
+        }
+        .background {
+            Group {
+                Button("Pixel grid") { document.showGrid.toggle() }.keyboardShortcut("'", modifiers: .command)
+                Button("Grid") { document.showTileGrid.toggle() }.keyboardShortcut("'", modifiers: [.command, .shift])
+            }
+            .opacity(0)
+            .accessibilityHidden(true)
+        }
     }
 
     /// Aseprite's View > Tiled Mode.

@@ -119,6 +119,12 @@ final class SpriteDocument {
     /// The eyedropper reads only the active layer instead of the whole image.
     var eyedropperActiveLayer = false
     var showGrid = true
+    /// The sprite's grid (`Sprite.grid`) drawn over the canvas.
+    var showTileGrid = false
+    /// Marquees and moves snap to the grid.
+    var snapToGrid = false
+    /// The paint bucket doesn't cross grid lines.
+    var fillStopsAtGrid = false
     var onionSkin = false
     var onionSettings = OnionSkinSettings()
     /// Playback speed multiplier (1 = the frames' own durations).
@@ -827,9 +833,14 @@ final class SpriteDocument {
         let reference = fillSampleAllLayers
             ? storage.composite(frameIndex: activeFrameIndex)
             : storage.cels[activeCelKey] ?? PixelImage(width: storage.width, height: storage.height)
+        var bounds = selection
+        if fillStopsAtGrid, let cell = storage.grid.cell(containing: p).clipped(width: storage.width, height: storage.height) {
+            let inCell = SelectionMask.rect(cell, width: storage.width, height: storage.height)
+            bounds = bounds.map { $0.combined(with: inCell, mode: .intersect) } ?? inCell
+        }
         return Raster.fillRegion(
             in: reference, at: p, tolerance: fillTolerance, contiguous: fillContiguous,
-            diagonal: fillDiagonal, within: selection
+            diagonal: fillDiagonal, within: bounds
         )
     }
 
@@ -875,6 +886,14 @@ final class SpriteDocument {
     func centerSymmetryAxes() {
         symmetry.axisX2 = nil
         symmetry.axisY2 = nil
+    }
+
+    /// View > Grid Settings. Part of the sprite, so it's undoable and saved.
+    func setGrid(_ grid: GridSettings) {
+        var g = grid
+        g.width = max(1, min(storage.width, g.width))
+        g.height = max(1, min(storage.height, g.height))
+        perform { $0.grid = g }
     }
 
     func setBrushSize(_ size: Int) {
@@ -1381,12 +1400,19 @@ extension SpriteDocument {
         let shape: SelectionMask
         switch tool {
         case .selectEllipse:
-            shape = .ellipse(from: drag.start, to: p, width: storage.width, height: storage.height)
+            if snapToGrid {
+                let r = storage.grid.cells(from: drag.start, to: p)
+                shape = .ellipse(from: PixelPoint(x: r.minX, y: r.minY), to: PixelPoint(x: r.maxX, y: r.maxY), width: storage.width, height: storage.height)
+            } else {
+                shape = .ellipse(from: drag.start, to: p, width: storage.width, height: storage.height)
+            }
         case .lasso:
             for q in points where q != lassoPath.last { lassoPath.append(q) }
             shape = .polygon(lassoPath, width: storage.width, height: storage.height)
         default:
-            let rect = PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
+            let rect = snapToGrid
+                ? storage.grid.cells(from: drag.start, to: p)
+                : PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
             shape = .rect(rect, width: storage.width, height: storage.height)
         }
         dragShape = shape
@@ -1938,7 +1964,10 @@ extension SpriteDocument {
         var box = drag.box
         switch drag.handle {
         case .move:
-            box.translate(dx: (point.x - drag.start.x).rounded(), dy: (point.y - drag.start.y).rounded())
+            let (dx, dy) = snapToGrid
+                ? storage.grid.snap(dx: point.x - drag.start.x, dy: point.y - drag.start.y)
+                : ((point.x - drag.start.x).rounded(), (point.y - drag.start.y).rounded())
+            box.translate(dx: dx, dy: dy)
         case .scale(let index):
             box.drag(handle: index, to: point, keepAspect: keepAspect, aspect: f.aspect)
         case .rotate:
@@ -2384,8 +2413,7 @@ extension SpriteDocument {
             notice = L10n.string("That image can't be opened")
             return false
         }
-        // Keep it as PNG so any format the system reads is stored the same way.
-        let stored = UIImage(cgImage: image).pngData() ?? data
+        let stored = Self.referenceData(for: image) ?? data
         let reference = ReferenceImage(data: stored, frame: Self.fit(CGSize(width: image.width, height: image.height), in: storage, fill: false))
         let layer = Layer(name: name ?? L10n.string("Reference"), opacity: 0.5, reference: reference)
         let index = storage.layers.firstIndex { $0.id == activeLayerID } ?? 0
@@ -2415,6 +2443,23 @@ extension SpriteDocument {
             let w = f.width * factor, h = f.height * factor
             s.layers[i].reference?.frame = CGRect(x: f.midX - w / 2, y: f.midY - h / 2, width: w, height: h)
         }
+    }
+
+    /// Reference images are saved inside the sprite file, so a camera photo is
+    /// scaled down to at most 2048 px and kept as JPEG unless it has transparency.
+    private static func referenceData(for image: CGImage) -> Data? {
+        let longest = max(image.width, image.height)
+        var ui = UIImage(cgImage: image)
+        if longest > 2048 {
+            let scale = 2048 / Double(longest)
+            let size = CGSize(width: (Double(image.width) * scale).rounded(), height: (Double(image.height) * scale).rounded())
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            ui = UIGraphicsImageRenderer(size: size, format: format).image { _ in ui.draw(in: CGRect(origin: .zero, size: size)) }
+        }
+        let alpha = image.alphaInfo
+        let opaque = alpha == .none || alpha == .noneSkipLast || alpha == .noneSkipFirst
+        return opaque ? ui.jpegData(compressionQuality: 0.85) : ui.pngData()
     }
 
     private static func imageSize(of data: Data) -> CGSize? {

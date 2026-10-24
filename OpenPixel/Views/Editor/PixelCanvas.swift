@@ -22,6 +22,7 @@ struct PixelCanvas: UIViewRepresentable {
     let references: [ReferenceOverlay]
     let spriteSize: CGSize
     let showGrid: Bool
+    let tileGrid: GridSettings?
     let symmetry: Symmetry
     let tiledMode: TiledMode
     let onZoomChanged: (CGFloat) -> Void
@@ -66,6 +67,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.onFocusToggle = onFocusToggle
         view.spriteSize = spriteSize
         view.showGrid = showGrid
+        view.tileGrid = tileGrid
         view.symmetry = symmetry
         view.tiledMode = tiledMode
         view.onionLayers = onionLayers
