@@ -29,8 +29,7 @@ struct PixelCanvas: UIViewRepresentable {
         let view = PixelCanvasView()
         view.document = document
         controller.view = view
-        document.onCanvasChange = { [weak view] rect in view?.render(rect) }
-        document.onOverlayChange = { [weak view] in view?.selectionChanged() }
+        connect(view)
         view.onTransformBegan = { [weak document] in document?.beginTransformDrag($0, at: $1) }
         view.onTransformMoved = { [weak document] in document?.continueTransformDrag(to: $0) }
         view.onTransformEnded = { [weak document] in document?.endTransformDrag() }
@@ -46,7 +45,18 @@ struct PixelCanvas: UIViewRepresentable {
         return view
     }
 
+    /// Live updates (strokes, transforms) reach the canvas through these
+    /// callbacks, not through SwiftUI. Only one canvas owns them, so a canvas
+    /// being torn down can't disconnect the one that replaced it.
+    private func connect(_ view: PixelCanvasView) {
+        controller.view = view
+        document.canvasOwner = view
+        document.onCanvasChange = { [weak view] rect in view?.render(rect) }
+        document.onOverlayChange = { [weak view] in view?.selectionChanged() }
+    }
+
     func updateUIView(_ view: PixelCanvasView, context: Context) {
+        if document.canvasOwner !== view { connect(view) }
         view.onZoomChanged = onZoomChanged
         view.onFocusToggle = onFocusToggle
         view.spriteSize = spriteSize
@@ -59,7 +69,9 @@ struct PixelCanvas: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ view: PixelCanvasView, coordinator: ()) {
-        view.document?.onCanvasChange = nil
-        view.document?.onOverlayChange = nil
+        guard let document = view.document, document.canvasOwner === view else { return }
+        document.onCanvasChange = nil
+        document.onOverlayChange = nil
+        document.canvasOwner = nil
     }
 }

@@ -50,6 +50,8 @@ final class SpriteDocument {
     /// Called with the changed area while a stroke is in progress, so the
     /// canvas can redraw just that area without a SwiftUI update.
     @ObservationIgnored var onCanvasChange: ((PixelRect) -> Void)?
+    /// The canvas view that receives `onCanvasChange` and `onOverlayChange`.
+    @ObservationIgnored weak var canvasOwner: AnyObject?
     private(set) var hasUnsavedChanges = false
 
     /// Changing the active cel drops any floating pixels first, like Aseprite.
