@@ -281,22 +281,6 @@ struct ToolRail: View {
                 document.mirrorX.toggle()
             }
             Spacer()
-            Button { document.swapColors() } label: {
-                ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 7).fill(document.secondary.color)
-                        .frame(width: 26, height: 26)
-                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.strongBorder))
-                        .offset(x: 14, y: 14)
-                    RoundedRectangle(cornerRadius: 7).fill(document.primary.color)
-                        .frame(width: 26, height: 26)
-                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.strongBorder))
-                }
-                .frame(width: 48, height: 48, alignment: .topLeading)
-                .padding(.leading, 6)
-            }
-            .buttonStyle(.plain)
-            .keyboardShortcut("x", modifiers: [])
-            .accessibilityLabel(Text("Swap primary and secondary colors"))
         }
         .padding(.vertical, 12)
         .frame(width: 68)

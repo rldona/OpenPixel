@@ -188,6 +188,8 @@ struct EditorShortcuts: View {
             shortcut("v", .shift) { document.flip(horizontal: false) }
             shortcut(.delete, []) { document.deleteSelection() }
             shortcut("r", .shift) { document.isReplacingColor = true }
+            // Aseprite's X: swap primary and secondary colors (the button is in the side panel).
+            shortcut("x", []) { document.swapColors() }
             if document.isTransforming {
                 shortcut(.return, []) { document.applyTransform() }
                 shortcut(.escape, []) { document.cancelTransform() }
