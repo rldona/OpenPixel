@@ -267,12 +267,12 @@ struct FrameTimeline: View {
     }
 
     private func playbackControls(compact: Bool) -> some View {
-        HStack(spacing: 4) {
-            IconButton(systemImage: "backward.end", label: "First frame", size: 40) {
+        HStack(spacing: 0) {
+            IconButton(systemImage: "backward.end", label: "First frame", size: 36) {
                 document.goToFrame(0)
             }
             .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.home, modifiers: []))
-            IconButton(systemImage: "backward.frame", label: "Previous frame", size: 40) {
+            IconButton(systemImage: "backward.frame", label: "Previous frame", size: 36) {
                 document.goToFrame(document.activeFrameIndex - 1)
             }
             .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.leftArrow, modifiers: []))
@@ -280,11 +280,11 @@ struct FrameTimeline: View {
                 document.togglePlayback()
             }
             .keyboardShortcut(document.isTransforming || document.isBuildingShape ? nil : KeyboardShortcut(.return, modifiers: []))
-            IconButton(systemImage: "forward.frame", label: "Next frame", size: 40) {
+            IconButton(systemImage: "forward.frame", label: "Next frame", size: 36) {
                 document.goToFrame(document.activeFrameIndex + 1)
             }
             .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.rightArrow, modifiers: []))
-            IconButton(systemImage: "forward.end", label: "Last frame", size: 40) {
+            IconButton(systemImage: "forward.end", label: "Last frame", size: 36) {
                 document.goToFrame(document.structure.frames.count - 1)
             }
             .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.end, modifiers: []))
@@ -296,8 +296,9 @@ struct FrameTimeline: View {
                 Text(verbatim: Self.speedLabel(document.playbackSpeed))
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(document.playbackSpeed == 1 ? Theme.muted : Theme.accent)
-                    .frame(width: 44, height: 36)
+                    .frame(width: 40, height: 36)
             }
+            .padding(.leading, 4)
             .accessibilityLabel(Text("Playback speed"))
 
             Rectangle().fill(Theme.border).frame(width: 1, height: 24).padding(.horizontal, 6)
