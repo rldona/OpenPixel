@@ -122,8 +122,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     private static let minScale: CGFloat = 1
     private static let maxScale: CGFloat = 128
-    /// Room kept free at the top for the floating tool options bar.
-    private static let topInset: CGFloat = 72
+    /// Room kept free at the top when fitting the sprite.
+    private static let topInset: CGFloat = 32
     private static let bottomInset: CGFloat = 72
     private var isDark: Bool { traitCollection.userInterfaceStyle == .dark }
     private var checkerLight: PixelColor { isDark ? PixelColor(r: 69, g: 69, b: 69) : PixelColor(r: 236, g: 236, b: 236) }

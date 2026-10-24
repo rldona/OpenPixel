@@ -1,19 +1,20 @@
 import SwiftUI
 
-/// Floating bar over the canvas with the active tool's options (Pixaki-style).
+/// The active tool's options, in the middle of the editor's top bar.
+/// It keeps one width whatever the tool, and scrolls sideways when a tool
+/// has more options than fit (narrower only when the screen is).
 struct ToolOptionsBar: View {
     @Bindable var document: SpriteDocument
+    static let width: CGFloat = 620
 
     var body: some View {
-        // When a tool has more options than fit, the bar scrolls sideways.
-        ViewThatFits(in: .horizontal) {
-            items.padding(.horizontal, 12)
-            ScrollView(.horizontal, showsIndicators: false) {
-                items.padding(.horizontal, 12)
-            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            items.padding(.horizontal, 10)
         }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .frame(maxWidth: Self.width)
         .frame(height: 44)
-        .background(Theme.panel.opacity(0.95), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.field, in: RoundedRectangle(cornerRadius: 12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
         .background {

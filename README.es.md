@@ -15,7 +15,8 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Editor**
   - Lápiz, **spray** (⇧S), goma, cubo de pintura, **degradado**, cuentagotas, línea, **curva**, rectángulo, elipse, **contorno** y **polígono** (como en [Aseprite](https://www.aseprite.org/docs/drawing/)).
     - Curva: arrastra la línea y luego arrastra dos veces para curvar cada extremo. Polígono: toca cada esquina y toca la primera (o Listo) para cerrarlo. Contorno: dibuja el borde y se rellena al levantar. Degradado (⇧G, junto al cubo): arrastra sobre la zona que rellenaría el cubo para pasar del color principal al secundario, lineal o radial, suave o con tramado Bayer de 2×2, 4×4 u 8×8. Los puntos de control y las esquinas se marcan en el lienzo.
-  - Barra de opciones flotante según la herramienta:
+  - La barra superior lleva volver, las opciones de la herramienta activa (una franja de ancho fijo que se desplaza cuando no caben), el menú Editar, pantalla completa, cuadrícula, mosaico y Exportar. Deshacer y rehacer están abajo en la columna de herramientas; el nombre del proyecto (tócalo para renombrar) y el zoom, arriba del panel derecho, sobre la vista previa.
+  - Opciones de cada herramienta:
     - pincel cuadrado, redondo o de **línea** (con cualquier ángulo, en pasos de 15°) de 1 a 32 px; cada número de la barra de opciones abre un panel con valores habituales, un deslizador, botones −/+ grandes y un campo para escribirlo;
     - **pincel propio**: selecciona una parte del dibujo y elige Editar > Nuevo pincel con la selección (⌘B) para pintar con ella, con sus colores o con el color principal;
     - ancho y velocidad del spray;

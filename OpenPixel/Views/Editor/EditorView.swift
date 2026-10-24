@@ -48,9 +48,6 @@ struct EditorView: View {
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
                         }
-                        .overlay(alignment: .top) {
-                            if !focusMode { ToolOptionsBar(document: document).padding(14) }
-                        }
                         .overlay(alignment: .topTrailing) {
                             if focusMode { focusExitButton }
                         }
@@ -73,7 +70,7 @@ struct EditorView: View {
                                 }
                             }
                         }
-                        .overlay(alignment: .top) { noticeBanner.padding(.top, 58) }
+                        .overlay(alignment: .top) { noticeBanner }
                     }
                     if !focusMode && !timelineCollapsed {
                         FrameTimeline(document: document)
@@ -87,7 +84,10 @@ struct EditorView: View {
                     }
                 }
                 if !focusMode {
-                    SidePanel(document: document)
+                    SidePanel(document: document, zoom: zoom, canvas: canvas, onRename: {
+                        renameText = document.name
+                        showingRename = true
+                    })
                         .frame(width: 280)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -223,57 +223,21 @@ struct EditorView: View {
         withAnimation(.easeOut(duration: 0.25)) { timelineCollapsed = false }
     }
 
+    /// Back, the active tool's options (in the middle, where the canvas used
+    /// to have them floating), the view buttons and Export.
     private var topBar: some View {
         HStack(spacing: 6) {
             IconButton(systemImage: "chevron.left", label: "Back to projects") { dismiss() }
-            Button {
-                renameText = document.name
-                showingRename = true
-            } label: {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(document.name).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.text)
-                    (Text(verbatim: "\(document.structure.width) × \(document.structure.height) · RGBA · ")
-                        + (document.structure.frames.count == 1 ? Text("1 frame") : Text("\(document.structure.frames.count) frames"))
-                        + Text(verbatim: " · ")
-                        + (document.structure.layers.count == 1 ? Text("1 layer") : Text("\(document.structure.layers.count) layers")))
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.muted)
-                }
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, 12)
 
-            IconButton(systemImage: "arrow.uturn.backward", label: "Undo") { document.undo() }
-                .keyboardShortcut("z", modifiers: .command)
-                .opacity(document.canUndo || document.isTransforming ? 1 : 0.35)
-            IconButton(systemImage: "arrow.uturn.forward", label: "Redo") { document.redo() }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-                .opacity(document.canRedo ? 1 : 0.35)
-
-            Spacer()
+            Spacer(minLength: 6)
+            ToolOptionsBar(document: document)
+                .layoutPriority(1)
+            Spacer(minLength: 6)
 
             EditMenu(document: document)
             IconButton(systemImage: "arrow.up.left.and.arrow.down.right", label: "Focus mode", action: toggleFocus)
             gridMenu
             tiledModeMenu
-            HStack(spacing: 0) {
-                IconButton(systemImage: "minus", label: "Zoom out", size: 40) { canvas.zoomOut() }
-                    .keyboardShortcut("-", modifiers: .command)
-                Button { canvas.fit() } label: {
-                    Text(verbatim: "\(Int(zoom * 100))%")
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.text)
-                        .frame(width: 64, height: 40)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Fit to screen"))
-                .keyboardShortcut("0", modifiers: .command)
-                IconButton(systemImage: "plus", label: "Zoom in", size: 40) { canvas.zoomIn() }
-                    .keyboardShortcut("+", modifiers: .command)
-            }
-            .background(Theme.field, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border))
-            .padding(.horizontal, 6)
 
             Button { showingExport = true } label: {
                 Label("Export", systemImage: "square.and.arrow.up")
@@ -375,6 +339,13 @@ struct ToolRail: View {
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             symmetryButton
             Spacer()
+            // Undo and redo, at the bottom of the rail.
+            IconButton(systemImage: "arrow.uturn.backward", label: "Undo", size: 48) { document.undo() }
+                .keyboardShortcut("z", modifiers: .command)
+                .opacity(document.canUndo || document.isTransforming ? 1 : 0.35)
+            IconButton(systemImage: "arrow.uturn.forward", label: "Redo", size: 48) { document.redo() }
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .opacity(document.canRedo ? 1 : 0.35)
         }
         .padding(.vertical, 12)
         .frame(width: 68)
