@@ -240,8 +240,8 @@ struct EditorView: View {
 
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
-                EditMenu(document: document)
-                IconButton(systemImage: "arrow.up.left.and.arrow.down.right", label: "Focus mode", size: 40, action: toggleFocus)
+                EditMenu(document: document).help(Text("Edit"))
+                focusMenu
                 gridMenu
                 tiledModeMenu
                 exportButton.padding(.leading, 6)
@@ -271,25 +271,47 @@ struct EditorView: View {
         .keyboardShortcut("e", modifiers: [.command, .shift])
     }
 
+    /// An icon in the top bar. On, it takes a soft tint, so solid accent stays for Export.
+    private func topBarIcon(_ systemImage: String, isOn: Bool) -> some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 17.6, weight: .medium))
+            .frame(width: 40, height: 40)
+            .foregroundStyle(isOn ? Theme.accent : Theme.text)
+            .background(isOn ? Theme.accentSoft : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+            .contentShape(Rectangle())
+    }
+
+    /// Tap toggles focus mode; touch and hold names it, like the other view buttons.
+    private var focusMenu: some View {
+        Menu {
+            Button("Focus mode", systemImage: "arrow.up.left.and.arrow.down.right", action: toggleFocus)
+        } label: {
+            topBarIcon("arrow.up.left.and.arrow.down.right", isOn: false)
+        } primaryAction: {
+            toggleFocus()
+        }
+        .menuIndicator(.hidden)
+        .help(Text("Focus mode"))
+        .accessibilityLabel(Text("Focus mode"))
+    }
+
     /// Tap toggles the pixel grid; touch and hold for the sprite's grid, snapping and its settings.
     private var gridMenu: some View {
         let isOn = document.showGrid || document.showTileGrid
         return Menu {
-            Toggle(isOn: $document.showGrid) { Label("Pixel grid", systemImage: "grid") }
-            Toggle(isOn: $document.showTileGrid) { Label("Grid", systemImage: "square.grid.3x3") }
-            Toggle(isOn: $document.snapToGrid) { Label("Snap to grid", systemImage: "squareshape.split.3x3") }
-            Divider()
+            Section("Grid") {
+                Toggle(isOn: $document.showGrid) { Label("Pixel grid", systemImage: "grid") }
+                Toggle(isOn: $document.showTileGrid) { Label("Grid", systemImage: "square.grid.3x3") }
+                Toggle(isOn: $document.snapToGrid) { Label("Snap to grid", systemImage: "squareshape.split.3x3") }
+            }
             Button("Grid settings…", systemImage: "slider.horizontal.3") { showingGridSettings = true }
         } label: {
-            Image(systemName: "grid")
-                .font(.system(size: 17.6, weight: .medium))
-                .frame(width: 40, height: 40)
-                .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
-                .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+            topBarIcon("grid", isOn: isOn)
         } primaryAction: {
             document.showGrid.toggle()
         }
         .menuIndicator(.hidden)
+        .help(Text("Pixel grid"))
         .accessibilityLabel(Text("Pixel grid"))
         .accessibilityHint(Text("Touch and hold for the grid and snapping"))
         .popover(isPresented: $showingGridSettings) {
@@ -309,20 +331,19 @@ struct EditorView: View {
     private var tiledModeMenu: some View {
         let isOn = document.tiledMode != .none
         return Menu {
-            Picker("Tiled mode", selection: $document.tiledMode) {
-                Text("None").tag(TiledMode.none)
-                Text("Tile horizontally").tag(TiledMode.horizontal)
-                Text("Tile vertically").tag(TiledMode.vertical)
-                Text("Tile in both directions").tag(TiledMode.both)
+            Section("Tiled mode") {
+                Picker("Tiled mode", selection: $document.tiledMode) {
+                    Text("None").tag(TiledMode.none)
+                    Text("Tile horizontally").tag(TiledMode.horizontal)
+                    Text("Tile vertically").tag(TiledMode.vertical)
+                    Text("Tile in both directions").tag(TiledMode.both)
+                }
             }
         } label: {
-            Image(systemName: "square.grid.3x3.square")
-                .font(.system(size: 17.6, weight: .medium))
-                .frame(width: 40, height: 40)
-                .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
-                .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+            topBarIcon("square.grid.3x3.square", isOn: isOn)
         }
         .menuIndicator(.hidden)
+        .help(Text("Tiled mode"))
         .accessibilityLabel(Text("Tiled mode"))
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }

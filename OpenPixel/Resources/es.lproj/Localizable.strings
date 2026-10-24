@@ -598,3 +598,5 @@
 "Each edited cell gets a new tile; existing tiles never change." = "Cada celda editada recibe un tile nuevo; los existentes no cambian.";
 "The pencil places the selected tile, the eraser clears cells, the bucket fills connected cells and the eyedropper picks a tile." = "El lápiz pone el tile elegido, la goma vacía celdas, el cubo rellena celdas conectadas y el cuentagotas elige un tile.";
 "Tool" = "Herramienta";
+"Zoom" = "Zoom";
+"Selection" = "Selección";

@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 
 struct SidePanel: View {
     @Bindable var document: SpriteDocument
-    /// The canvas zoom, shown and changed next to the preview.
+    /// The canvas zoom, shown and changed under the project's name.
     let zoom: CGFloat
     let canvas: CanvasController
     /// Tapping the project's name renames it.
@@ -23,12 +23,13 @@ struct SidePanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 projectHeader
+                HStack {
+                    SectionLabel("Zoom")
+                    Spacer()
+                    zoomControl
+                }
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        SectionLabel("Preview")
-                        Spacer()
-                        zoomControl
-                    }
+                    SectionLabel("Preview")
                     // Updates when a stroke is committed, not on every stroke sample.
                     AnimatedPreview(document: document)
                         .frame(height: 180)
@@ -37,10 +38,11 @@ struct SidePanel: View {
                 }
 
                 colorSection
+                paletteSection
+                // Only while a tilemap layer is active.
                 if let tileset = document.activeLayer?.tileset {
                     TilesetPanel(document: document, tileset: tileset)
                 }
-                paletteSection
 
                 VStack(spacing: 8) {
                     // What used to float over the canvas: tool, cel and tag.
@@ -81,10 +83,15 @@ struct SidePanel: View {
         let s = document.structure
         return Button(action: onRename) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(document.name)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(document.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Theme.text)
+                        .lineLimit(1)
+                    Image(systemName: "pencil")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
                 (Text(verbatim: "\(s.width) × \(s.height) · RGBA · ")
                     + (s.frames.count == 1 ? Text("1 frame") : Text("\(s.frames.count) frames"))
                     + Text(verbatim: " · ")
@@ -97,6 +104,7 @@ struct SidePanel: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(Text("Rename project"))
         .accessibilityHint(Text("Rename project"))
     }
 

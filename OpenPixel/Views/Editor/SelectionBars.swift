@@ -125,7 +125,7 @@ struct EditMenu: View {
 
     var body: some View {
         Menu {
-            Section {
+            Section("Edit") {
                 Button("Cut", systemImage: "scissors") { document.cut() }
                 Button("Copy", systemImage: "doc.on.doc") { document.copy() }
                 Button("Paste", systemImage: "doc.on.clipboard") { document.paste() }
@@ -140,7 +140,7 @@ struct EditMenu: View {
                 Button("Cut to new layer", systemImage: "square.on.square.dashed") { document.newLayerFromSelection(cut: true) }
                     .disabled(!document.hasSelection)
             }
-            Section {
+            Section("Selection") {
                 Button("Select all", systemImage: "rectangle.dashed") { document.selectAll() }
                 Button("Deselect", systemImage: "xmark") { document.deselect() }
                     .disabled(!document.hasSelection)
