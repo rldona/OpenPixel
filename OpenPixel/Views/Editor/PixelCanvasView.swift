@@ -586,6 +586,15 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             }
             return
         }
+        // Dragging inside the selection with a selection tool moves its pixels.
+        if let document, drawingTouch == nil, let touch = touches.first(where: canDraw),
+           let p = spritePoint(touch.location(in: self)), document.dragMovesSelection(at: p) {
+            if touch.type == .pencil { pencilOnly = true }
+            if touch.type == .direct, (event?.allTouches?.filter { $0.type == .direct }.count ?? 1) > 1 { return }
+            transformTouch = touch
+            onTransformBegan?(.move, toSprite(touch.location(in: self)))
+            return
+        }
         if drawingTouch != nil {
             // A second finger joined a finger stroke: it's a gesture, not a drawing.
             if drawingTouch?.type == .direct, touches.contains(where: { $0.type == .direct }) {

@@ -64,6 +64,21 @@ struct TransformBar: View {
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 8)
                 .fixedSize()
+            if document.transformExtraCels > 0 {
+                // The other cels of the timeline range change when the transform is applied.
+                Label {
+                    document.transformExtraCels == 1 ? Text("+1 cel") : Text("+\(document.transformExtraCels) cels")
+                } icon: {
+                    Image(systemName: "square.stack.3d.up")
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.accentText)
+                .padding(.horizontal, 8)
+                .frame(height: 28)
+                .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 7))
+                .fixedSize()
+                .accessibilityLabel(Text("Also applies to \(document.transformExtraCels) more cels of the timeline selection"))
+            }
 
             Button { document.cancelTransform() } label: {
                 Text("Cancel")

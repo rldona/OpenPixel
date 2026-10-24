@@ -384,3 +384,9 @@
 "Bigger text" = "Texto más grande";
 "Outline" = "Contorno";
 "Tap the canvas to write" = "Toca el lienzo para escribir";
+
+/* Moving selections and ranges */
+"Drag inside to move" = "Arrastra dentro para mover";
+"+1 cel" = "+1 cel";
+"+%lld cels" = "+%lld cels";
+"Also applies to %lld more cels of the timeline selection" = "También se aplica a %lld cels más de la selección del timeline";

@@ -28,6 +28,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - **Tags**: rangos de frames con nombre y color, dirección (adelante, atrás, ping-pong, ping-pong inverso) y repeticiones.
   - **Reproducción**: reproduce el tag del frame actual (o todos los frames), a velocidad de 0,25× a 3×, con botones de primer, anterior, siguiente y último frame (Inicio y Fin en teclado).
   - **Onion skin** configurable: de 0 a 3 frames antes y después, opacidad, tinte rojo/azul y opción de limitarlo al tag.
+- **Mover sin cambiar de herramienta**: con una herramienta de selección, arrastra dentro de la selección para mover sus píxeles (con asas de escalar y rotar); arrastra fuera para seleccionar de nuevo. **Las transformaciones siguen la selección del timeline**: con varias cels, capas o frames seleccionados en el timeline, mover, escalar, rotar o voltear los cambia todos, como en Aseprite.
 - **Herramienta de texto** (T): toca el lienzo y escribe. Dos fuentes de píxel incluidas (5×7 con minúsculas y tildes, y 3×5 de mayúsculas) a escala de píxeles enteros, o fuentes del sistema sin suavizado. Espacio entre letras y líneas, alineación y contorno de 1 px con el color secundario. El texto queda como píxeles flotantes que puedes mover, escalar o rotar antes de aplicarlo.
 - **Color y paletas**, como en Aseprite:
   - Editor de color con espectro, deslizadores RGB y HSB, hex, opacidad, sombras y luces, y armonías (complementario, análogos, tríada…), con aviso y «añadir a la paleta» cuando el color no está en ella.

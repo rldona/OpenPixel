@@ -102,6 +102,11 @@ final class SpriteDocument {
     var textStyle = TextStyle()
     /// Where the text tool was tapped; set while the text is being typed.
     var textAnchor: PixelPoint?
+    /// Other cels of the timeline range that follow the floating transform.
+    /// Only the active cel shows it live; the rest change when it's applied, as in Aseprite.
+    @ObservationIgnored private var rangeFloating: [RangeFloating] = []
+    /// How many other cels the transform in progress will also change.
+    private(set) var transformExtraCels = 0
     /// The tool to come back to when the floating text is applied or cancelled.
     @ObservationIgnored private var toolAfterTransform: Tool?
     /// Dragging a selected block copies it instead of moving it.
@@ -1078,13 +1083,21 @@ extension SpriteDocument {
         let key = activeCelKey
         let (w, h) = (storage.width, storage.height)
         let cel = storage.cels[key] ?? PixelImage(width: w, height: h)
-        let mask: SelectionMask
+        let targets = rangeTransformTargets()
+        var mask: SelectionMask
         if let selection {
             mask = selection
         } else if wholeCanvas {
             mask = SelectionMask(width: w, height: h, filled: true)
         } else {
             mask = SelectionMask.opaquePixels(of: cel)
+            // Several cels move as one block: a rectangle around all their pixels.
+            if !targets.isEmpty {
+                let union = ([mask.bounds] + targets.map { t in storage.cels[t.key].flatMap { SelectionMask.opaquePixels(of: $0).bounds } })
+                    .compactMap { $0 }
+                    .reduce(nil as PixelRect?) { $0?.union($1) ?? $1 }
+                if let union { mask = SelectionMask.rect(union, width: w, height: h) }
+            }
         }
         guard let bounds = mask.bounds else { return }
         var source = cel.cropped(to: bounds)
@@ -1099,9 +1112,89 @@ extension SpriteDocument {
         var f = FloatingSelection(celKey: key, source: source, sourceMask: localMask, at: PixelPoint(x: bounds.minX, y: bounds.minY))
         f.algorithm = rotationAlgorithm
         floating = f
+        rangeFloating = targets.compactMap { target in
+            guard let image = storage.cels[target.key] else { return nil }
+            var source = image.cropped(to: bounds)
+            for i in source.pixels.indices where !localMask.bits[i] { source.pixels[i] = .clear }
+            var base = image
+            if !copy {
+                let erase = eraseColor(forLayer: target.key.layer)
+                for i in base.pixels.indices where mask.bits[i] { base.pixels[i] = erase }
+            }
+            var other = FloatingSelection(celKey: target.key, source: source, sourceMask: localMask, at: PixelPoint(x: bounds.minX, y: bounds.minY))
+            other.algorithm = rotationAlgorithm
+            return RangeFloating(base: base, floating: other, linked: target.linked)
+        }
+        transformExtraCels = rangeFloating.count
         floatingDirty = bounds
         isTransforming = true
         renderFloating()
+    }
+
+    // MARK: Transforming a timeline range
+
+    struct RangeFloating {
+        var base: PixelImage
+        var floating: FloatingSelection
+        /// Cels linked to this one, which get the same result.
+        var linked: [CelKey]
+    }
+
+    /// The cels of the timeline range besides the active one: one per link
+    /// group, skipping locked layers and empty cels.
+    private func rangeTransformTargets() -> [(key: CelKey, linked: [CelKey])] {
+        guard let range = timelineRange else { return [] }
+        let active = activeCelKey, activeGroup = storage.links[active]
+        let locked = Set(storage.layers.filter(\.isLocked).map(\.id))
+        var result: [(key: CelKey, linked: [CelKey])] = []
+        var byGroup: [UUID: Int] = [:]
+        for key in rangeKeys(range).flatMap({ $0 }) where key != active && storage.cels[key] != nil && !locked.contains(key.layer) {
+            let group = storage.links[key]
+            if let group, group == activeGroup { continue }
+            if let group, let index = byGroup[group] {
+                result[index].linked.append(key)
+                continue
+            }
+            if let group { byGroup[group] = result.count }
+            result.append((key, []))
+        }
+        return result
+    }
+
+    private func eraseColor(forLayer id: UUID) -> PixelColor {
+        guard storage.layers.first(where: { $0.id == id })?.isBackground == true else { return .clear }
+        var color = secondary
+        color.a = 255
+        return color
+    }
+
+    /// Lines the other cels' boxes up with the active one before a flip or a
+    /// 90° turn, which depend on the box's current flip state.
+    private func syncRangeBoxes() {
+        guard let box = floating?.box else { return }
+        for i in rangeFloating.indices { rangeFloating[i].floating.box = box }
+    }
+
+    /// Drops the transform into the other cels of the range.
+    private func applyRangeFloating() {
+        guard let box = floating?.box else { return }
+        for var item in rangeFloating {
+            item.floating.box = box
+            let rendered = item.floating.render(spriteWidth: storage.width, spriteHeight: storage.height)
+            var cel = item.base
+            let o = rendered.origin
+            for y in 0..<rendered.image.height {
+                for x in 0..<rendered.image.width {
+                    let p = rendered.image[x, y]
+                    guard p.a != 0, rendered.mask[o.x + x, o.y + y] else { continue }
+                    cel[o.x + x, o.y + y] = p.blended(over: cel[o.x + x, o.y + y])
+                }
+            }
+            let result: PixelImage? = cel.isEmpty ? nil : cel
+            for key in [item.floating.celKey] + item.linked { storage.cels[key] = result }
+        }
+        rangeFloating = []
+        transformExtraCels = 0
     }
 
     /// Draws the floating pixels over the cel they were lifted from.
@@ -1135,6 +1228,7 @@ extension SpriteDocument {
     /// Drops the floating pixels into the cel as one undo step.
     func applyTransform() {
         guard isTransforming, let start = transformStart, let key = floating?.celKey else { return }
+        applyRangeFloating()
         floating = nil
         floatingBase = nil
         transformStart = nil
@@ -1149,6 +1243,8 @@ extension SpriteDocument {
 
     func cancelTransform() {
         guard isTransforming, let start = transformStart else { return }
+        rangeFloating = []
+        transformExtraCels = 0
         floating = nil
         floatingBase = nil
         transformStart = nil
@@ -1163,6 +1259,13 @@ extension SpriteDocument {
 
     func applyTransformIfNeeded() {
         if isTransforming { applyTransform() }
+    }
+
+    /// With a selection tool in replace mode, a drag that starts inside the
+    /// selection moves its pixels instead of selecting again (as in Aseprite).
+    func dragMovesSelection(at p: PixelPoint) -> Bool {
+        guard tool.isSelection, tool != .magicWand, selectionMode == .replace, !isTransforming else { return false }
+        return selection?.contains(p) ?? false
     }
 
     func beginTransformDrag(_ handle: TransformHandle, at point: CGPoint) {
@@ -1204,14 +1307,18 @@ extension SpriteDocument {
     /// Flips the selection, or the whole cel when nothing is selected.
     func flip(horizontal: Bool) {
         if !isTransforming { beginTransform(wholeCanvas: true) }
+        syncRangeBoxes()
         floating?.flip(horizontal: horizontal)
+        for i in rangeFloating.indices { rangeFloating[i].floating.flip(horizontal: horizontal) }
         renderFloating()
     }
 
     /// Rotates the selection 90°, or the whole cel when nothing is selected.
     func rotate90(clockwise: Bool) {
         if !isTransforming { beginTransform(wholeCanvas: true) }
+        syncRangeBoxes()
         floating?.rotate90(clockwise: clockwise)
+        for i in rangeFloating.indices { rangeFloating[i].floating.rotate90(clockwise: clockwise) }
         renderFloating()
     }
 
