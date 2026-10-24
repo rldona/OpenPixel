@@ -13,6 +13,10 @@ struct EditorView: View {
     @State private var saveTask: Task<Void, Never>?
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
     @State private var focusMode = false
+    /// Timeline height, set by dragging its top edge (Aseprite's splitter). Kept between sessions.
+    @AppStorage("timelineHeight") private var timelineHeight = 200.0
+    @State private var timelineDragStart: Double?
+    private static let timelineHeights = 120.0...560.0
 
     var body: some View {
         let sprite = document.sprite
@@ -60,7 +64,8 @@ struct EditorView: View {
                     }
                     if !focusMode {
                         FrameTimeline(document: document)
-                            .frame(height: 200)
+                            .frame(height: CGFloat(timelineHeight))
+                            .overlay(alignment: .top) { timelineResizeHandle }
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -165,6 +170,40 @@ struct EditorView: View {
         saveTask?.cancel()
         guard document.hasUnsavedChanges else { return }
         store.save(document)
+    }
+
+    /// Grab bar on the timeline's top edge: drag to resize, double tap to fit every layer.
+    private var timelineResizeHandle: some View {
+        Capsule()
+            .fill(Theme.strongBorder)
+            .frame(width: 40, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: 18)
+            .contentShape(Rectangle())
+            .offset(y: -9)
+            .gesture(
+                DragGesture(minimumDistance: 2, coordinateSpace: .global)
+                    .onChanged { drag in
+                        let start = timelineDragStart ?? timelineHeight
+                        timelineDragStart = start
+                        timelineHeight = min(max(start - drag.translation.height, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
+                    }
+                    .onEnded { _ in timelineDragStart = nil }
+            )
+            .onTapGesture(count: 2) {
+                let fit = Double(FrameTimeline.fittingHeight(for: document.sprite))
+                withAnimation(.easeOut(duration: 0.2)) {
+                    timelineHeight = min(max(fit, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
+                }
+            }
+            .accessibilityElement()
+            .accessibilityLabel(Text("Timeline height"))
+            .accessibilityValue(Text(verbatim: "\(Int(timelineHeight)) pt"))
+            .accessibilityHint(Text("Drag to resize. Double tap to fit every layer."))
+            .accessibilityAdjustableAction { direction in
+                let step = direction == .increment ? 40.0 : -40.0
+                timelineHeight = min(max(timelineHeight + step, Self.timelineHeights.lowerBound), Self.timelineHeights.upperBound)
+            }
     }
 
     private var topBar: some View {

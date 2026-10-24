@@ -11,12 +11,12 @@ struct FrameTimeline: View {
     @AppStorage("timelineFirstFrame") private var firstFrame = 1
     private let clipboard = TimelineClipboard.shared
 
-    private let nameColumn: CGFloat = 250
-    private let celWidth: CGFloat = 38
-    private let rowHeight: CGFloat = 36
+    private let nameColumn: CGFloat = 230
+    private let celWidth: CGFloat = 32
+    private let rowHeight: CGFloat = 30
     /// Frame numbers grow a second line when some frame's duration differs.
-    private var headerHeight: CGFloat { document.sprite.usualFrameDuration == nil ? 28 : 38 }
-    private let tagLaneHeight: CGFloat = 24
+    private var headerHeight: CGFloat { document.sprite.usualFrameDuration == nil ? 24 : 34 }
+    private let tagLaneHeight: CGFloat = 20
     private static let durationPresets = [50, 80, 100, 150, 200, 300, 500, 1000, 2000, 4000]
     /// The duration being typed: for the active frame, or for every selected frame.
     @State private var typingDuration: DurationTarget?
@@ -29,11 +29,18 @@ struct FrameTimeline: View {
         VStack(spacing: 0) {
             controls
             Rectangle().fill(Theme.border).frame(height: 1)
-            ScrollView(.vertical) {
-                HStack(alignment: .top, spacing: 0) {
-                    layerColumn
-                    ScrollView(.horizontal, showsIndicators: false) { celGrid }
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    HStack(alignment: .top, spacing: 0) {
+                        layerColumn
+                        ScrollView(.horizontal, showsIndicators: false) { celGrid }
+                    }
                 }
+                // Keep the layer being worked on in view, also when the timeline
+                // comes back (focus mode, reopening the sprite) or the stack changes.
+                .onAppear { revealActiveLayer(proxy, animated: false) }
+                .onChange(of: document.activeLayerID) { revealActiveLayer(proxy, animated: true) }
+                .onChange(of: document.sprite.layers.count) { revealActiveLayer(proxy, animated: true) }
             }
         }
         .background(Theme.panel.ignoresSafeArea(edges: .bottom))
@@ -64,6 +71,27 @@ struct FrameTimeline: View {
     }
 
     private var layersTopFirst: [Layer] { document.sprite.layers.reversed() }
+
+    /// The height that shows every layer without scrolling (controls, tags, frame numbers and rows).
+    static func fittingHeight(for sprite: Sprite) -> CGFloat {
+        let bands = CGFloat(sprite.tags.isEmpty ? 0 : sprite.tagBandCount)
+        let tags = bands > 0 ? bands * 20 + 4 : 0
+        let header: CGFloat = sprite.usualFrameDuration == nil ? 24 : 34
+        return 44 + 1 + tags + header + CGFloat(sprite.layers.count) * 30 + 12
+    }
+
+    /// Scrolls just enough to show the active layer's row (nothing if it's visible).
+    private func revealActiveLayer(_ proxy: ScrollViewProxy, animated: Bool) {
+        let id = document.activeLayerID
+        // After layout, so new or returning rows have their place.
+        DispatchQueue.main.async {
+            if animated {
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id) }
+            } else {
+                proxy.scrollTo(id)
+            }
+        }
+    }
 
     /// Aseprite's keys: `,` `.` previous/next frame, ⇧X show/hide the active layer.
     private var shortcuts: some View {
@@ -155,7 +183,7 @@ struct FrameTimeline: View {
             .padding(.leading, 4)
         }
         .padding(.horizontal, 10)
-        .frame(height: 50)
+        .frame(height: 44)
     }
 
     /// Frame operations that don't need a button of their own.
@@ -325,7 +353,7 @@ struct FrameTimeline: View {
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.border))
         }
         .padding(.horizontal, 10)
-        .frame(height: 50)
+        .frame(height: 44)
     }
 
     /// Tap toggles onion skin; long press opens its settings.
@@ -404,12 +432,10 @@ struct FrameTimeline: View {
 
     private var layerColumn: some View {
         VStack(spacing: 0) {
-            tagBandHeaders
+            if !document.sprite.tags.isEmpty { tagBandHeaders }
 
             HStack(spacing: 0) {
                 columnHeaders
-                SectionLabel("Layers")
-                    .padding(.leading, 6)
                 Spacer(minLength: 4)
                 timelineOptions
                 IconButton(systemImage: "plus", label: "New layer", size: 28) { document.addLayer() }
@@ -434,6 +460,7 @@ struct FrameTimeline: View {
                         document.moveLayer(id, to: layer.id)
                         return true
                     }
+                    .id(layer.id)
             }
         }
         .frame(width: nameColumn)
@@ -518,7 +545,7 @@ struct FrameTimeline: View {
         return HStack(spacing: 0) {
             Button { document.toggleVisibility(layer.id) } label: {
                 Image(systemName: layer.isVisible ? "eye" : "eye.slash")
-                    .frame(width: 34, height: 34)
+                    .frame(width: 34, height: rowHeight)
                     .foregroundStyle(layer.isVisible ? Theme.text : Theme.muted)
             }
             .buttonStyle(.plain)
@@ -526,14 +553,14 @@ struct FrameTimeline: View {
             Button { document.toggleLock(layer.id) } label: {
                 Image(systemName: layer.isLocked ? "lock.fill" : "lock.open")
                     .font(.system(size: 13))
-                    .frame(width: 30, height: 34)
+                    .frame(width: 30, height: rowHeight)
                     .foregroundStyle(layer.isLocked ? Theme.accent : Theme.muted.opacity(0.6))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isLocked ? Text("Unlock \(layer.name)") : Text("Lock \(layer.name)"))
             Button { document.toggleContinuous(layer.id) } label: {
                 ContinuityIcon(isOn: layer.isContinuous, color: layer.isContinuous ? Theme.accent : Theme.muted)
-                    .frame(width: 26, height: 34)
+                    .frame(width: 26, height: rowHeight)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
@@ -549,7 +576,7 @@ struct FrameTimeline: View {
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 6)
-                    .frame(height: 32)
+                    .frame(height: rowHeight)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -621,15 +648,17 @@ struct FrameTimeline: View {
         return Array(0..<max(1, document.sprite.tagBandCount))
     }
 
-    private var tagRowHeight: CGFloat { CGFloat(visibleBands.count) * tagLaneHeight + 4 }
+    /// No room for tags until the sprite has some, like Aseprite.
+    private var tagRowHeight: CGFloat {
+        document.sprite.tags.isEmpty ? 0 : CGFloat(visibleBands.count) * tagLaneHeight + 4
+    }
 
-    /// The "Tags" label and, next to each band, the button that focuses it.
+    /// Next to each tag band, the button that focuses it (only with several bands).
     private var tagBandHeaders: some View {
         let bandCount = document.sprite.tagBandCount
         return VStack(spacing: 0) {
             ForEach(Array(visibleBands.enumerated()), id: \.element) { row, band in
                 HStack(spacing: 4) {
-                    if row == 0 { SectionLabel("Tags") }
                     Spacer()
                     if bandCount > 1 || focusedBand != nil {
                         Button {
@@ -717,7 +746,7 @@ struct FrameTimeline: View {
         let activeTag = document.activeTag
         let usualDuration = document.sprite.usualFrameDuration
         return VStack(alignment: .leading, spacing: 0) {
-            tagRow
+            if !document.sprite.tags.isEmpty { tagRow }
             HStack(spacing: 0) {
                 ForEach(frames.indices, id: \.self) { index in
                     frameHeader(index, count: frames.count, inActiveTag: activeTag?.contains(index) ?? false,
@@ -740,7 +769,7 @@ struct FrameTimeline: View {
                     if showsDropColumn {
                         RoundedRectangle(cornerRadius: 7)
                             .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                            .frame(width: celWidth - 4, height: 30)
+                            .frame(width: celWidth - 4, height: rowHeight - 6)
                             .frame(width: celWidth)
                             .contentShape(Rectangle())
                             .dropDestination(for: String.self) { items, _ in dropRange(items, layer: layer.id, frame: frames.count) }
@@ -899,7 +928,7 @@ struct FrameTimeline: View {
                     Circle().strokeBorder(dot, lineWidth: 1.5).frame(width: 10, height: 10)
                 }
             }
-            .frame(width: celWidth - 4, height: 30)
+            .frame(width: celWidth - 4, height: rowHeight - 6)
             .frame(width: celWidth)
             .contentShape(Rectangle())
         }

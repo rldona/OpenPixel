@@ -32,7 +32,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
   - Apply, cancel, or tap outside to apply. The whole transform is one undo step.
   - Canvas: crop to selection, trim empty space, rotate and flip.
   - Undo and redo (up to 100 steps).
-- **Aseprite-style timeline**
+- **Aseprite-style timeline**, compact like Aseprite's: drag its top edge to make it taller or shorter (double tap the edge to fit every layer). It keeps the layer you're working on in view, and the tag rows only appear once the sprite has tags.
   - Layers: show/hide, lock, rename, opacity, delete and drag to reorder. The eye, lock and continuity icons in the header act on every layer at once.
   - **Background layer**, as in Aseprite: opaque, underlined, always at the bottom, and erasing or clearing leaves the secondary color. Convert a layer to the background and back from its menu.
   - Frames: “+ Frame” duplicates the current frame; touch and hold for an empty one. Drag a frame number to reorder, delete, and set each frame's duration: −/+, presets up to 4 s, or type any value up to 65 535 ms. Frames that last longer or shorter than most show their duration under the frame number.

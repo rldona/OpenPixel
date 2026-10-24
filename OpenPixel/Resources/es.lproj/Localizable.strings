@@ -390,3 +390,5 @@
 "+1 cel" = "+1 cel";
 "+%lld cels" = "+%lld cels";
 "Also applies to %lld more cels of the timeline selection" = "También se aplica a %lld cels más de la selección del timeline";
+"Timeline height" = "Altura del timeline";
+"Drag to resize. Double tap to fit every layer." = "Arrastra para cambiar el tamaño. Doble toque para ver todas las capas.";
