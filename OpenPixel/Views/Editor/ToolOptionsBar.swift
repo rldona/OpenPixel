@@ -1,18 +1,18 @@
 import SwiftUI
 
-/// The active tool's options, in the middle of the editor's top bar.
-/// It keeps one width whatever the tool, and scrolls sideways when a tool
-/// has more options than fit (narrower only when the screen is).
+/// The active tool's options, centered in the editor's top bar over the
+/// canvas. As wide as its options, at most the canvas's width; past that it
+/// scrolls sideways.
 struct ToolOptionsBar: View {
     @Bindable var document: SpriteDocument
-    static let width: CGFloat = 620
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ViewThatFits(in: .horizontal) {
             items.padding(.horizontal, 10)
+            ScrollView(.horizontal, showsIndicators: false) {
+                items.padding(.horizontal, 10)
+            }
         }
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .frame(maxWidth: Self.width)
         .frame(height: 44)
         .background(Theme.field, in: RoundedRectangle(cornerRadius: 12))
         .clipShape(RoundedRectangle(cornerRadius: 12))

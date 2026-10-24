@@ -184,7 +184,7 @@ struct EditMenu: View {
         } label: {
             Image(systemName: "ellipsis.circle")
                 .font(.system(size: 18, weight: .medium))
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
                 .foregroundStyle(Theme.text)
         }
         .accessibilityLabel(Text("Edit"))

@@ -23,6 +23,9 @@ struct EditorView: View {
     /// How far the timeline has been dragged below its smallest size, to show it giving way.
     @State private var timelinePull = 0.0
     private static let timelineHeights = 120.0...560.0
+    /// The tool rail's and side panel's widths; the top bar lines up with them.
+    static let railWidth: CGFloat = 68
+    static let panelWidth: CGFloat = 280
     /// Dragging this far below the smallest size collapses the timeline.
     private static let collapsePull = 50.0
 
@@ -88,7 +91,7 @@ struct EditorView: View {
                         renameText = document.name
                         showingRename = true
                     })
-                        .frame(width: 280)
+                        .frame(width: Self.panelWidth)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
@@ -140,7 +143,7 @@ struct EditorView: View {
             Image(systemName: "arrow.down.right.and.arrow.up.left")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.text)
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
                 .background(Theme.panel.opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
         }
@@ -223,37 +226,49 @@ struct EditorView: View {
         withAnimation(.easeOut(duration: 0.25)) { timelineCollapsed = false }
     }
 
-    /// Back, the active tool's options (in the middle, where the canvas used
-    /// to have them floating), the view buttons and Export.
+    /// Laid out over the three columns below: back over the tool rail, the
+    /// active tool's options centered over the canvas, and the view buttons
+    /// with Export over the side panel.
     private var topBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
             IconButton(systemImage: "chevron.left", label: "Back to projects") { dismiss() }
+                .frame(width: Self.railWidth)
 
-            Spacer(minLength: 6)
             ToolOptionsBar(document: document)
-                .layoutPriority(1)
-            Spacer(minLength: 6)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity)
 
-            EditMenu(document: document)
-            IconButton(systemImage: "arrow.up.left.and.arrow.down.right", label: "Focus mode", action: toggleFocus)
-            gridMenu
-            tiledModeMenu
-
-            Button { showingExport = true } label: {
-                Label("Export", systemImage: "square.and.arrow.up")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.onAccent)
-                    .padding(.horizontal, 16)
-                    .frame(height: 40)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                EditMenu(document: document)
+                IconButton(systemImage: "arrow.up.left.and.arrow.down.right", label: "Focus mode", size: 40, action: toggleFocus)
+                gridMenu
+                tiledModeMenu
+                exportButton.padding(.leading, 6)
             }
-            .buttonStyle(.plain)
-            .keyboardShortcut("e", modifiers: [.command, .shift])
+            .padding(.horizontal, 8)
+            .frame(width: Self.panelWidth)
         }
-        .padding(.horizontal, 10)
         .frame(height: 56)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    /// "Export" with its label, or just the icon when the label doesn't fit.
+    private var exportButton: some View {
+        Button { showingExport = true } label: {
+            ViewThatFits(in: .horizontal) {
+                Label("Export", systemImage: "square.and.arrow.up").labelStyle(TightLabelStyle()).padding(.horizontal, 10)
+                Image(systemName: "square.and.arrow.up").frame(width: 40)
+            }
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Theme.onAccent)
+            .frame(height: 40)
+            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Export"))
+        .keyboardShortcut("e", modifiers: [.command, .shift])
     }
 
     /// Tap toggles the pixel grid; touch and hold for the sprite's grid, snapping and its settings.
@@ -268,7 +283,7 @@ struct EditorView: View {
         } label: {
             Image(systemName: "grid")
                 .font(.system(size: 17.6, weight: .medium))
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
                 .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
                 .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
         } primaryAction: {
@@ -303,7 +318,7 @@ struct EditorView: View {
         } label: {
             Image(systemName: "square.grid.3x3.square")
                 .font(.system(size: 17.6, weight: .medium))
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 40)
                 .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
                 .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
         }
@@ -348,7 +363,7 @@ struct ToolRail: View {
                 .opacity(document.canRedo ? 1 : 0.35)
         }
         .padding(.vertical, 12)
-        .frame(width: 68)
+        .frame(width: EditorView.railWidth)
         // Background and divider run under the home indicator, like the side panel.
         .background {
             HStack(spacing: 0) {
@@ -509,6 +524,16 @@ private struct CanvasHost: View {
             guard sprite.shows(layer), let reference = layer.reference else { return nil }
             let above = !sprite.layers[(index + 1)...].contains { !$0.isReference && !$0.isGroup && sprite.shows($0) }
             return ReferenceOverlay(id: layer.id, data: reference.data, frame: reference.frame, opacity: layer.opacity, above: above)
+        }
+    }
+}
+
+/// Icon and title close together, for buttons in tight spots.
+private struct TightLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) {
+            configuration.icon
+            configuration.title
         }
     }
 }
