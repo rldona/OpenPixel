@@ -26,8 +26,8 @@ struct SidePanel: View {
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
                 }
 
-                colorSection
                 paletteSection
+                colorSection
                 // Only while a tilemap layer is active.
                 if let tileset = document.activeLayer?.tileset {
                     TilesetPanel(document: document, tileset: tileset)
@@ -151,17 +151,27 @@ struct SidePanel: View {
                 }
                 paletteMenu
             }
-            LazyVGrid(columns: columns, spacing: 5) {
-                ForEach(Array(palette.enumerated()), id: \.offset) { index, color in
-                    swatch(color, index: index)
-                }
+            // Big palettes scroll inside a few rows, so the colors below stay in view.
+            // The cap cuts a row in half to show there's more.
+            ViewThatFits(in: .vertical) {
+                paletteGrid(palette)
+                ScrollView { paletteGrid(palette) }
             }
+            .frame(maxHeight: 200)
             if isEditingPalette {
                 paletteEditBar
             } else {
                 Text("Tap a color to use it. Touch and hold for more options.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.muted)
+            }
+        }
+    }
+
+    private func paletteGrid(_ palette: [PixelColor]) -> some View {
+        LazyVGrid(columns: columns, spacing: 5) {
+            ForEach(Array(palette.enumerated()), id: \.offset) { index, color in
+                swatch(color, index: index)
             }
         }
     }
