@@ -1227,7 +1227,7 @@ extension SpriteDocument {
         onOverlayChange?()
     }
 
-    /// Drops the floating pixels into the cel as one undo step.
+    /// Drops the floating pixels into the cel and deselects, as one undo step.
     func applyTransform() {
         guard isTransforming, let start = transformStart, let key = floating?.celKey else { return }
         applyRangeFloating()
@@ -1238,6 +1238,9 @@ extension SpriteDocument {
         transformDrag = nil
         isTransforming = false
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
+        // Applying finishes the job: the selection goes away (Reselect brings it back).
+        if let selection { lastSelection = selection }
+        selection = nil
         if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
         restoreToolAfterTransform()
         changed()

@@ -46,9 +46,13 @@ final class MoveSelectionTests: XCTestCase {
         XCTAssertEqual(pixel(doc, 1, 1), .clear)
         XCTAssertEqual(pixel(doc, 4, 3), .black)
         XCTAssertEqual(doc.tool, .selectRectangle, "the selection tool stays")
-        XCTAssertTrue(doc.dragMovesSelection(at: PixelPoint(x: 4, y: 3)), "the selection moved with the pixels")
+        XCTAssertFalse(doc.hasSelection, "applying deselects")
+        doc.reselect()
+        XCTAssertTrue(doc.dragMovesSelection(at: PixelPoint(x: 4, y: 3)), "Reselect brings back the moved selection")
+        doc.undo()
         doc.undo()
         XCTAssertEqual(pixel(doc, 1, 1), .black)
+        XCTAssertTrue(doc.dragMovesSelection(at: PixelPoint(x: 1, y: 1)), "undo restores the pixels and the selection")
     }
 
     func testOtherModesAndToolsStillSelect() {
