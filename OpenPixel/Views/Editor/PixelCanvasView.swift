@@ -118,12 +118,17 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         lastBoundsSize = bounds.size
     }
 
+    /// Room kept free at the top for the floating tool options bar.
+    private static let topInset: CGFloat = 72
+
     func fitToScreen() {
-        let fit = min((bounds.width - 64) / spriteSize.width, (bounds.height - 64) / spriteSize.height)
+        let margin: CGFloat = 32
+        let available = CGSize(width: bounds.width - margin * 2, height: bounds.height - Self.topInset - margin)
+        let fit = min(available.width / spriteSize.width, available.height / spriteSize.height)
         scale = max(Self.minScale, min(Self.maxScale, fit >= 1 ? fit.rounded(.down) : fit))
         origin = CGPoint(
             x: ((bounds.width - spriteSize.width * scale) / 2).rounded(),
-            y: ((bounds.height - spriteSize.height * scale) / 2).rounded()
+            y: (Self.topInset + (available.height - spriteSize.height * scale) / 2).rounded()
         )
         needsFit = false
         onZoomChanged?(scale)

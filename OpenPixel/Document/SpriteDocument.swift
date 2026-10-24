@@ -31,6 +31,13 @@ final class SpriteDocument {
     var primary: PixelColor
     var secondary: PixelColor
     var mirrorX = false
+    var brushSize = 1
+    var brushShape = BrushShape.square
+    /// Removes the extra corner pixel in 1 px freehand strokes (Aseprite's pixel-perfect).
+    var pixelPerfect = true
+    var shapeFilled = false
+    /// Bucket fills only the connected area; when off it replaces the color everywhere in the cel.
+    var fillContiguous = true
     var showGrid = true
     var onionSkin = false
     var onionSettings = OnionSkinSettings()
@@ -44,6 +51,10 @@ final class SpriteDocument {
     private var redoStack: [Sprite] = []
     private var strokeStart: Sprite?
     private var lastPoint: PixelPoint?
+    private var shapeOrigin: PixelPoint?
+    /// Pixels plotted so far in a 1 px freehand stroke, for pixel-perfect.
+    private var strokePath: [PixelPoint] = []
+    static let maxBrushSize = 8
     private var playTask: Task<Void, Never>?
     private static let historyLimit = 100
 
@@ -158,49 +169,127 @@ final class SpriteDocument {
         if layer.isLocked { notice = "La capa «\(layer.name)» está bloqueada"; return }
 
         strokeStart = sprite
-        if tool == .bucket {
-            let color = primary
-            mutateActiveCel { Raster.floodFill(&$0, at: p, with: color) }
+        switch tool {
+        case .bucket:
+            let color = primary, contiguous = fillContiguous
+            mutateActiveCel { image in
+                if contiguous {
+                    Raster.floodFill(&image, at: p, with: color)
+                } else {
+                    Raster.replaceColor(&image, at: p, with: color)
+                }
+            }
             endStroke()
-            return
+        case .line, .rectangle, .ellipse:
+            shapeOrigin = p
+            drawShape(to: p)
+        default:
+            lastPoint = p
+            strokePath = []
+            plotFreehand([p])
         }
-        lastPoint = p
-        plot([p])
     }
 
     func continueStroke(to p: PixelPoint) {
-        guard strokeStart != nil, let last = lastPoint, p != last else { return }
-        plot(Raster.line(from: last, to: p))
+        guard strokeStart != nil else { return }
+        if tool.isShape {
+            drawShape(to: p)
+            return
+        }
+        guard let last = lastPoint, p != last else { return }
+        plotFreehand(Raster.line(from: last, to: p))
         lastPoint = p
     }
 
     func endStroke() {
         guard let start = strokeStart else { return }
-        strokeStart = nil
-        lastPoint = nil
+        resetStroke()
         if start != sprite { registerUndo(start) }
     }
 
     /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be a pinch.
     func cancelStroke() {
         guard let start = strokeStart else { return }
-        strokeStart = nil
-        lastPoint = nil
+        resetStroke()
         if start != sprite {
             sprite = start
             changed()
         }
     }
 
-    private func plot(_ points: [PixelPoint]) {
-        let color: PixelColor = tool == .eraser ? .clear : primary
-        let mirror = mirrorX
-        mutateActiveCel { image in
-            for p in points where image.contains(p) {
-                image[p] = color
-                if mirror { image[image.width - 1 - p.x, p.y] = color }
+    private func resetStroke() {
+        strokeStart = nil
+        lastPoint = nil
+        shapeOrigin = nil
+        strokePath = []
+    }
+
+    var strokeColor: PixelColor { tool == .eraser ? .clear : primary }
+
+    /// Stamps the brush on every point (and its mirror when symmetry is on).
+    private func stamp(_ points: [PixelPoint], on image: inout PixelImage, color: PixelColor) {
+        let offsets = Raster.brushOffsets(size: brushSize, shape: brushShape)
+        for p in points {
+            for o in offsets {
+                let q = PixelPoint(x: p.x + o.x, y: p.y + o.y)
+                guard image.contains(q) else { continue }
+                image[q] = color
+                if mirrorX { image[image.width - 1 - q.x, q.y] = color }
             }
         }
+    }
+
+    private func plotFreehand(_ points: [PixelPoint]) {
+        let color = strokeColor
+        let usePixelPerfect = pixelPerfect && brushSize == 1
+        let original = strokeStart?.cel(layer: activeLayerID, frame: activeFrame.id)
+        mutateActiveCel { image in
+            for p in points {
+                if strokePath.last == p { continue }
+                stamp([p], on: &image, color: color)
+                guard usePixelPerfect else { continue }
+                strokePath.append(p)
+                removePixelPerfectCorner(in: &image, original: original)
+            }
+        }
+    }
+
+    /// When the last three pixels make an L (the ends touch diagonally),
+    /// the middle one is redundant: restore what was under it.
+    private func removePixelPerfectCorner(in image: inout PixelImage, original: PixelImage?) {
+        let n = strokePath.count
+        guard n >= 3 else { return }
+        let a = strokePath[n - 3], b = strokePath[n - 2], c = strokePath[n - 1]
+        let isCorner = (a.x == b.x || a.y == b.y) && (c.x == b.x || c.y == b.y)
+            && abs(a.x - c.x) == 1 && abs(a.y - c.y) == 1
+        guard isCorner, image.contains(b) else { return }
+        image[b] = original?[b] ?? .clear
+        if mirrorX {
+            let m = PixelPoint(x: image.width - 1 - b.x, y: b.y)
+            image[m] = original?[m] ?? .clear
+        }
+        strokePath.remove(at: n - 2)
+    }
+
+    /// Redraws the shape from the touch-down point on top of the cel as it was
+    /// when the stroke began, so dragging previews it live.
+    private func drawShape(to p: PixelPoint) {
+        guard let start = strokeStart, let origin = shapeOrigin else { return }
+        let key = CelKey(layer: activeLayerID, frame: activeFrame.id)
+        sprite.cels[key] = start.cels[key]
+        let points: [PixelPoint]
+        switch tool {
+        case .line: points = Raster.line(from: origin, to: p)
+        case .rectangle: points = Raster.rectangle(from: origin, to: p, filled: shapeFilled)
+        case .ellipse: points = Raster.ellipse(from: origin, to: p, filled: shapeFilled)
+        default: return
+        }
+        let color = strokeColor
+        mutateActiveCel { image in stamp(points, on: &image, color: color) }
+    }
+
+    func setBrushSize(_ size: Int) {
+        brushSize = min(Self.maxBrushSize, max(1, size))
     }
 
     private func mutateActiveCel(_ body: (inout PixelImage) -> Void) {

@@ -11,7 +11,12 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Galería** de sprites con miniaturas, renombrar, duplicar, eliminar e importar PNG/GIF/JPEG.
 - **Nuevo sprite**: tamaños rápidos (16–256) o personalizado hasta 1024 px, fondo transparente, blanco o negro, y paleta inicial (PICO-8, Sweetie 16, DawnBringer 16, grises).
 - **Editor**
-  - Lápiz, goma, cubo de pintura y cuentagotas, más simetría horizontal.
+  - Lápiz, goma, cubo de pintura, cuentagotas, línea, rectángulo y elipse, más simetría horizontal.
+  - Barra de opciones flotante según la herramienta:
+    - pincel cuadrado o redondo de 1 a 8 px;
+    - pixel-perfect para trazos de 1 px sin esquinas dobles;
+    - formas con o sin relleno, con vista previa mientras arrastras;
+    - cubo contiguo o global (sustituye el color en toda la cel).
   - Cuadrícula de píxeles, zoom por niveles enteros y ajustar a pantalla.
   - Deshacer y rehacer (hasta 100 pasos).
 - **Timeline** al estilo Aseprite
@@ -44,6 +49,9 @@ Con teclado se usan los atajos de Aseprite:
 | `E` | Goma |
 | `G` | Cubo |
 | `I` | Cuentagotas |
+| `L` | Línea |
+| `U` / `⇧U` | Rectángulo / elipse |
+| `[` `]` | Tamaño del pincel |
 | `X` | Intercambiar colores |
 | `⌥N` | Nuevo frame (duplica el actual) |
 | `⌥⇧N` | Nuevo frame vacío |
@@ -87,7 +95,7 @@ OpenPixelTests/
 ## Próximos pasos
 
 - Cels enlazadas y selección de rangos en el timeline
-- Línea, rectángulo, elipse, selección y mover
+- Selección, mover, voltear y rotar
 - Modos de color indexado y escala de grises
 - Abrir y guardar `.aseprite`
 

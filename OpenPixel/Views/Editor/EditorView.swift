@@ -35,7 +35,10 @@ struct EditorView: View {
                             )
                             statusPills
                         }
-                        .overlay(alignment: .top) { noticeBanner }
+                        .overlay(alignment: .topLeading) {
+                            ToolOptionsBar(document: document).padding(14)
+                        }
+                        .overlay(alignment: .top) { noticeBanner.padding(.top, 58) }
                     }
                     FrameTimeline(document: document)
                         .frame(height: 200)
@@ -175,7 +178,7 @@ struct EditorView: View {
 
     private var statusPills: some View {
         HStack(spacing: 8) {
-            Text(verbatim: "\(document.tool.title)\(document.mirrorX ? " + simetría" : "") · \(document.activeLayer?.name ?? "") · frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)\(document.activeTag.map { " · \($0.name)" } ?? "")")
+            Text(verbatim: "\(document.tool.title)\(document.tool.usesBrush ? " \(document.brushSize) px" : "")\(document.mirrorX ? " + simetría" : "") · \(document.activeLayer?.name ?? "") · frame \(document.activeFrameIndex + 1)/\(document.sprite.frames.count)\(document.activeTag.map { " · \($0.name)" } ?? "")")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 10)
@@ -212,7 +215,7 @@ struct ToolRail: View {
                 IconButton(systemImage: tool.systemImage, label: tool.title, isOn: document.tool == tool, size: 48) {
                     document.select(tool)
                 }
-                .keyboardShortcut(tool.shortcut, modifiers: [])
+                .keyboardShortcut(tool.shortcut, modifiers: tool.shortcutModifiers)
             }
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             IconButton(systemImage: "square.split.2x1", label: "Simetría horizontal", isOn: document.mirrorX, size: 48) {
