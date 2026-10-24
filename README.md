@@ -42,7 +42,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 - **Export**: PNG of the current frame, sprite sheet or animated GIF, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.
 - **Autosave** to `Documents/Sprites` (visible in the Files app), as readable `.openpixel` JSON. Saving runs in the background.
 - **Preferences**: English (default) or Spanish, and light, dark or system appearance.
-- Full-screen editing with no status bar.
+- Full-screen editing with no status bar, and a focus mode that leaves only the canvas.
 
 ## Performance
 
@@ -65,6 +65,7 @@ Drawing stays smooth on large canvases (256×256 and up):
 | Three-finger tap | Redo |
 | Touch and hold (with Pencil) | Quick eyedropper |
 | Double-tap on the Pencil | Toggle eraser and previous tool |
+| Four-finger tap | Focus mode: hide or show the panels |
 
 With a keyboard, OpenPixel uses Aseprite's shortcuts:
 
@@ -95,6 +96,7 @@ With a keyboard, OpenPixel uses Aseprite's shortcuts:
 | `↩` | Play |
 | `←` `→` | Previous / next frame |
 | `⌘Z` / `⇧⌘Z` | Undo / redo |
+| `⇥` (Tab) | Focus mode |
 
 ## Building
 

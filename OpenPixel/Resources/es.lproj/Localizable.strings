@@ -243,3 +243,7 @@
 "Flip canvas" = "Voltear lienzo";
 "Horizontally" = "Horizontalmente";
 "Vertically" = "Verticalmente";
+
+/* Focus mode */
+"Focus mode" = "Modo enfoque";
+"Exit focus mode" = "Salir del modo enfoque";

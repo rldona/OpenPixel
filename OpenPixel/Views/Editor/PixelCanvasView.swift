@@ -36,6 +36,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onEyedropper: ((PixelPoint) -> Void)?
     var onPencilDoubleTap: (() -> Void)?
     var onZoomChanged: ((CGFloat) -> Void)?
+    /// Four-finger tap: show or hide the panels around the canvas.
+    var onFocusToggle: (() -> Void)?
     /// Transform drags, in sprite coordinates with sub-pixel precision.
     var onTransformBegan: ((TransformHandle, CGPoint) -> Void)?
     var onTransformMoved: ((CGPoint) -> Void)?
@@ -199,6 +201,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         redoTap.numberOfTouchesRequired = 3
         redoTap.allowedTouchTypes = fingers
         addGestureRecognizer(redoTap)
+
+        let focusTap = UITapGestureRecognizer(target: self, action: #selector(handleFocusTap(_:)))
+        focusTap.numberOfTouchesRequired = 4
+        focusTap.allowedTouchTypes = fingers
+        addGestureRecognizer(focusTap)
 
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         longPress.minimumPressDuration = 0.4
@@ -505,6 +512,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     @objc private func handleUndoTap(_ g: UITapGestureRecognizer) {
         cancelActiveStroke()
         onUndo?()
+    }
+
+    @objc private func handleFocusTap(_ g: UITapGestureRecognizer) {
+        cancelActiveStroke()
+        onFocusToggle?()
     }
 
     @objc private func handleRedoTap(_ g: UITapGestureRecognizer) {

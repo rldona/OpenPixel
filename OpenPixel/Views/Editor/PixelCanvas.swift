@@ -23,6 +23,7 @@ struct PixelCanvas: UIViewRepresentable {
     let showGrid: Bool
     let mirrorX: Bool
     let onZoomChanged: (CGFloat) -> Void
+    var onFocusToggle: () -> Void = {}
 
     func makeUIView(context: Context) -> PixelCanvasView {
         let view = PixelCanvasView()
@@ -47,6 +48,7 @@ struct PixelCanvas: UIViewRepresentable {
 
     func updateUIView(_ view: PixelCanvasView, context: Context) {
         view.onZoomChanged = onZoomChanged
+        view.onFocusToggle = onFocusToggle
         view.spriteSize = spriteSize
         view.showGrid = showGrid
         view.mirrorX = mirrorX

@@ -32,7 +32,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Autoguardado** en `Documentos/Sprites` (visible desde la app Archivos), en un JSON `.openpixel` legible, en segundo plano.
 - **Selección y transformar** como en Aseprite: marco rectangular y elíptico, lazo y varita mágica; modos añadir, restar e intersecar; hormigas; cortar, copiar y pegar; mover, escalar, rotar con RotSprite y pivote, voltear, rotar 90° y recortar el lienzo.
 - **Preferencias**: inglés (por defecto) o español, y tema claro, oscuro o el del sistema.
-- Edición a pantalla completa, sin barra de estado.
+- Edición a pantalla completa, sin barra de estado, y modo enfoque (toque con cuatro dedos o Tab) que deja solo el lienzo.
 - **Rendimiento**: lienzo con capas de GPU y repintado parcial; los trazos van fluidos también en 256×256.
 
 ## Gestos

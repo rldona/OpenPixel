@@ -11,15 +11,21 @@ struct EditorView: View {
     @State private var showingRename = false
     @State private var renameText = ""
     @State private var saveTask: Task<Void, Never>?
+    /// Focus mode hides everything but the canvas (four-finger tap or Tab).
+    @State private var focusMode = false
 
     var body: some View {
         let sprite = document.sprite
 
         VStack(spacing: 0) {
-            topBar
+            if !focusMode {
+                topBar.transition(.move(edge: .top).combined(with: .opacity))
+            }
             // Three full-height columns: tools | canvas over timeline | side panel.
             HStack(spacing: 0) {
-                ToolRail(document: document)
+                if !focusMode {
+                    ToolRail(document: document).transition(.move(edge: .leading).combined(with: .opacity))
+                }
                 VStack(spacing: 0) {
                     Group {
                         ZStack(alignment: .bottomLeading) {
@@ -32,12 +38,16 @@ struct EditorView: View {
                                 spriteSize: CGSize(width: sprite.width, height: sprite.height),
                                 showGrid: document.showGrid,
                                 mirrorX: document.mirrorX,
-                                onZoomChanged: { zoom = $0 }
+                                onZoomChanged: { zoom = $0 },
+                                onFocusToggle: toggleFocus
                             )
-                            if !document.hasSelection && !document.isTransforming { statusPills }
+                            if !focusMode && !document.hasSelection && !document.isTransforming { statusPills }
                         }
                         .overlay(alignment: .topLeading) {
-                            ToolOptionsBar(document: document).padding(14)
+                            if !focusMode { ToolOptionsBar(document: document).padding(14) }
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            if focusMode { focusExitButton }
                         }
                         .overlay(alignment: .bottom) {
                             if document.isTransforming {
@@ -48,12 +58,24 @@ struct EditorView: View {
                         }
                         .overlay(alignment: .top) { noticeBanner.padding(.top, 58) }
                     }
-                    FrameTimeline(document: document)
-                        .frame(height: 200)
+                    if !focusMode {
+                        FrameTimeline(document: document)
+                            .frame(height: 200)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
-                SidePanel(document: document)
-                    .frame(width: 280)
+                if !focusMode {
+                    SidePanel(document: document)
+                        .frame(width: 280)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
+        }
+        .background {
+            Button("Focus mode", action: toggleFocus)
+                .keyboardShortcut(.tab, modifiers: [])
+                .opacity(0)
+                .accessibilityHidden(true)
         }
         .background(Theme.background)
         .background { EditorShortcuts(document: document) }
@@ -83,6 +105,26 @@ struct EditorView: View {
 
     /// Previous frames tinted red and next frames tinted blue, fading with distance.
     /// Farthest first, so the nearest frames end up on top.
+    private func toggleFocus() {
+        withAnimation(.snappy(duration: 0.25)) { focusMode.toggle() }
+    }
+
+    /// The only control left in focus mode, so the mode is never a trap.
+    private var focusExitButton: some View {
+        Button(action: toggleFocus) {
+            Image(systemName: "arrow.down.right.and.arrow.up.left")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.text)
+                .frame(width: 44, height: 44)
+                .background(Theme.panel.opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+        }
+        .buttonStyle(.plain)
+        .padding(14)
+        .accessibilityLabel(Text("Exit focus mode"))
+        .transition(.opacity)
+    }
+
     private func onionLayers(_ sprite: Sprite) -> [OnionLayer] {
         guard document.onionSkin, !document.isPlaying else { return [] }
         let settings = document.onionSettings
@@ -151,6 +193,7 @@ struct EditorView: View {
             Spacer()
 
             EditMenu(document: document)
+            IconButton(systemImage: "arrow.up.left.and.arrow.down.right", label: "Focus mode", action: toggleFocus)
             IconButton(systemImage: "grid", label: "Pixel grid", isOn: document.showGrid) { document.showGrid.toggle() }
                 .keyboardShortcut("'", modifiers: .command)
             HStack(spacing: 0) {
