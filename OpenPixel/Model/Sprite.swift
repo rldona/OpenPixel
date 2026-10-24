@@ -33,6 +33,14 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
     var reference: ReferenceImage?
     var isReference: Bool { reference != nil }
     var blendMode = BlendMode.normal
+    /// Aseprite's layer groups: a group has no cels, it sits right above its
+    /// children in `Sprite.layers`, and its visibility, lock and opacity apply
+    /// to all of them.
+    var isGroup = false
+    /// The group this layer is in, if any.
+    var parent: UUID?
+    /// Whether the timeline shows the group's children.
+    var isExpanded = true
 
     init(id: UUID = UUID(), name: String, isVisible: Bool = true, isLocked: Bool = false, opacity: Double = 1, isContinuous: Bool = false, isBackground: Bool = false, reference: ReferenceImage? = nil) {
         self.id = id
@@ -45,7 +53,7 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         self.reference = reference
     }
 
-    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground, reference, blendMode }
+    private enum CodingKeys: String, CodingKey { case id, name, isVisible, isLocked, opacity, isContinuous, isBackground, reference, blendMode, isGroup, parent, isExpanded }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -58,6 +66,9 @@ struct Layer: Identifiable, Codable, Equatable, Sendable {
         isBackground = try c.decodeIfPresent(Bool.self, forKey: .isBackground) ?? false
         reference = try c.decodeIfPresent(ReferenceImage.self, forKey: .reference)
         blendMode = try c.decodeIfPresent(BlendMode.self, forKey: .blendMode) ?? .normal
+        isGroup = try c.decodeIfPresent(Bool.self, forKey: .isGroup) ?? false
+        parent = try c.decodeIfPresent(UUID.self, forKey: .parent)
+        isExpanded = try c.decodeIfPresent(Bool.self, forKey: .isExpanded) ?? true
     }
 }
 
@@ -121,11 +132,15 @@ struct Sprite: Equatable, Sendable {
             }
             guard frames.indices.contains(frameIndex) else { return }
             let frameID = frames[frameIndex].id
+            let groupOpacity = hasGroups ? effectiveOpacities() : [:]
             // Reference layers aren't part of the image: the canvas shows them on its own.
-            for layer in layers where layer.isVisible && layer.opacity > 0 && !layer.isReference {
+            for layer in layers where layer.isVisible && layer.opacity > 0 && !layer.isReference && !layer.isGroup {
                 let key = CelKey(layer: layer.id, frame: frameID)
                 guard let image = cels[key] else { continue }
-                let opacity = layer.opacity * (celOpacity[key] ?? 1)
+                // Inside a hidden group (0) or a translucent one.
+                let inherited = layer.parent == nil ? 1 : groupOpacity[layer.id] ?? 1
+                let opacity = layer.opacity * (celOpacity[key] ?? 1) * inherited
+                guard opacity > 0 else { continue }
                 guard opacity > 0 else { continue }
                 let opaqueLayer = opacity >= 1
                 let mode = layer.blendMode
@@ -160,6 +175,68 @@ struct Sprite: Equatable, Sendable {
     }
 
     var totalDuration: Int { frames.reduce(0) { $0 + $1.duration } }
+
+    // MARK: Groups
+
+    var hasGroups: Bool { layers.contains(where: \.isGroup) }
+
+    /// The groups `layer` is in, innermost first.
+    func ancestors(of layer: Layer) -> [Layer] {
+        var result: [Layer] = []
+        var parent = layer.parent
+        while let id = parent, let group = layers.first(where: { $0.id == id }), !result.contains(where: { $0.id == id }) {
+            result.append(group)
+            parent = group.parent
+        }
+        return result
+    }
+
+    /// Visible itself and in every group it's in.
+    func shows(_ layer: Layer) -> Bool { layer.isVisible && ancestors(of: layer).allSatisfy(\.isVisible) }
+
+    /// Locked itself or by a group it's in.
+    func locks(_ layer: Layer) -> Bool { layer.isLocked || ancestors(of: layer).contains(where: \.isLocked) }
+
+    /// How deep in groups a layer is (0 at the top level).
+    func depth(of layer: Layer) -> Int { ancestors(of: layer).count }
+
+    /// For layers inside groups: the product of their groups' opacities, or 0
+    /// when a group is hidden.
+    private func effectiveOpacities() -> [UUID: Double] {
+        var result: [UUID: Double] = [:]
+        for layer in layers where layer.parent != nil {
+            result[layer.id] = ancestors(of: layer).reduce(1) { $0 * ($1.isVisible ? $1.opacity : 0) }
+        }
+        return result
+    }
+
+    /// The layers inside `group`, at any depth.
+    func descendants(of group: UUID) -> [Layer] {
+        layers.filter { layer in ancestors(of: layer).contains { $0.id == group } }
+    }
+
+    /// Puts every group right above its children, keeping each level's order,
+    /// after layers were moved, added or removed.
+    mutating func normalizeGroups() {
+        guard hasGroups || layers.contains(where: { $0.parent != nil }) else { return }
+        let ids = Set(layers.filter(\.isGroup).map(\.id))
+        // A layer whose group is gone goes to the top level.
+        for i in layers.indices where layers[i].parent.map({ !ids.contains($0) }) ?? false { layers[i].parent = nil }
+        let position = Dictionary(uniqueKeysWithValues: layers.enumerated().map { ($1.id, $0) })
+        var children: [UUID?: [Layer]] = [:]
+        for layer in layers { children[layer.parent, default: []].append(layer) }
+        var visiting = Set<UUID>()
+        func flatten(_ parent: UUID?) -> [Layer] {
+            let siblings = (children[parent] ?? []).sorted { position[$0.id]! < position[$1.id]! }
+            return siblings.flatMap { layer -> [Layer] in
+                guard layer.isGroup, !visiting.contains(layer.id) else { return [layer] }
+                visiting.insert(layer.id)
+                return flatten(layer.id) + [layer]
+            }
+        }
+        layers = flatten(nil)
+        keepBackgroundAtBottom()
+    }
 
     /// A sprite has at most one background layer, and it stays at the bottom.
     mutating func keepBackgroundAtBottom() {

@@ -212,8 +212,8 @@ extension Sprite {
             let image = composite(frameIndex: index)
             if !image.isEmpty { flat[CelKey(layer: layer.id, frame: frame.id)] = image }
         }
-        // Reference layers aren't part of the image; they stay as they are.
-        layers = layers.filter(\.isReference) + [layer]
+        // Reference layers aren't part of the image; they stay as they are (out of any group).
+        layers = layers.filter(\.isReference).map { var l = $0; l.parent = nil; return l } + [layer]
         if background { layers.insert(layers.removeLast(), at: 0) }
         cels = flat
         links = [:]

@@ -181,8 +181,8 @@ struct EditorView: View {
     /// Visible reference layers, each over the drawing when no drawn layer is above it.
     private func referenceOverlays(_ sprite: Sprite) -> [ReferenceOverlay] {
         sprite.layers.enumerated().compactMap { index, layer in
-            guard layer.isVisible, let reference = layer.reference else { return nil }
-            let above = !sprite.layers[(index + 1)...].contains { !$0.isReference && $0.isVisible }
+            guard sprite.shows(layer), let reference = layer.reference else { return nil }
+            let above = !sprite.layers[(index + 1)...].contains { !$0.isReference && !$0.isGroup && sprite.shows($0) }
             return ReferenceOverlay(id: layer.id, data: reference.data, frame: reference.frame, opacity: layer.opacity, above: above)
         }
     }

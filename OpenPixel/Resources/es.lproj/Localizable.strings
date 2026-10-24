@@ -528,3 +528,17 @@
 "Addition" = "Suma";
 "Subtract" = "Resta";
 "Divide" = "Dividir";
+
+/* Layer groups */
+"Group %d" = "Grupo %d";
+"New group" = "Nuevo grupo";
+"Group" = "Agrupar";
+"Group layers" = "Agrupar capas";
+"Ungroup" = "Desagrupar";
+"Move into group" = "Mover al grupo";
+"Take out of group" = "Sacar del grupo";
+"Duplicate group" = "Duplicar grupo";
+"Delete group and its layers" = "Eliminar el grupo y sus capas";
+"Collapse %@" = "Plegar %@";
+"Expand %@" = "Desplegar %@";
+"“%@” is a group: pick a layer inside it to draw" = "«%@» es un grupo: elige una capa de dentro para dibujar";

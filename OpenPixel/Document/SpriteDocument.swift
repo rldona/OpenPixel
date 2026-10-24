@@ -276,6 +276,8 @@ final class SpriteDocument {
         stopPlayback()
         let before = storage
         change(&storage)
+        // Whatever moved, groups stay right above their children.
+        if storage.layers.contains(where: { $0.isGroup || $0.parent != nil }) { storage.normalizeGroups() }
         guard storage != before else { return }
         registerUndo(DocumentSnapshot(sprite: before, selection: selection))
         fixSelection()
@@ -391,8 +393,9 @@ final class SpriteDocument {
         }
         applyTransformIfNeeded()
         guard let layer = activeLayer else { return }
-        if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return }
-        if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return }
+        if layer.isGroup { notice = L10n.string("“%@” is a group: pick a layer inside it to draw", layer.name); return }
+        if !storage.shows(layer) { notice = L10n.string("Layer “%@” is hidden", layer.name); return }
+        if storage.locks(layer) { notice = L10n.string("Layer “%@” is locked", layer.name); return }
         if layer.isReference { notice = L10n.string("“%@” is a reference layer: use the Move tool to place it", layer.name); return }
         if tool == .text {
             textAnchor = p
@@ -911,21 +914,28 @@ final class SpriteDocument {
         return layerName(n)
     }
 
+    /// A new layer above the active one, in its group (or, on a group, inside it on top).
     func addLayer() {
-        let layer = Layer(name: newLayerName())
+        var layer = Layer(name: newLayerName())
         let index = sprite.layers.firstIndex { $0.id == activeLayerID } ?? sprite.layers.count - 1
-        perform { $0.layers.insert(layer, at: index + 1) }
+        let active = sprite.layers.indices.contains(index) ? sprite.layers[index] : nil
+        layer.parent = active?.isGroup == true ? active?.id : active?.parent
+        perform { $0.layers.insert(layer, at: active?.isGroup == true ? index : index + 1) }
         activeLayerID = layer.id
     }
 
+    /// Deletes a layer; a group goes with everything in it.
     func deleteLayer(_ id: UUID) {
-        guard sprite.layers.count > 1, let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
-        if id == activeLayerID {
-            activeLayerID = sprite.layers[index > 0 ? index - 1 : 1].id
+        let removed = Set([id] + sprite.descendants(of: id).map(\.id))
+        let remaining = sprite.layers.filter { !removed.contains($0.id) }
+        guard remaining.contains(where: { !$0.isGroup }), let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
+        if removed.contains(activeLayerID) {
+            let below = sprite.layers[..<index].last { !removed.contains($0.id) }
+            activeLayerID = (below ?? remaining.first!).id
         }
         perform { s in
-            s.layers.remove(at: index)
-            s.cels = s.cels.filter { $0.key.layer != id }
+            s.layers.removeAll { removed.contains($0.id) }
+            s.cels = s.cels.filter { !removed.contains($0.key.layer) }
             s.normalizeLinks()
         }
     }
@@ -997,6 +1007,8 @@ final class SpriteDocument {
             }
             s.layers[index].isBackground = true
             s.layers[index].opacity = 1
+            // The background lives at the bottom, outside any group.
+            s.layers[index].parent = nil
             s.keepBackgroundAtBottom()
         }
     }
@@ -1006,27 +1018,107 @@ final class SpriteDocument {
         updateLayer(id) { $0.isBackground = false }
     }
 
-    /// Positive `offset` moves the layer up (towards the top of the stack).
+    /// Positive `offset` moves the layer up (towards the top of the stack),
+    /// past its neighbours in the same group; a group moves with its children.
     func moveLayer(_ id: UUID, by offset: Int) {
-        guard let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
-        let target = index + offset
-        guard sprite.layers.indices.contains(target) else { return }
+        guard let layer = sprite.layers.first(where: { $0.id == id }) else { return }
+        let siblings = sprite.layers.filter { $0.parent == layer.parent }
+        guard let index = siblings.firstIndex(where: { $0.id == id }), siblings.indices.contains(index + offset) else { return }
+        let other = siblings[index + offset].id
         perform { s in
-            s.layers.swapAt(index, target)
+            // Swap the two siblings' places; normalizing brings their children along.
+            guard let a = s.layers.firstIndex(where: { $0.id == id }), let b = s.layers.firstIndex(where: { $0.id == other }) else { return }
+            s.layers.swapAt(a, b)
+            s.normalizeGroups()
             s.keepBackgroundAtBottom()
         }
     }
 
-    /// Moves a layer to the stack position currently held by `target` (drag and drop).
+    /// Moves a layer to the stack position currently held by `target` (drag
+    /// and drop), into `target`'s group.
     func moveLayer(_ id: UUID, to target: UUID) {
         guard id != target,
               let from = sprite.layers.firstIndex(where: { $0.id == id }),
-              let to = sprite.layers.firstIndex(where: { $0.id == target }) else { return }
+              let to = sprite.layers.firstIndex(where: { $0.id == target }),
+              !sprite.descendants(of: id).contains(where: { $0.id == target }) else { return }
         perform { s in
-            let layer = s.layers.remove(at: from)
+            var layer = s.layers.remove(at: from)
+            layer.parent = s.layers.first { $0.id == target }?.parent
             s.layers.insert(layer, at: to)
+            s.normalizeGroups()
             s.keepBackgroundAtBottom()
         }
+    }
+
+    // MARK: Groups
+
+    /// Layer > New > Group: a group around the active layer.
+    func groupActiveLayer() { groupLayers([activeLayerID]) }
+
+    /// Puts `ids` in a new group placed where the topmost of them was.
+    func groupLayers(_ ids: [UUID]) {
+        let members = sprite.layers.filter { ids.contains($0.id) && !$0.isBackground }
+        guard let top = members.last else { return }
+        let names = Set(sprite.layers.map(\.name))
+        var n = sprite.layers.filter(\.isGroup).count + 1
+        while names.contains(L10n.string("Group %d", n)) { n += 1 }
+        var group = Layer(name: L10n.string("Group %d", n))
+        group.isGroup = true
+        group.parent = top.parent
+        let memberIDs = Set(members.map(\.id))
+        perform { s in
+            for i in s.layers.indices where memberIDs.contains(s.layers[i].id) { s.layers[i].parent = group.id }
+            guard let index = s.layers.firstIndex(where: { $0.id == top.id }) else { return }
+            s.layers.insert(group, at: index + 1)
+            s.normalizeGroups()
+        }
+        activeLayerID = group.id
+    }
+
+    /// Moves a layer into `group`, on top of its children.
+    func moveIntoGroup(_ id: UUID, group: UUID) {
+        guard id != group, !sprite.descendants(of: id).contains(where: { $0.id == group }) else { return }
+        perform { s in
+            guard let from = s.layers.firstIndex(where: { $0.id == id }) else { return }
+            var layer = s.layers.remove(at: from)
+            layer.parent = group
+            guard let to = s.layers.firstIndex(where: { $0.id == group }) else { return }
+            s.layers.insert(layer, at: to)
+            s.normalizeGroups()
+        }
+    }
+
+    /// Takes a layer out of its group, just above it.
+    func removeFromGroup(_ id: UUID) {
+        guard let layer = sprite.layers.first(where: { $0.id == id }), let groupID = layer.parent else { return }
+        let outer = sprite.layers.first { $0.id == groupID }?.parent
+        perform { s in
+            guard let from = s.layers.firstIndex(where: { $0.id == id }) else { return }
+            var moved = s.layers.remove(at: from)
+            moved.parent = outer
+            guard let to = s.layers.firstIndex(where: { $0.id == groupID }) else { return }
+            s.layers.insert(moved, at: to + 1)
+            s.normalizeGroups()
+        }
+    }
+
+    /// Removes a group, keeping its layers where they are.
+    func ungroup(_ id: UUID) {
+        guard let group = sprite.layers.first(where: { $0.id == id && $0.isGroup }) else { return }
+        let firstChild = sprite.layers.first { $0.parent == id }?.id
+        perform { s in
+            for i in s.layers.indices where s.layers[i].parent == id { s.layers[i].parent = group.parent }
+            s.layers.removeAll { $0.id == id }
+            s.normalizeGroups()
+        }
+        if activeLayerID == id, let firstChild { activeLayerID = firstChild }
+    }
+
+    /// Shows or hides a group's children in the timeline. A view setting: not an undo step.
+    func toggleExpanded(_ id: UUID) {
+        guard let index = storage.layers.firstIndex(where: { $0.id == id }) else { return }
+        storage.layers[index].isExpanded.toggle()
+        revision &+= 1
     }
 
     private func updateLayer(_ id: UUID, _ change: (inout Layer) -> Void) {
@@ -1192,7 +1284,7 @@ final class SpriteDocument {
     func replaceColor(_ from: PixelColor, with to: PixelColor, tolerance: Int, everyCel: Bool) -> Int {
         applyTransformIfNeeded()
         let mask = selection
-        let editable = Set(sprite.layers.filter { !$0.isLocked }.map(\.id))
+        let editable = Set(sprite.layers.filter { !sprite.locks($0) }.map(\.id))
         let keys = everyCel ? sprite.cels.keys.filter { editable.contains($0.layer) } : (editable.contains(activeLayerID) ? [activeCelKey] : [])
         guard !keys.isEmpty else {
             notice = L10n.string("The layer is locked")
@@ -1350,7 +1442,7 @@ extension SpriteDocument {
     /// frame, and all its pixels there. The background layer is skipped: it covers everything.
     private func element(at p: PixelPoint) -> (layer: UUID, mask: SelectionMask)? {
         let frame = activeFrame.id
-        for layer in storage.layers.reversed() where layer.isVisible && !layer.isBackground && !layer.isLocked {
+        for layer in storage.layers.reversed() where storage.shows(layer) && !layer.isBackground && !storage.locks(layer) {
             guard let cel = storage.cel(layer: layer.id, frame: frame), cel.contains(p), cel[p].a != 0 else { continue }
             return (layer.id, SelectionMask.opaquePixels(of: cel))
         }
@@ -1362,10 +1454,10 @@ extension SpriteDocument {
     /// layers are left out: they won't move, so they shouldn't widen the selection.
     private var marqueeScope: (layers: [Layer], frames: [UUID]) {
         if let r = timelineRange {
-            return (storage.layers.filter { r.layers.contains($0.id) && $0.isVisible && !$0.isBackground && !$0.isLocked },
+            return (storage.layers.filter { r.layers.contains($0.id) && storage.shows($0) && !$0.isBackground && !storage.locks($0) },
                     r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil })
         }
-        return (storage.layers.filter { $0.isVisible && !$0.isBackground && !$0.isLocked },
+        return (storage.layers.filter { storage.shows($0) && !$0.isBackground && !storage.locks($0) },
                 selectionAllFrames ? storage.frames.map(\.id) : [activeFrame.id])
     }
 
@@ -1429,8 +1521,9 @@ extension SpriteDocument {
 
     private var activeLayerEditable: Bool {
         guard let layer = activeLayer else { return false }
-        if !layer.isVisible { notice = L10n.string("Layer “%@” is hidden", layer.name); return false }
-        if layer.isLocked { notice = L10n.string("Layer “%@” is locked", layer.name); return false }
+        if layer.isGroup { notice = L10n.string("“%@” is a group: pick a layer inside it to draw", layer.name); return false }
+        if !storage.shows(layer) { notice = L10n.string("Layer “%@” is hidden", layer.name); return false }
+        if storage.locks(layer) { notice = L10n.string("Layer “%@” is locked", layer.name); return false }
         if layer.isReference { notice = L10n.string("“%@” is a reference layer: use the Move tool to place it", layer.name); return false }
         return true
     }
@@ -1458,7 +1551,7 @@ extension SpriteDocument {
         } else {
             return activeLayerEditable ? [activeCelKey] : []
         }
-        let editable = Set(storage.layers.filter { $0.isVisible && !$0.isLocked }.map(\.id))
+        let editable = Set(storage.layers.filter { storage.shows($0) && !storage.locks($0) }.map(\.id))
         let result = keys.filter { editable.contains($0.layer) }
         if result.isEmpty { notice = L10n.string("The layers are hidden or locked") }
         return result
@@ -1689,7 +1782,7 @@ extension SpriteDocument {
             return []
         }
         let active = activeCelKey, activeGroup = storage.links[active]
-        let locked = Set(storage.layers.filter(\.isLocked).map(\.id))
+        let locked = Set(storage.layers.filter { storage.locks($0) }.map(\.id))
         var result: [(key: CelKey, linked: [CelKey])] = []
         var byGroup: [UUID: Int] = [:]
         for key in keys where key != active && storage.cels[key] != nil && !locked.contains(key.layer) {
@@ -2268,9 +2361,18 @@ extension SpriteDocument {
     /// Copies a layer with its cels above itself (Layer > Duplicate).
     func duplicateLayer(_ id: UUID) {
         guard let index = sprite.layers.firstIndex(where: { $0.id == id }) else { return }
+        // A group is copied with everything in it, the copies inside the new group.
+        let ids = Set([id] + sprite.descendants(of: id).map(\.id))
         var placed: [UUID] = []
-        perform { placed = $0.moveLayers([id], to: index, copy: true) }
-        if let copy = placed.first { activeLayerID = copy }
+        perform { s in
+            let originals = s.layers.filter { ids.contains($0.id) }.map(\.id)
+            placed = s.moveLayers(ids, to: index, copy: true)
+            let renamed = Dictionary(uniqueKeysWithValues: zip(originals, placed))
+            for i in s.layers.indices where placed.contains(s.layers[i].id) {
+                if let p = s.layers[i].parent, let copy = renamed[p] { s.layers[i].parent = copy }
+            }
+        }
+        if let copy = placed.last { activeLayerID = copy }
     }
 
     /// Adds a reference layer with the image in `data` (PNG, JPEG, HEIC…),
@@ -2332,7 +2434,9 @@ extension SpriteDocument {
     /// frame, with its opacity, and disappears.
     func mergeDown(_ id: UUID) {
         guard let index = sprite.layers.firstIndex(where: { $0.id == id }), index > 0,
-              !sprite.layers[index].isReference, !sprite.layers[index - 1].isReference else { return }
+              !sprite.layers[index].isReference, !sprite.layers[index - 1].isReference,
+              !sprite.layers[index].isGroup, !sprite.layers[index - 1].isGroup,
+              sprite.layers[index].parent == sprite.layers[index - 1].parent else { return }
         let lower = sprite.layers[index - 1].id
         perform { s in s.mergeDown(at: index) }
         activeLayerID = lower

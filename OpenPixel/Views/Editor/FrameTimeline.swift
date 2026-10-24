@@ -85,7 +85,12 @@ struct FrameTimeline: View {
         }
     }
 
-    private var layersTopFirst: [Layer] { document.sprite.layers.reversed() }
+    /// Layers as the timeline lists them: top first, without the ones in collapsed groups.
+    private var layersTopFirst: [Layer] {
+        let sprite = document.sprite
+        guard sprite.hasGroups else { return sprite.layers.reversed() }
+        return sprite.layers.reversed().filter { layer in sprite.ancestors(of: layer).allSatisfy(\.isExpanded) }
+    }
 
     /// The height that shows every layer without scrolling (controls, tags, frame numbers and rows).
     static func fittingHeight(for sprite: Sprite) -> CGFloat {
@@ -172,6 +177,11 @@ struct FrameTimeline: View {
                 Rectangle().fill(Theme.border).frame(width: 1, height: 24).padding(.horizontal, 3)
                 if range?.kind == .layers {
                     rangeButton("Duplicate layers", "plus.square.on.square") { document.duplicateRangeLayers() }
+                    rangeButton("Group layers", "folder.badge.plus") {
+                        if let ids = range?.layers { document.groupLayers(Array(ids)) }
+                        document.isSelectingRange = false
+                        document.timelineRange = nil
+                    }
                     rangeButton("Delete layers", "trash") { document.deleteRangeLayers() }
                 } else {
                     rangeButton("Duplicate frames", "plus.square.on.square") { document.duplicateRangeFrames() }
@@ -429,6 +439,7 @@ struct FrameTimeline: View {
                 timelineOptions
                 Menu {
                     Button("New layer", systemImage: "square.3.layers.3d") { document.addLayer() }
+                    Button("New group", systemImage: "folder.badge.plus") { document.groupActiveLayer() }
                     Section("New reference layer") {
                         Button("From Photos", systemImage: "photo.on.rectangle") { pickingReferencePhoto = true }
                         Button("From Files", systemImage: "folder") { importingReferenceFile = true }
@@ -557,7 +568,7 @@ struct FrameTimeline: View {
             Button { document.toggleVisibility(layer.id) } label: {
                 Image(systemName: layer.isVisible ? "eye" : "eye.slash")
                     .frame(width: 34, height: rowHeight)
-                    .foregroundStyle(layer.isVisible ? Theme.text : Theme.muted)
+                    .foregroundStyle(document.sprite.shows(layer) ? Theme.text : Theme.muted)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isVisible ? Text("Hide \(layer.name)") : Text("Show \(layer.name)"))
@@ -574,14 +585,17 @@ struct FrameTimeline: View {
                     .frame(width: 26, height: rowHeight)
             }
             .buttonStyle(.plain)
-            .opacity(layer.isReference ? 0 : 1)
-            .disabled(layer.isReference)
+            .opacity(layer.isReference || layer.isGroup ? 0 : 1)
+            .disabled(layer.isReference || layer.isGroup)
             .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
             .accessibilityHint(Text("New frames link this layer's cel instead of copying it"))
             Button {
                 if document.isSelectingRange { document.extendRange(layerRow: layer.id) } else { document.activeLayerID = layer.id }
             } label: {
                 HStack(spacing: 4) {
+                    if layer.isGroup {
+                        Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(Theme.muted)
+                    }
                     if layer.isReference {
                         Image(systemName: "photo").font(.system(size: 11)).foregroundStyle(Theme.muted)
                     }
@@ -601,6 +615,22 @@ struct FrameTimeline: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .overlay(alignment: .leading) {
+                // Groups fold and unfold with the chevron to the left of their name.
+                if layer.isGroup {
+                    Button { document.toggleExpanded(layer.id) } label: {
+                        Image(systemName: layer.isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Theme.muted)
+                            .frame(width: 20, height: rowHeight)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .offset(x: -16)
+                    .accessibilityLabel(layer.isExpanded ? Text("Collapse \(layer.name)") : Text("Expand \(layer.name)"))
+                }
+            }
+            .padding(.leading, CGFloat(document.sprite.depth(of: layer)) * 14 + (layer.isGroup ? 12 : 0))
             // Double tap renames, as double-click does in Aseprite.
             .simultaneousGesture(TapGesture(count: 2).onEnded {
                 guard !document.isSelectingRange else { return }
@@ -651,7 +681,28 @@ struct FrameTimeline: View {
                 Button("Convert to background", systemImage: "square.3.layers.3d.bottom.filled") { document.convertToBackground(layer.id) }
             }
             Divider()
-            Button("Duplicate layer", systemImage: "plus.square.on.square") { document.duplicateLayer(layer.id) }
+            if layer.isGroup {
+                Button("Ungroup", systemImage: "folder.badge.minus") { document.ungroup(layer.id) }
+            } else if !layer.isBackground {
+                Button("Group", systemImage: "folder.badge.plus") { document.groupLayers([layer.id]) }
+            }
+            if !layer.isBackground {
+                let groups = document.sprite.layers.filter { group in
+                    group.isGroup && group.id != layer.id && group.id != layer.parent
+                        && !document.sprite.descendants(of: layer.id).contains { $0.id == group.id }
+                }
+                if !groups.isEmpty {
+                    Menu("Move into group", systemImage: "folder") {
+                        ForEach(groups.reversed()) { group in
+                            Button(group.name) { document.moveIntoGroup(layer.id, group: group.id) }
+                        }
+                    }
+                }
+                if layer.parent != nil {
+                    Button("Take out of group", systemImage: "arrow.up.left") { document.removeFromGroup(layer.id) }
+                }
+            }
+            Button(layer.isGroup ? LocalizedStringKey("Duplicate group") : LocalizedStringKey("Duplicate layer"), systemImage: "plus.square.on.square") { document.duplicateLayer(layer.id) }
             Button("Merge down", systemImage: "arrow.down.to.line") { document.mergeDown(layer.id) }
                 .disabled(!canMergeDown(layer))
             Button("Flatten", systemImage: "square.stack.3d.down.forward") { document.flatten() }
@@ -672,14 +723,15 @@ struct FrameTimeline: View {
             Button("Move down", systemImage: "arrow.down") { document.moveLayer(layer.id, by: -1) }
                 .disabled(layer.isBackground || document.sprite.layers.first.map { $0.isBackground && document.sprite.layers.count > 1 && document.sprite.layers[1].id == layer.id } == true)
             Divider()
-            Button("Delete layer", systemImage: "trash", role: .destructive) { document.deleteLayer(layer.id) }
+            Button(layer.isGroup ? LocalizedStringKey("Delete group and its layers") : LocalizedStringKey("Delete layer"), systemImage: "trash", role: .destructive) { document.deleteLayer(layer.id) }
                 .disabled(document.sprite.layers.count <= 1)
         }
     }
 
     private func canMergeDown(_ layer: Layer) -> Bool {
         guard let index = document.sprite.layers.firstIndex(where: { $0.id == layer.id }), index > 0 else { return false }
-        return !layer.isReference && !document.sprite.layers[index - 1].isReference
+        let lower = document.sprite.layers[index - 1]
+        return !layer.isReference && !lower.isReference && !layer.isGroup && !lower.isGroup && layer.parent == lower.parent
     }
 
     private func loadReferencePhoto() {
@@ -828,7 +880,13 @@ struct FrameTimeline: View {
             VStack(alignment: .leading, spacing: 0) {
             ForEach(layersTopFirst) { layer in
                 HStack(spacing: 0) {
-                    if layer.isReference {
+                    if layer.isGroup {
+                        Rectangle()
+                            .fill(Theme.chip.opacity(0.5))
+                            .frame(width: CGFloat(frames.count) * celWidth, height: rowHeight)
+                            .contentShape(Rectangle())
+                            .onTapGesture { document.activeLayerID = layer.id }
+                    } else if layer.isReference {
                         // A reference image is the same in every frame: one strip, no cels.
                         RoundedRectangle(cornerRadius: 7)
                             .fill(Theme.chip)
