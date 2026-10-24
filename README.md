@@ -16,7 +16,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
   - Deshacer y rehacer (hasta 100 pasos).
 - **Timeline** al estilo Aseprite
   - Capas: mostrar u ocultar, bloquear, renombrar, opacidad, reordenar y eliminar.
-  - Frames: duplicar o crear vacío, mover, eliminar y fijar la duración en ms de cada uno.
+  - Frames: «+ Frame» duplica el actual y, si lo mantienes pulsado, ofrece un frame vacío. También se pueden mover, eliminar y fijar la duración en ms de cada uno.
   - Onion skin con el frame anterior y el siguiente.
   - Reproducción de la animación.
 - **Color**: color principal y secundario, selector de color del sistema y paleta editable.
@@ -44,7 +44,8 @@ Con teclado se usan los atajos de Aseprite:
 | `G` | Cubo |
 | `I` | Cuentagotas |
 | `X` | Intercambiar colores |
-| `⌥N` | Nuevo frame |
+| `⌥N` | Nuevo frame (duplica el actual) |
+| `⌥⇧N` | Nuevo frame vacío |
 | `⇧N` | Nueva capa |
 | `↩` | Reproducir |
 | `←` `→` | Frame anterior / siguiente |

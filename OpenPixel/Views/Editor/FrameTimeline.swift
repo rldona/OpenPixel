@@ -54,16 +54,34 @@ struct FrameTimeline: View {
 
             Rectangle().fill(Theme.border).frame(width: 1, height: 24).padding(.horizontal, 6)
 
-            Button { document.addFrame() } label: {
+            // Tap duplicates the active frame (Aseprite's New Frame); long press offers an empty one.
+            Menu {
+                Button("Duplicar frame actual", systemImage: "plus.square.on.square") { document.addFrame() }
+                Button("Frame vacío", systemImage: "square.dashed") { document.addFrame(empty: true) }
+            } label: {
                 Label("Frame", systemImage: "plus")
                     .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Theme.text)
                     .fixedSize()
                     .padding(.horizontal, 10)
                     .frame(height: 36)
                     .background(Color(hex: 0x26262D), in: RoundedRectangle(cornerRadius: 9))
+            } primaryAction: {
+                document.addFrame()
             }
-            .buttonStyle(.plain)
-            .keyboardShortcut("n", modifiers: .option)
+            .menuIndicator(.hidden)
+            .accessibilityHint("Mantén pulsado para crear un frame vacío")
+            .background {
+                // Aseprite shortcuts: ⌥N new frame, ⌥⇧N new empty frame.
+                Group {
+                    Button("Nuevo frame") { document.addFrame() }
+                        .keyboardShortcut("n", modifiers: .option)
+                    Button("Nuevo frame vacío") { document.addFrame(empty: true) }
+                        .keyboardShortcut("n", modifiers: [.option, .shift])
+                }
+                .opacity(0)
+                .accessibilityHidden(true)
+            }
             IconButton(systemImage: "trash", label: "Eliminar frame", size: 36) {
                 document.deleteFrame(at: document.activeFrameIndex)
             }
