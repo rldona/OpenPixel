@@ -1508,7 +1508,7 @@ private struct LayerThumbnail: View {
     var body: some View {
         // `sprite` reads `revision`, so this follows every committed change.
         let sprite = document.sprite
-        let cel = sprite.frames.indices.contains(document.activeFrameIndex)
+        let cel = document.isPlaying ? cache.cel : sprite.frames.indices.contains(document.activeFrameIndex)
             ? sprite.cel(layer: layerID, frame: sprite.frames[document.activeFrameIndex].id) : nil
         ZStack {
             Checkerboard(cell: 3)
@@ -1526,6 +1526,9 @@ private struct LayerThumbnail: View {
     }
 
     private func image(for cel: PixelImage?, ratio: PixelRatio) -> CGImage? {
+        // While playing, thumbnails hold still: redrawing every layer's on every
+        // frame costs more than it shows.
+        if document.isPlaying, cache.cel != nil { return cache.image }
         guard let cel else { return nil }
         // Comparing an untouched cel is cheap: its pixels still share storage.
         if cache.cel != cel {
