@@ -445,44 +445,6 @@ private struct ZoomMenu: View {
     }
 }
 
-/// The primary color over the secondary, in the rail: tap swaps them, touch
-/// and hold edits the primary.
-private struct RailColors: View {
-    @Bindable var document: SpriteDocument
-    @State private var editing = false
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            swatch(document.secondary).offset(x: 12, y: 12)
-            swatch(document.primary)
-        }
-        .frame(width: 40, height: 40, alignment: .topLeading)
-        .contentShape(Rectangle())
-        .onTapGesture { document.swapColors() }
-        .onLongPressGesture { editing = true }
-        .popover(isPresented: $editing) {
-            ColorEditor(color: $document.primary, palette: document.structure.palette) { document.addToPalette($0) }
-                .presentationCompactAdaptation(.popover)
-        }
-        .accessibilityElement()
-        .accessibilityLabel(Text("Colors"))
-        .accessibilityValue(Text(verbatim: "\(document.primary.hex), \(document.secondary.hex)"))
-        .accessibilityHint(Text("Tap to swap them, touch and hold to edit the primary color"))
-        .accessibilityAddTraits(.isButton)
-    }
-
-    private func swatch(_ color: PixelColor) -> some View {
-        ZStack {
-            Checkerboard(cell: 4)
-            color.color
-        }
-        .frame(width: 28, height: 28)
-        .clipShape(RoundedRectangle(cornerRadius: 7))
-        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.strongBorder))
-        .overlay(RoundedRectangle(cornerRadius: 7).inset(by: 1).strokeBorder(Theme.panel, lineWidth: 1))
-    }
-}
-
 /// A vertical slider for the rail (Procreate's brush size and opacity):
 /// drag anywhere on it; its value shows in a bubble beside it while dragging.
 private struct RailSlider: View {
@@ -553,7 +515,6 @@ struct ToolRail: View {
             symmetryButton
             scriptsButton
             Spacer(minLength: 8)
-            RailColors(document: document)
             // Brush size and opacity, dragged like Procreate's side sliders.
             if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
                 HStack(spacing: 6) {

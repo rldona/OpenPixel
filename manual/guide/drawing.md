@@ -16,7 +16,6 @@ The tools live in the rail on the left. A small triangle in a button's corner me
 
 Below them are **symmetry** and the **scripts** menu ({ }). Then:
 
-- the **colors**: the primary over the secondary. Tap to swap them; touch and hold to edit the primary;
 - two **sliders**, brush **size** and **opacity**, like Procreate's: drag them up or down and the value shows beside them. Size is dimmed for tools without a brush or with a custom brush;
 - **undo** and **redo**, at the bottom.
 

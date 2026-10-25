@@ -16,7 +16,6 @@ Las herramientas están en la barra de la izquierda. Un triangulito en la esquin
 
 Debajo están la **simetría** y el menú de **scripts** ({ }). Después:
 
-- los **colores**: el principal sobre el secundario. Toca para intercambiarlos; mantén pulsado para editar el principal;
 - dos **deslizadores**, **tamaño** del pincel y **opacidad**, como los de Procreate: arrástralos arriba o abajo y el valor aparece al lado. El de tamaño se atenúa con herramientas sin pincel o con un pincel propio;
 - **deshacer** y **rehacer**, abajo del todo.
 
