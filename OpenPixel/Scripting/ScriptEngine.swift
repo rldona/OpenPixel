@@ -10,7 +10,12 @@ import Foundation
 final class ScriptEngine {
     struct Failure: Error {
         let message: String
-        init(_ message: String) { self.message = message }
+        /// The message already says where (an error from another file the script loaded).
+        var isLocated = false
+        init(_ message: String, isLocated: Bool = false) {
+            self.message = message
+            self.isLocated = isLocated
+        }
 
         static func unsupported(_ what: String) -> Failure {
             Failure(L10n.string("%@ isn't available in OpenPixel yet", what))
@@ -23,6 +28,13 @@ final class ScriptEngine {
         case own(Int)
     }
 
+    enum SelectionRef: Hashable {
+        /// `sprite.selection`: changing it changes the sprite's.
+        case sprite
+        /// `Selection()`.
+        case own(Int)
+    }
+
     /// What a userdata handle stands for; the handle stores its index in `objects`.
     enum Object: Hashable {
         case sprite
@@ -32,6 +44,10 @@ final class ScriptEngine {
         case image(ImageRef)
         case dialog(Int)
         case palette
+        case selection(SelectionRef)
+        /// `app.events`, or `sprite.events` when `sprite` is true.
+        case events(sprite: Bool)
+        case timer(Int)
 
         var typeName: String {
             switch self {
@@ -42,10 +58,13 @@ final class ScriptEngine {
             case .image: "Image"
             case .dialog: "Dialog"
             case .palette: "Palette"
+            case .selection: "Selection"
+            case .events: "Events"
+            case .timer: "Timer"
             }
         }
 
-        static let typeNames = ["Sprite", "Layer", "Cel", "Frame", "Image", "Dialog", "Palette"]
+        static let typeNames = ["Sprite", "Layer", "Cel", "Frame", "Image", "Dialog", "Palette", "Selection", "Events", "Timer"]
     }
 
     /// A C function's result that asks `luaCall` to yield (dlg:show() waiting).
@@ -55,11 +74,15 @@ final class ScriptEngine {
 
     let name: String
     private(set) weak var document: SpriteDocument?
-    nonisolated(unsafe) private let L: Lua.State
+    nonisolated(unsafe) let L: Lua.State
     /// The script's main chunk runs as a coroutine, so `dlg:show()` can wait.
     private var main: Lua.State?
     private var mainRef = LUA_NOREF
-    private var mainFinished = false
+    var mainFinished = false
+    /// Running `init` only to list an extension's commands: nothing is kept.
+    var discovering = false
+    /// How many errors it reported, so a failing timer can stop.
+    private(set) var failureCount = 0
     /// The sprite as the script sees it during a run; committed when the run ends.
     private var work: Sprite?
     var activeLayerID = UUID()
@@ -71,10 +94,43 @@ final class ScriptEngine {
     /// The dialog the main chunk waits on.
     private weak var waitingOn: ScriptDialog?
     nonisolated(unsafe) var deadline = Date.distantFuture
+    /// The sprite's selection as the script sees it during a run; nil is no selection.
+    var workSelection: SelectionMask?
+    var ownSelections: [SelectionMask] = []
+    /// Cels the script gave an image of another size, or moved (`cel.image = `, `cel.position = `).
+    /// OpenPixel's cels cover the whole sprite: they're flattened back when the run ends.
+    var celShapes: [CelKey: (image: PixelImage, x: Int, y: Int)] = [:]
+    /// `app.events:on` and `sprite.events:on` listeners.
+    struct Listener {
+        let id: Int
+        let event: String
+        let onSprite: Bool
+        let function: Int32
+    }
+    var listeners: [Listener] = []
+    var nextListenerID = 1
+    struct ScriptTimer {
+        var interval: Double
+        var onTick: Int32
+        var timer: Timer?
+    }
+    var timers: [ScriptTimer] = []
+    /// Runs inside runs (a dialog closing inside a callback) commit with the outermost one.
+    private var depth = 0
+    /// The run answers a change the user made (a stroke): its changes join that undo step.
+    private var mergesWithLastStep = false
+    /// Where `dofile` reads from: the extension's folder, or the scripts folder.
+    let folder: URL?
+    /// An extension's commands (`plugin:newCommand`) and its saved preferences.
+    var commands: [(id: String, title: String, onClick: Int32)] = []
+    var preferencesReference: Int32?
+    let preferencesKey: String?
 
-    init(name: String, document: SpriteDocument) {
+    init(name: String, document: SpriteDocument, folder: URL? = nil, preferencesKey: String? = nil) {
         self.name = name
         self.document = document
+        self.folder = folder
+        self.preferencesKey = preferencesKey
         L = luaL_newstate()
         // Only the libraries that can't reach outside the sprite (Vendor/Lua/README.md).
         let libraries: [(String, lua_CFunction)] = [
@@ -95,6 +151,7 @@ final class ScriptEngine {
     }
 
     deinit {
+        for timer in timers { timer.timer?.invalidate() }
         lua_close(L)
     }
 
@@ -106,7 +163,7 @@ final class ScriptEngine {
     }
 
     /// Loads a chunk onto `L`'s stack: nil, or the syntax error.
-    private func load(_ source: String, chunkName: String, into state: Lua.State? = nil) -> String? {
+    func load(_ source: String, chunkName: String, into state: Lua.State? = nil) -> String? {
         let state = state ?? L
         let bytes = Array(source.utf8)
         let status = bytes.withUnsafeBufferPointer { buffer in
@@ -150,29 +207,42 @@ final class ScriptEngine {
         finishIfDone()
     }
 
-    /// A dialog callback, as its own run.
-    func call(_ reference: Int32) {
+    /// A callback (dialog, event, timer), as its own run. `argument` pushes its one argument.
+    func call(_ reference: Int32, merging: Bool = false, argument: ((Lua.State) -> Void)? = nil) {
         begin()
+        if merging && depth == 1 { mergesWithLastStep = true }
         lua_rawgeti(L, Lua.registryIndex, lua_Integer(reference))
-        if let error = Lua.protectedCall(L, arguments: 0, results: 0) { report(error) }
+        argument?(L)
+        if let error = Lua.protectedCall(L, arguments: argument == nil ? 0 : 1, results: 0) { report(error) }
         end()
     }
 
-    private func begin() {
-        deadline = Date().addingTimeInterval(Self.timeLimit)
+    var isRunning: Bool { depth > 0 }
+
+    func begin() {
+        if depth == 0 { deadline = Date().addingTimeInterval(Self.timeLimit) }
+        depth += 1
     }
 
-    private func end() {
+    func end() {
+        depth -= 1
+        guard depth == 0 else { return }
         deadline = .distantFuture
         commit()
+        mergesWithLastStep = false
+        savePreferences()
     }
 
-    private func report(_ message: String) {
+    func report(_ message: String) {
+        failureCount += 1
+        guard !discovering else { return }
         document?.scriptMessage = ScriptMessage(title: L10n.string("“%@” stopped", name), text: message)
     }
 
-    private func finishIfDone() {
-        guard mainFinished, !allDialogs.contains(where: \.isOpen) else { return }
+    func finishIfDone() {
+        // Listeners and timers keep it alive, as an open dialog does (Magic Pencil has all three).
+        guard mainFinished, !allDialogs.contains(where: \.isOpen), listeners.isEmpty, !timers.contains(where: { $0.timer != nil }) else { return }
+        savePreferences()
         if mainRef != LUA_NOREF { luaL_unref(L, Lua.registryIndex, mainRef) }
         mainRef = LUA_NOREF
         main = nil
@@ -183,6 +253,11 @@ final class ScriptEngine {
     func stop() {
         for dialog in allDialogs where dialog.isOpen { dialog.isOpen = false }
         document?.scriptDialogs.removeAll { $0.engine === self }
+        listeners = []
+        for i in timers.indices {
+            timers[i].timer?.invalidate()
+            timers[i].timer = nil
+        }
         mainFinished = true
         finishIfDone()
     }
@@ -194,6 +269,7 @@ final class ScriptEngine {
         if let work { return work }
         guard let document else { throw Failure(L10n.string("The sprite was closed")) }
         work = document.sprite
+        workSelection = document.selection
         activeLayerID = document.activeLayerID
         activeFrameIndex = document.activeFrameIndex
         return work!
@@ -206,9 +282,16 @@ final class ScriptEngine {
 
     /// Hands the run's changes to the document as one undo step.
     func commit() {
-        guard let sprite = work else { return }
+        guard var sprite = work else { return }
+        for (key, shape) in celShapes where sprite.cels[key] != nil {
+            var image = PixelImage(width: sprite.width, height: sprite.height)
+            image.pasteClipped(shape.image, at: shape.x, shape.y)
+            sprite.cels[key] = image
+        }
+        celShapes = [:]
         work = nil
-        document?.applyScript(sprite, activeLayer: activeLayerID, frameIndex: activeFrameIndex)
+        document?.applyScript(sprite, selection: workSelection, activeLayer: activeLayerID, frameIndex: activeFrameIndex,
+                              merging: mergesWithLastStep)
     }
 
     func undo() {
@@ -334,7 +417,8 @@ final class ScriptEngine {
         lua_setmetatable(L, -2)
         Lua.setGlobal(L, "app")
 
-        for (name, function) in [("Color", LuaAPI.newColor), ("Image", LuaAPI.newImage), ("Dialog", LuaAPI.newDialog)] {
+        for (name, function) in [("Color", LuaAPI.newColor), ("Image", LuaAPI.newImage), ("Dialog", LuaAPI.newDialog),
+                                 ("Timer", LuaAPI.newTimer), ("Selection", LuaAPI.newSelection), ("dofile", LuaAPI.doFile)] {
             Lua.pushFunction(L, function)
             Lua.setGlobal(L, name)
         }
@@ -357,6 +441,8 @@ func luaCall(_ L: OpaquePointer?, _ body: @MainActor (ScriptEngine, Lua.State) t
         let engine = ScriptEngine.engine(of: L)
         do {
             return try body(engine, L)
+        } catch let failure as ScriptEngine.Failure where failure.isLocated {
+            Lua.pushString(L, failure.message)
         } catch {
             // With the script's line in front, as luaL_error does.
             luaL_where(L, 1)

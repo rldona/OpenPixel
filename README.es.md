@@ -61,7 +61,7 @@ Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo 
 - **Timeline avanzado**: mover y copiar bloques de cels, frames o capas arrastrando, también más allá del último frame (un interruptor junto a «Listo» elige mover o copiar); copiar y pegar entre sprites; sección de bucle; tags y duración sobre los frames seleccionados; enfocar una banda de tags para reproducir solo sus tags; opacidad por cel; duplicar capa; doble toque para renombrar; primer frame numerado desde 0 o 1; y los atajos de Aseprite `,` `.` y ⇧X.
 - **Preferencias**: inglés (por defecto) o español, tema claro, oscuro o el del sistema, y el color de acento (brasa, azul, verde, morado o rosa). Preferencias del editor como las de [Aseprite](https://www.aseprite.org/docs/preferences/): tamaño y colores del fondo transparente, colores de la cuadrícula, alfa en 0–255 o %, rebobinar al parar, pasos de deshacer, qué hacen el dedo, el doble toque y el apretón del Pencil, y una disposición para zurdos (herramientas a la derecha).
 - **Scripts** (los de [Aseprite](https://www.aseprite.org/docs/scripting/), Lua 5.4): añade scripts `.lua` desde Archivos y ejecútalos desde … > Scripts. Ven una parte de la API de Aseprite —`app`, `Sprite`, `Layer`, `Cel`, `Frame`, `Image`, `Color`, `Palette`, `Point`, `Rectangle` y `Dialog`, que se muestra como una ventana flotante—, así que scripts de píxeles como [Isometric Box](https://darkwark.itch.io/isobox-for-aseprite) funcionan tal cual. Cada ejecución es un paso de deshacer. Los scripts no pueden acceder a archivos ni a la red, y si uno necesita algo de la API que OpenPixel no tiene, se detiene y dice qué es.
-- **Extensiones** (las de [Aseprite](https://www.aseprite.org/docs/extensions/)): los paquetes `.aseprite-extension` añaden sus paletas y matrices de tramado.
+- **Extensiones** (las de [Aseprite](https://www.aseprite.org/docs/extensions/)): los paquetes `.aseprite-extension` añaden sus paletas, matrices de tramado y scripts. Los comandos de los plugins (`plugin:newCommand`) aparecen en … > Scripts, y los plugins pueden escuchar eventos (`sprite.events`, `app.events`) y usar temporizadores, selecciones y `plugin.preferences`, así que extensiones como [Magic Pencil](https://github.com/thkwznk/aseprite-scripts/tree/master/Magic%20Pencil) funcionan: lo que cambian tras un trazo entra en el mismo paso de deshacer que el trazo.
 - Edición a pantalla completa, sin barra de estado, y modo enfoque (toque con cuatro dedos o Tab) que deja solo el lienzo.
 - **Rendimiento**: lienzo con capas de GPU y repintado parcial; los trazos van fluidos también en 256×256.
 
@@ -138,7 +138,7 @@ Vendor/Lua/    Lua 5.4 (MIT), solo el núcleo y las librerías seguras
 ## Próximos pasos
 
 - Modos de color indexado y escala de grises
-- Más API de scripts de Aseprite, y extensiones que añaden comandos (`plugin:newCommand`)
+- Más API de scripts de Aseprite (tags, slices, tilesets, más `app.command`)
 
 ## Contribuir
 

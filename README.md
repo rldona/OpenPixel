@@ -75,7 +75,7 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 - **Autosave** to `Documents/Sprites` (visible in the Files app), as readable `.openpixel` JSON. Saving runs in the background.
 - **Preferences**: English (default) or Spanish, light, dark or system appearance, and the accent color (ember, blue, green, purple or pink). Editor preferences after [Aseprite's](https://www.aseprite.org/docs/preferences/): checkerboard size and colors, grid colors, alpha shown as 0–255 or %, rewind on stop, undo steps, what a finger, a Pencil double tap and a squeeze do, and a mirrored layout for left-handers (tools on the right).
 - **Scripts** ([Aseprite's](https://www.aseprite.org/docs/scripting/), Lua 5.4): add `.lua` scripts from Files and run them from … > Scripts. They see a subset of Aseprite's API — `app`, `Sprite`, `Layer`, `Cel`, `Frame`, `Image`, `Color`, `Palette`, `Point`, `Rectangle` and `Dialog`, shown as a floating window — so pixel scripts like [Isometric Box](https://darkwark.itch.io/isobox-for-aseprite) run as they are. Each run is one undo step. Scripts can't reach files or the network, and a script that needs a part of the API OpenPixel lacks stops and names it.
-- **Extensions** ([Aseprite's](https://www.aseprite.org/docs/extensions/)): `.aseprite-extension` packages add their palettes and dithering matrices.
+- **Extensions** ([Aseprite's](https://www.aseprite.org/docs/extensions/)): `.aseprite-extension` packages add their palettes, dithering matrices and scripts. Plugin commands (`plugin:newCommand`) show in … > Scripts, and plugins can listen to events (`sprite.events`, `app.events`), use timers, selections and `plugin.preferences`, so extensions like [Magic Pencil](https://github.com/thkwznk/aseprite-scripts/tree/master/Magic%20Pencil) work: what they change after a stroke joins that stroke's undo step.
 - Full-screen editing with no status bar, and a focus mode that leaves only the canvas.
 
 ## Performance
@@ -181,7 +181,7 @@ Contributions are welcome. Please write code, comments, commit messages, issues 
 ## Roadmap
 
 - Indexed and grayscale color modes
-- More of Aseprite's scripting API, and extensions that add commands (`plugin:newCommand`)
+- More of Aseprite's scripting API (tags, slices, tilesets, more `app.command`s)
 
 ## License
 

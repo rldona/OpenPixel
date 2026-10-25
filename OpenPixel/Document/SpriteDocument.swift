@@ -78,18 +78,26 @@ final class SpriteDocument {
     /// Changing the active cel drops any floating pixels first, like Aseprite.
     var activeLayerID: UUID {
         willSet { if newValue != activeLayerID { finishPendingShape() } }
-        didSet { if oldValue != activeLayerID { applyTransformIfNeeded() } }
+        didSet {
+            guard oldValue != activeLayerID else { return }
+            applyTransformIfNeeded()
+            notifyScripts(.site)
+        }
     }
     var activeFrameIndex = 0 {
         willSet { if newValue != activeFrameIndex { finishPendingShape() } }
-        didSet { if oldValue != activeFrameIndex { applyTransformIfNeeded() } }
+        didSet {
+            guard oldValue != activeFrameIndex else { return }
+            applyTransformIfNeeded()
+            notifyScripts(.site)
+        }
     }
     private(set) var tool: Tool = .pencil
     private var previousTool: Tool = .pencil
     /// The frame playback started from, for Preferences > Rewind on stop.
     @ObservationIgnored private var playbackStartFrame: Int?
-    var primary: PixelColor
-    var secondary: PixelColor
+    var primary: PixelColor { didSet { if oldValue != primary { notifyScripts(.foregroundColor) } } }
+    var secondary: PixelColor { didSet { if oldValue != secondary { notifyScripts(.backgroundColor) } } }
     var symmetry = Symmetry()
     var tiledMode = TiledMode.none
     var brushSize = 1
@@ -190,8 +198,11 @@ final class SpriteDocument {
     var scriptDialogs: [ScriptDialog] = []
     /// A script's error or `app.alert`, shown as an alert.
     var scriptMessage: ScriptMessage?
-    /// Scripts still running: waiting on a dialog, or with dialogs open.
+    /// Scripts still running: waiting on a dialog, or with dialogs open, listeners or timers.
     @ObservationIgnored private(set) var scriptEngines: [ScriptEngine] = []
+    /// A script's own changes don't become events for scripts.
+    @ObservationIgnored private var applyingScript = false
+    @ObservationIgnored private var siteEventPending = false
     /// The Color Shading window is open (the side panel's Color shading button).
     /// It and Hue/Saturation take turns: opening one closes the other.
     var isShowingColorShading = false
@@ -309,7 +320,11 @@ final class SpriteDocument {
 
     /// Commits a change. Edits always land in the active cel, so its linked
     /// cels are brought up to date here.
-    private func changed() {
+    /// Where a change came from, for scripts' change events.
+    private enum ChangeOrigin { case stroke, command, undo }
+
+    private func changed(_ origin: ChangeOrigin = .command) {
+        notifyScripts(.change(fromUndo: origin == .undo, command: origin == .command))
         if storage.frames.indices.contains(activeFrameIndex) { storage.syncLinks(from: activeCelKey) }
         // Tilemaps follow whatever was drawn on them.
         if storage.layers.contains(where: \.isTilemap) || !storage.tilemaps.isEmpty { storage.syncTilemaps(mode: tilesetMode) }
@@ -365,7 +380,7 @@ final class SpriteDocument {
         if snapshot.selection != selection { selectionLayers = nil }
         selection = snapshot.selection
         fixSelection()
-        changed()
+        changed(.undo)
     }
 
     private func fixSelection() {
@@ -584,7 +599,7 @@ final class SpriteDocument {
         let key = activeCelKey
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
         if start != storage { registerUndo(DocumentSnapshot(sprite: start, selection: selection)) }
-        changed()
+        changed(.stroke)
     }
 
     /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be
@@ -2994,11 +3009,55 @@ extension SpriteDocument {
         engine.start(source: source)
     }
 
-    /// What a script changed, as one undo step (Aseprite's app.transaction).
-    func applyScript(_ sprite: Sprite, activeLayer: UUID, frameIndex: Int) {
-        if sprite != storage { perform { $0 = sprite } }
+    /// What a script changed, as one undo step (Aseprite's app.transaction), or as part of
+    /// the last step when the script answered it (a stroke, for Magic Pencil).
+    func applyScript(_ sprite: Sprite, selection: SelectionMask?, activeLayer: UUID, frameIndex: Int, merging: Bool = false) {
+        applyingScript = true
+        defer { applyingScript = false }
+        if sprite != storage {
+            if merging && canUndo {
+                storage = sprite
+                if storage.layers.contains(where: { $0.isGroup || $0.parent != nil }) { storage.normalizeGroups() }
+                changed()
+            } else {
+                perform { $0 = sprite }
+            }
+        }
+        if selection != self.selection {
+            // A selection from before the script resized the sprite doesn't fit it any more.
+            if let selection, selection.width == storage.width, selection.height == storage.height {
+                self.selection = selection
+            } else {
+                self.selection = nil
+            }
+        }
         if storage.layers.contains(where: { $0.id == activeLayer && !$0.isGroup }) { activeLayerID = activeLayer }
         activeFrameIndex = min(max(0, frameIndex), storage.frames.count - 1)
+    }
+
+    /// Runs an extension's command (`plugin:newCommand`); one of an extension at a time.
+    func runCommand(_ command: AsepriteExtension.Command, of package: AsepriteExtension) {
+        guard !scriptEngines.contains(where: { $0.name == package.displayName }) else { return }
+        applyTransformIfNeeded()
+        let engine = ScriptEngine(name: package.displayName, document: self, folder: ExtensionStore.shared.folder(of: package),
+                                  preferencesKey: "extension.\(package.id).preferences")
+        scriptEngines.append(engine)
+        engine.startPlugin(entry: command.script, command: command.id)
+    }
+
+    /// Tells running scripts what happened, after the change that caused it.
+    fileprivate func notifyScripts(_ event: ScriptEvent) {
+        guard !scriptEngines.isEmpty, !applyingScript else { return }
+        if case .site = event {
+            // Playback moves the frame many times a second: one site event at a time.
+            guard !siteEventPending else { return }
+            siteEventPending = true
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if case .site = event { self.siteEventPending = false }
+            for engine in self.scriptEngines { engine.handle(event) }
+        }
     }
 
     func scriptFinished(_ engine: ScriptEngine) {

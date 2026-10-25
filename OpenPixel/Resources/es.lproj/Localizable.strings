@@ -685,10 +685,7 @@
 "Couldn't add the extension" = "No se pudo añadir la extensión";
 "%lld palettes" = "%lld paletas";
 "%lld dithering matrices" = "%lld matrices de tramado";
-"Aseprite extensions (.aseprite-extension) with palettes or dithering matrices. Themes, languages, keys and scripts are Aseprite's own and aren't used." = "Extensiones de Aseprite (.aseprite-extension) con paletas o matrices de tramado. Los temas, idiomas, atajos y scripts son propios de Aseprite y no se usan.";
 "This isn't an Aseprite extension: it has no package.json." = "Esto no es una extensión de Aseprite: no tiene package.json.";
-"The extension has no palettes or dithering matrices." = "La extensión no tiene paletas ni matrices de tramado.";
-"The extension only has %@, which OpenPixel can't use. Only palettes and dithering matrices are imported." = "La extensión solo tiene %@, que OpenPixel no puede usar. Solo se importan paletas y matrices de tramado.";
 "“%@” added" = "«%@» añadida";
 "Its palettes are in the palette's Load preset menu, its dithering matrices in the gradient tool." = "Sus paletas están en el menú Cargar preajuste de la paleta y sus matrices de tramado en la herramienta de degradado.";
 "1 palette" = "1 paleta";
@@ -716,3 +713,21 @@
 "The sprite was closed" = "El sprite se ha cerrado";
 "There's no frame %lld" = "No hay frame %lld";
 "There's no palette entry %lld" = "No hay entrada %lld en la paleta";
+
+/* Extension scripts (plugins) */
+"Aseprite extensions (.aseprite-extension) with palettes, dithering matrices or scripts. Their commands are in a sprite's … > Scripts. Themes, languages and keys are Aseprite's own and aren't used." = "Extensiones de Aseprite (.aseprite-extension) con paletas, matrices de tramado o scripts. Sus comandos están en … > Scripts de un sprite. Los temas, idiomas y atajos son propios de Aseprite y no se usan.";
+"The extension has no palettes, dithering matrices or scripts." = "La extensión no tiene paletas, matrices de tramado ni scripts.";
+"The extension only has %@, which OpenPixel can't use. Palettes, dithering matrices and scripts are imported." = "La extensión solo tiene %@, que OpenPixel no puede usar. Se importan paletas, matrices de tramado y scripts.";
+"The extension has a file outside its folder: %@" = "La extensión tiene un archivo fuera de su carpeta: %@";
+"1 command" = "1 comando";
+"%lld commands" = "%lld comandos";
+"%@ needs an id and an onclick function" = "%@ necesita un id y una función onclick";
+"%@ needs an event name and a function" = "%@ necesita el nombre de un evento y una función";
+"%@ needs an ontick function" = "%@ necesita una función ontick";
+"%@ must be a string" = "%@ debe ser un texto";
+"%@ must be a Point" = "%@ debe ser un Point";
+"%@ must be a group" = "%@ debe ser un grupo";
+"%@ must be a Selection or a Rectangle" = "%@ debe ser una Selection o un Rectangle";
+"Scripts can only read files in their own folder" = "Los scripts solo pueden leer archivos de su propia carpeta";
+"Couldn't read %@" = "No se pudo leer %@";
+"Its commands are in a sprite's … > Scripts." = "Sus comandos están en … > Scripts de un sprite.";

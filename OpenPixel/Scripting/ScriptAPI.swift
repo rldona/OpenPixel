@@ -45,6 +45,19 @@ enum LuaAPI {
     static let drawImage: lua_CFunction = { L in luaCall(L) { try $0.drawImage($1) } }
     static let isEmptyImage: lua_CFunction = { L in luaCall(L) { try $0.isEmptyImage($1) } }
 
+    static let ignore: lua_CFunction = { L in luaCall(L) { _, _ in 0 } }
+    static let newCommand: lua_CFunction = { L in luaCall(L) { try $0.newCommand($1) } }
+    static let doFile: lua_CFunction = { L in luaCall(L) { try $0.doFile($1) } }
+    static let eventsOn: lua_CFunction = { L in luaCall(L) { try $0.eventsOn($1) } }
+    static let eventsOff: lua_CFunction = { L in luaCall(L) { try $0.eventsOff($1) } }
+    static let newTimer: lua_CFunction = { L in luaCall(L) { try $0.newTimer($1) } }
+    static let timerStart: lua_CFunction = { L in luaCall(L) { try $0.timerStart($1) } }
+    static let timerStop: lua_CFunction = { L in luaCall(L) { try $0.timerStop($1) } }
+    static let newSelection: lua_CFunction = { L in luaCall(L) { try $0.newSelection($1) } }
+    static let selectionMethod: lua_CFunction = { L in luaCall(L) { try $0.selectionMethod($1) } }
+    static let toolPreferences: lua_CFunction = { L in luaCall(L) { try $0.toolPreferences($1) } }
+    static let shrinkBounds: lua_CFunction = { L in luaCall(L) { try $0.shrinkBounds($1) } }
+
     static let newDialog: lua_CFunction = { L in luaCall(L) { try $0.newDialog($1) } }
     static let dialogWidget: lua_CFunction = { L in luaCall(L) { try $0.dialogWidget($1) } }
     static let dialogShow: lua_CFunction = { L in luaCall(L) { try $0.dialogShow($1) } }
@@ -179,7 +192,14 @@ extension ScriptEngine {
         case "lightness", "hslLightness": lua_pushnumber(L, c.hsl.l)
         case "gray": lua_pushinteger(L, lua_Integer((c.luminance * 255).rounded()))
         case "rgbaPixel": lua_pushinteger(L, Self.pack(c))
-        case "index": lua_pushinteger(L, lua_Integer(try sprite().palette.firstIndex(of: c) ?? 0))
+        case "index":
+            // The nearest palette entry, as Aseprite's.
+            let palette = try sprite().palette
+            func distance(_ p: PixelColor) -> Int {
+                let dr = Int(p.r) - Int(c.r), dg = Int(p.g) - Int(c.g), db = Int(p.b) - Int(c.b), da = Int(p.a) - Int(c.a)
+                return dr * dr + dg * dg + db * db + da * da
+            }
+            lua_pushinteger(L, lua_Integer(palette.indices.min { distance(palette[$0]) < distance(palette[$1]) } ?? 0))
         default: throw Failure.unsupported("Color.\(key)")
         }
         return 1
@@ -241,6 +261,21 @@ extension ScriptEngine {
             if sprite.cels[celKey] != nil { push(.cel(celKey), on: L) } else { lua_pushnil(L) }
         case "activeImage", "image":
             if sprite.cels[celKey] != nil { push(.image(.cel(celKey)), on: L) } else { lua_pushnil(L) }
+        case "events": push(.events(sprite: false), on: L)
+        case "tool", "activeTool":
+            Lua.newTable(L)
+            Lua.pushString(L, document.map { Self.asepriteID(of: $0.tool, filled: $0.shapeFilled) } ?? "pencil")
+            Lua.setField(L, -2, "id")
+        case "preferences":
+            Lua.newTable(L)
+            Lua.newTable(L)
+            for key in ["ui_scale", "screen_scale"] {
+                lua_pushinteger(L, 1)
+                Lua.setField(L, -2, key)
+            }
+            Lua.setField(L, -2, "general")
+            Lua.pushFunction(L, LuaAPI.toolPreferences)
+            Lua.setField(L, -2, "tool")
         case "fgColor": pushColor(document?.primary ?? .black, on: L)
         case "bgColor": pushColor(document?.secondary ?? .white, on: L)
         case "isUIAvailable": lua_pushboolean(L, 1)
@@ -333,6 +368,9 @@ extension ScriptEngine {
         case .image(let ref): return try imageIndex(L, ref, key)
         case .dialog(let index): return try dialogIndex(L, allDialogs[index], key)
         case .palette: return try paletteIndex(L, key)
+        case .selection(let ref): return try selectionIndex(L, ref, key)
+        case .events: return try eventsIndex(L, key)
+        case .timer(let index): return try timerIndex(L, index, key)
         }
     }
 
@@ -347,6 +385,15 @@ extension ScriptEngine {
                 case "isVisible": sprite.layers[index].isVisible = Lua.bool(L, 3)
                 case "isEditable": sprite.layers[index].isLocked = !Lua.bool(L, 3)
                 case "opacity": sprite.layers[index].opacity = min(1, max(0, try number(L, 3, "Layer.opacity") / 255))
+                case "parent":
+                    if case .layer(let parent) = self.object(L, 3, "Layer") {
+                        guard sprite.layers.contains(where: { $0.id == parent && $0.isGroup }) else { throw Failure(L10n.string("%@ must be a group", "Layer.parent")) }
+                        sprite.layers[index].parent = parent
+                    } else {
+                        sprite.layers[index].parent = nil
+                    }
+                case "stackIndex":
+                    try Self.move(&sprite, layerAt: index, toStackIndex: try int(L, 3, "Layer.stackIndex"))
                 default: throw Failure.unsupported("Layer.\(key)")
                 }
             }
@@ -355,11 +402,13 @@ extension ScriptEngine {
             case "image":
                 guard case .image(let ref) = self.object(L, 3, "Image") else { throw Failure(L10n.string("%@ must be an Image", "Cel.image")) }
                 let source = try image(ref)
-                try change { sprite in
-                    var image = PixelImage(width: sprite.width, height: sprite.height)
-                    image.pasteClipped(source, at: 0, 0)
-                    sprite.cels[celKey] = image
-                }
+                _ = try sprite()
+                let position = celShapes[celKey].map { ($0.x, $0.y) } ?? (0, 0)
+                celShapes[celKey] = (source, position.0, position.1)
+            case "position":
+                guard let x = field(L, 3, "x"), let y = field(L, 3, "y") else { throw Failure(L10n.string("%@ must be a Point", "Cel.position")) }
+                let current = try image(.cel(celKey))
+                celShapes[celKey] = (current, Int(x), Int(y))
             case "opacity":
                 let opacity = try number(L, 3, "Cel.opacity") / 255
                 try change { $0.celOpacity[celKey] = opacity >= 1 ? nil : max(0, opacity) }
@@ -371,10 +420,17 @@ extension ScriptEngine {
             try change { sprite in
                 if let index = sprite.frames.firstIndex(where: { $0.id == id }) { sprite.frames[index].duration = max(1, Int((seconds * 1000).rounded())) }
             }
-        case .sprite: throw Failure.unsupported("Sprite.\(key)")
+        case .sprite:
+            guard key == "selection" else { throw Failure.unsupported("Sprite.\(key)") }
+            guard case .selection(let ref) = self.object(L, 3, "Selection") else { throw Failure(L10n.string("%@ must be a Selection or a Rectangle", "Sprite.selection")) }
+            setSelectionMask(.sprite, try selectionMask(ref))
         case .image: throw Failure.unsupported("Image.\(key)")
         case .dialog: throw Failure.unsupported("Dialog.\(key)")
         case .palette: throw Failure.unsupported("Palette.\(key)")
+        case .timer(let index):
+            guard key == "interval" else { throw Failure.unsupported("Timer.\(key)") }
+            timers[index].interval = max(0.01, try number(L, 3, "Timer.interval"))
+        case .selection, .events: throw Failure.unsupported("\(object.typeName).\(key)")
         }
         return 0
     }
@@ -401,13 +457,13 @@ extension ScriptEngine {
         return 1
     }
 
-    private func pushRectangle(_ L: Lua.State, _ x: Int, _ y: Int, _ width: Int, _ height: Int) {
+    func pushRectangle(_ L: Lua.State, _ x: Int, _ y: Int, _ width: Int, _ height: Int) {
         Lua.getGlobal(L, "Rectangle")
         for value in [x, y, width, height] { lua_pushinteger(L, lua_Integer(value)) }
         lua_callk(L, 4, 1, 0, nil)
     }
 
-    private func pushPoint(_ L: Lua.State, _ x: Int, _ y: Int) {
+    func pushPoint(_ L: Lua.State, _ x: Int, _ y: Int) {
         Lua.getGlobal(L, "Point")
         lua_pushinteger(L, lua_Integer(x))
         lua_pushinteger(L, lua_Integer(y))
@@ -436,6 +492,8 @@ extension ScriptEngine {
         case "frames": pushList(L, sprite.frames.map { .frame($0.id) })
         case "cels": pushList(L, sprite.cels.keys.sorted { order($0, $1, in: sprite) }.map { .cel($0) })
         case "palettes": pushList(L, [.palette])
+        case "events": push(.events(sprite: true), on: L)
+        case "selection": push(.selection(.sprite), on: L)
         case "newLayer": return pushMethod(L, LuaAPI.newLayer)
         case "newCel": return pushMethod(L, LuaAPI.newCel)
         case "deleteLayer": return pushMethod(L, LuaAPI.deleteLayer)
@@ -496,6 +554,7 @@ extension ScriptEngine {
             sprite.cels[key] = image
             return key
         }
+        celShapes[key] = nil
         push(.cel(key), on: L)
         return 1
     }
@@ -530,6 +589,7 @@ extension ScriptEngine {
             s.celOpacity[key] = nil
             s.normalizeLinks()
         }
+        celShapes[key] = nil
         return 0
     }
 
@@ -606,8 +666,13 @@ extension ScriptEngine {
         case "frame": push(.frame(celKey.frame), on: L)
         case "frameNumber": lua_pushinteger(L, lua_Integer(frame + 1))
         case "sprite": push(.sprite, on: L)
-        case "position": pushPoint(L, 0, 0)
-        case "bounds": pushRectangle(L, 0, 0, sprite.width, sprite.height)
+        case "position": pushPoint(L, celShapes[celKey]?.x ?? 0, celShapes[celKey]?.y ?? 0)
+        case "bounds":
+            if let shape = celShapes[celKey] {
+                pushRectangle(L, shape.x, shape.y, shape.image.width, shape.image.height)
+            } else {
+                pushRectangle(L, 0, 0, sprite.width, sprite.height)
+            }
         case "opacity": lua_pushinteger(L, lua_Integer(((sprite.celOpacity[celKey] ?? 1) * 255).rounded()))
         default: throw Failure.unsupported("Cel.\(key)")
         }
@@ -678,7 +743,7 @@ extension ScriptEngine {
         switch ref {
         case .cel(let key):
             guard let image = try sprite().cels[key] else { throw Failure(L10n.string("The cel was deleted")) }
-            return image
+            return celShapes[key]?.image ?? image
         case .own(let index):
             return ownImages[index]
         }
@@ -687,6 +752,7 @@ extension ScriptEngine {
     func changeImage<T>(_ ref: ImageRef, _ body: (inout PixelImage) throws -> T) throws -> T {
         switch ref {
         case .cel(let key):
+            if celShapes[key] != nil { return try body(&celShapes[key]!.image) }
             return try change { sprite in
                 guard sprite.cels[key] != nil else { throw Failure(L10n.string("The cel was deleted")) }
                 return try body(&sprite.cels[key]!)
@@ -717,6 +783,7 @@ extension ScriptEngine {
         case "clone": return pushMethod(L, LuaAPI.cloneImage)
         case "drawImage": return pushMethod(L, LuaAPI.drawImage)
         case "isEmpty": return pushMethod(L, LuaAPI.isEmptyImage)
+        case "shrinkBounds": return pushMethod(L, LuaAPI.shrinkBounds)
         default: throw Failure.unsupported("Image.\(key)")
         }
         return 1
@@ -727,12 +794,18 @@ extension ScriptEngine {
         var image: PixelImage
         if case .image(let ref) = object(L, 1, "Image") {
             image = try self.image(ref)
+            // Image(image, rectangle) copies that part.
+            if let x = field(L, 2, "x"), let y = field(L, 2, "y"), let w = field(L, 2, "width"), let h = field(L, 2, "height") {
+                var part = PixelImage(width: max(0, Int(w)), height: max(0, Int(h)))
+                part.pasteClipped(image, at: -Int(x), -Int(y))
+                image = part
+            }
         } else if Lua.type(L, 1) == LUA_TTABLE {
             image = PixelImage(width: Int(field(L, 1, "width") ?? 1), height: Int(field(L, 1, "height") ?? 1))
         } else {
             image = PixelImage(width: try int(L, 1, "width"), height: try int(L, 2, "height"))
         }
-        guard image.width > 0, image.height > 0, image.width * image.height <= 4096 * 4096 else {
+        guard image.width >= 0, image.height >= 0, image.width <= 4096, image.height <= 4096 else {
             throw Failure(L10n.string("Images must be between 1 and 4096 pixels on each side"))
         }
         ownImages.append(image)
@@ -769,6 +842,81 @@ extension ScriptEngine {
         ownImages.append(try image(try imageRef(L)))
         push(.image(.own(ownImages.count - 1)), on: L)
         return 1
+    }
+
+    /// The smallest rectangle with all the image's visible pixels.
+    func shrinkBounds(_ L: Lua.State) throws -> Int32 {
+        let image = try image(try imageRef(L))
+        var minX = Int.max, minY = Int.max, maxX = -1, maxY = -1
+        for y in 0..<image.height {
+            for x in 0..<image.width where image[x, y].a != 0 {
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        if maxX < 0 { pushRectangle(L, 0, 0, 0, 0) } else { pushRectangle(L, minX, minY, maxX - minX + 1, maxY - minY + 1) }
+        return 1
+    }
+
+    /// `app.preferences.tool(id)`: the brush size is OpenPixel's.
+    func toolPreferences(_ L: Lua.State) throws -> Int32 {
+        Lua.newTable(L)
+        Lua.newTable(L)
+        lua_pushinteger(L, lua_Integer(document?.brushSize ?? 1))
+        Lua.setField(L, -2, "size")
+        lua_pushinteger(L, 0)
+        Lua.setField(L, -2, "angle")
+        lua_pushinteger(L, 0)
+        Lua.setField(L, -2, "type")
+        Lua.setField(L, -2, "brush")
+        lua_pushinteger(L, lua_Integer(document?.toolOpacity ?? 255))
+        Lua.setField(L, -2, "opacity")
+        return 1
+    }
+
+    /// Aseprite's id for a tool (`app.tool.id`).
+    static func asepriteID(of tool: Tool, filled: Bool) -> String {
+        switch tool {
+        case .pencil: "pencil"
+        case .spray: "spray"
+        case .eraser: "eraser"
+        case .bucket: "paint_bucket"
+        case .gradient: "gradient"
+        case .eyedropper: "eyedropper"
+        case .line: "line"
+        case .curve: "curve"
+        case .contour: "contour"
+        case .polygon: "polygon"
+        case .rectangle: filled ? "filled_rectangle" : "rectangle"
+        case .ellipse: filled ? "filled_ellipse" : "ellipse"
+        case .selectRectangle: "rectangular_marquee"
+        case .selectEllipse: "elliptical_marquee"
+        case .lasso: "lasso"
+        case .magicWand: "magic_wand"
+        case .move: "move"
+        case .slice: "slice"
+        case .text: "text"
+        }
+    }
+
+    /// Moves a layer among its siblings to `stackIndex` (1 is the bottom), as Aseprite's Layer.stackIndex.
+    static func move(_ sprite: inout Sprite, layerAt index: Int, toStackIndex stackIndex: Int) throws {
+        let layer = sprite.layers.remove(at: index)
+        let siblings = sprite.layers.enumerated().filter { $0.element.parent == layer.parent }
+        // A group's block starts at its lowest child.
+        func blockStart(_ i: Int) -> Int {
+            let ids = Set([sprite.layers[i].id] + sprite.descendants(of: sprite.layers[i].id).map(\.id))
+            return sprite.layers.firstIndex { ids.contains($0.id) } ?? i
+        }
+        let target = max(1, stackIndex) - 1
+        let insertAt: Int
+        if target < siblings.count {
+            insertAt = blockStart(siblings[target].offset)
+        } else if let last = siblings.last {
+            insertAt = last.offset + 1
+        } else {
+            insertAt = min(index, sprite.layers.count)
+        }
+        sprite.layers.insert(layer, at: insertAt)
     }
 
     func isEmptyImage(_ L: Lua.State) throws -> Int32 {
@@ -869,26 +1017,39 @@ extension ScriptEngine {
             widget.enabled = boolField(L, 2, "enabled") ?? true
             widget.onClick = functionField(L, 2, "onclick")
             widget.onChange = functionField(L, 2, "onchange")
-            if Lua.getField(L, 2, "options") == LUA_TTABLE {
-                for i in 1...max(1, Int(luaL_len(L, -1))) {
-                    lua_rawgeti(L, -1, lua_Integer(i))
-                    if let option = Lua.string(L, -1) { widget.options.append(option) }
-                    Lua.pop(L)
-                }
-            }
+            if Lua.getField(L, 2, "options") == LUA_TTABLE { widget.options = options(L, -1) }
             Lua.pop(L)
         } else if kind == .separator, let text = Lua.string(L, 2) {
             widget.text = text
         }
-        if kind == .radio {
-            let previous = dialog.widgets.last
-            widget.group = previous?.kind == .radio ? previous!.group : (dialog.widgets.map(\.group).max() ?? 0) + 1
-        }
+        // A dialog's radios are one group, as in Aseprite (Magic Pencil's modes span separators).
+        if kind == .radio { widget.group = 1 }
         dialog.values[widget.valueKey] = initialValue(L, widget)
         dialog.widgets.append(widget)
         if kind == .radio, dialog.bool(widget) { dialog.select(widget) }
         lua_settop(L, 1)
         return 1
+    }
+
+    /// A list of options, or a table's string values when it isn't a list.
+    private func options(_ L: Lua.State, _ index: Int32) -> [String] {
+        let table = lua_absindex(L, index)
+        var options: [String] = []
+        let count = Int(luaL_len(L, table))
+        if count > 0 {
+            for i in 1...count {
+                lua_rawgeti(L, table, lua_Integer(i))
+                if let option = Lua.string(L, -1) { options.append(option) }
+                Lua.pop(L)
+            }
+            return options
+        }
+        lua_pushnil(L)
+        while lua_next(L, table) != 0 {
+            if let option = Lua.string(L, -1) { options.append(option) }
+            Lua.pop(L)
+        }
+        return options.sorted()
     }
 
     private func initialValue(_ L: Lua.State, _ widget: ScriptDialog.Widget) -> ScriptDialog.Value? {
@@ -952,14 +1113,7 @@ extension ScriptEngine {
         if let option = stringField(L, 2, "option") { dialog.values[widget.valueKey] = .text(option) }
         if Lua.getField(L, 2, "color") != LUA_TNIL, let c = color(L, -1) { dialog.values[widget.valueKey] = .color(c) }
         Lua.pop(L)
-        if Lua.getField(L, 2, "options") == LUA_TTABLE {
-            widget.options = []
-            for i in 1...max(1, Int(luaL_len(L, -1))) {
-                lua_rawgeti(L, -1, lua_Integer(i))
-                if let option = Lua.string(L, -1) { widget.options.append(option) }
-                Lua.pop(L)
-            }
-        }
+        if Lua.getField(L, 2, "options") == LUA_TTABLE { widget.options = options(L, -1) }
         Lua.pop(L)
         dialog.widgets[index] = widget
         if let selected = boolField(L, 2, "selected") {

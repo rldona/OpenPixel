@@ -108,7 +108,11 @@ struct GalleryView: View {
             .alert(Text("“\(addedExtension?.displayName ?? "")” added"), isPresented: Binding(get: { addedExtension != nil }, set: { if !$0 { addedExtension = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Its palettes are in the palette's Load preset menu, its dithering matrices in the gradient tool.")
+                if !(addedExtension?.commands ?? []).isEmpty {
+                    Text("Its commands are in a sprite's … > Scripts.")
+                } else {
+                    Text("Its palettes are in the palette's Load preset menu, its dithering matrices in the gradient tool.")
+                }
             }
             .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
                 TextField("Name", text: $renameText)

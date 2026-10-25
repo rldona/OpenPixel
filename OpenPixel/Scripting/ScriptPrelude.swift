@@ -2,8 +2,8 @@
 /// Swift adds `app`, `Color`, `Image` and `Dialog` (ScriptEngine).
 enum ScriptPrelude {
     static let source = #"""
-    -- Scripts can't reach files or load bytecode.
-    dofile, loadfile = nil, nil
+    -- Scripts can't reach files or load bytecode (dofile only reads the script's own folder).
+    loadfile = nil
     do
       local textOnly = load
       load = function(chunk, name, _, env) return textOnly(chunk, name, "t", env) end
@@ -33,7 +33,10 @@ enum ScriptPrelude {
       return f()
     end
     function app.refresh() end
-    app.apiVersion = 1
+    function app.undo() app.command.Undo() end
+    function app.redo() app.command.Redo() end
+    -- Aseprite 1.3's: change events say whether they come from undo.
+    app.apiVersion = 21
 
     local function class(name, make)
       local mt = { __name = name }
@@ -80,6 +83,19 @@ enum ScriptPrelude {
       elseif k == "size" then return Size(r.width, r.height) end
       return rawget(rectMT, k)
     end
+    function rectMT:union(o)
+      if self.width <= 0 or self.height <= 0 then return Rectangle(o) end
+      if o.width <= 0 or o.height <= 0 then return Rectangle(self) end
+      local x, y = math.min(self.x, o.x), math.min(self.y, o.y)
+      return Rectangle(x, y, math.max(self.x + self.width, o.x + o.width) - x, math.max(self.y + self.height, o.y + o.height) - y)
+    end
+    function rectMT:intersect(o)
+      local x, y = math.max(self.x, o.x), math.max(self.y, o.y)
+      local x2, y2 = math.min(self.x + self.width, o.x + o.width), math.min(self.y + self.height, o.y + o.height)
+      if x2 <= x or y2 <= y then return Rectangle(0, 0, 0, 0) end
+      return Rectangle(x, y, x2 - x, y2 - y)
+    end
+    function rectMT:intersects(o) return not self:intersect(o).isEmpty end
     function rectMT:contains(o)
       local w, h = o.width or 0, o.height or 0
       return o.x >= self.x and o.y >= self.y and o.x + w <= self.x + self.width and o.y + h <= self.y + self.height

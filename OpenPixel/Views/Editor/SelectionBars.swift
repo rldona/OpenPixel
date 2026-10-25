@@ -202,6 +202,14 @@ struct EditMenu: View {
                             }
                         }
                     }
+                    // Commands from extensions (plugin:newCommand), under each extension's name.
+                    ForEach(ExtensionStore.shared.installed.filter { !($0.commands ?? []).isEmpty }) { package in
+                        Section(package.displayName) {
+                            ForEach(package.commands ?? []) { command in
+                                Button(command.title) { document.runCommand(command, of: package) }
+                            }
+                        }
+                    }
                     Divider()
                     Button("Add script…", systemImage: "plus", action: addScript)
                 } label: {

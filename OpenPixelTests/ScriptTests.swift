@@ -40,8 +40,8 @@ final class ScriptTests: XCTestCase {
 
     func testErrorsNameWhatsMissing() {
         let doc = makeDocument()
-        run("local x = app.activeSprite.selection", on: doc)
-        XCTAssertTrue(doc.scriptMessage?.text.contains("Sprite.selection") == true, doc.scriptMessage?.text ?? "")
+        run("local x = app.activeSprite.tags", on: doc)
+        XCTAssertTrue(doc.scriptMessage?.text.contains("Sprite.tags") == true, doc.scriptMessage?.text ?? "")
         XCTAssertTrue(doc.scriptMessage?.text.contains("Test.lua:1") == true, "with the line")
 
         run("app.command.ColorQuantization()", on: doc)
@@ -50,8 +50,11 @@ final class ScriptTests: XCTestCase {
 
     func testSandbox() {
         let doc = makeDocument()
-        run("assert(io == nil and os == nil and package == nil and debug == nil and dofile == nil and require == nil)", on: doc)
+        run("assert(io == nil and os == nil and package == nil and debug == nil and loadfile == nil and require == nil)", on: doc)
         XCTAssertNil(doc.scriptMessage)
+        run("dofile('/etc/hosts')", on: doc)
+        XCTAssertNotNil(doc.scriptMessage, "a loose script has no folder to read from")
+        doc.scriptMessage = nil
         run("load(string.dump(function() end))()", on: doc)
         XCTAssertNotNil(doc.scriptMessage, "no bytecode")
     }

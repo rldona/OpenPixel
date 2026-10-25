@@ -14,7 +14,7 @@ struct ExtensionsView: View {
             Section {
                 Button("Add extension…", systemImage: "plus") { importing = true }
             } footer: {
-                Text("Aseprite extensions (.aseprite-extension) with palettes or dithering matrices. Themes, languages, keys and scripts are Aseprite's own and aren't used.")
+                Text("Aseprite extensions (.aseprite-extension) with palettes, dithering matrices or scripts. Their commands are in a sprite's … > Scripts. Themes, languages and keys are Aseprite's own and aren't used.")
             }
             if !store.installed.isEmpty {
                 Section("Installed") {
@@ -69,6 +69,11 @@ struct ExtensionsView: View {
                 case 0: EmptyView()
                 case 1: Label("1 palette", systemImage: "swatchpalette")
                 case let n: Label("\(n) palettes", systemImage: "swatchpalette")
+                }
+                switch package.commands?.count ?? 0 {
+                case 0: EmptyView()
+                case 1: Label("1 command", systemImage: "curlybraces")
+                case let n: Label("\(n) commands", systemImage: "curlybraces")
                 }
                 switch package.ditheringMatrices.count {
                 case 0: EmptyView()
