@@ -6,6 +6,8 @@ An **open source** pixel art and animation editor for iPad, built for Apple Penc
 
 [Español](README.es.md)
 
+[![CI](https://github.com/rldona/OpenPixel/actions/workflows/ci.yml/badge.svg)](https://github.com/rldona/OpenPixel/actions/workflows/ci.yml)
+
 📖 **User manual**, in English and Spanish: <https://rldona.github.io/OpenPixel/> (source in [`manual/`](manual/)).
 
 It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working model of [Aseprite](https://www.aseprite.org/docs/): a sprite has **layers** and **frames**, and the image at each layer × frame intersection is a **cel**.

@@ -6,6 +6,8 @@ Editor de pixel art y animación **open source** para iPad, pensado para Apple P
 
 [English](README.md) · La documentación principal está en inglés; esta es una traducción.
 
+[![CI](https://github.com/rldona/OpenPixel/actions/workflows/ci.yml/badge.svg)](https://github.com/rldona/OpenPixel/actions/workflows/ci.yml)
+
 📖 **Manual de usuario**, en español e inglés: <https://rldona.github.io/OpenPixel/es/> (fuente en [`manual/`](manual/)).
 
 Toma la interfaz limpia de [Pixaki](https://pixaki.com/) y el modelo de trabajo de [Aseprite](https://www.aseprite.org/docs/): un sprite tiene **capas** y **frames**, y la imagen en cada cruce capa × frame es una **cel**.
