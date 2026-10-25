@@ -54,9 +54,6 @@ struct EditorView: View {
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
                         }
-                        .overlay(alignment: .topTrailing) {
-                            if focusMode { focusExitButton }
-                        }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {
                                 // With the timeline open, the grab bar sits centered between the bars and the
@@ -112,7 +109,7 @@ struct EditorView: View {
                     }
                     .transition(.opacity)
                     .padding(.trailing, inset)
-                    .padding(.top, focusMode ? 72 : 16)
+                    .padding(.top, 16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
             }
@@ -174,21 +171,6 @@ struct EditorView: View {
     }
 
     /// The only control left in focus mode, so the mode is never a trap.
-    private var focusExitButton: some View {
-        Button(action: toggleFocus) {
-            Image(systemName: "arrow.down.right.and.arrow.up.left")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.text)
-                .frame(width: 40, height: 40)
-                .background(Theme.panel.opacity(0.9), in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
-        }
-        .buttonStyle(.plain)
-        .padding(14)
-        .accessibilityLabel(Text("Exit focus mode"))
-        .transition(.opacity)
-    }
-
     private func scheduleSave() {
         saveTask?.cancel()
         saveTask = Task {

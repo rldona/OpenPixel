@@ -95,16 +95,23 @@ struct InkOptions: View {
             }
             if hasDynamics {
                 section("Apple Pencil pressure") {
-                    HStack(spacing: 8) {
-                        PillToggle(title: "Changes the size", isOn: $document.pressureSize)
-                        PillToggle(title: "Changes the opacity", isOn: $document.pressureOpacity)
+                    // Side by side when they fit; stacked otherwise, so the popover never grows past its width.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { pressureToggles }
+                        VStack(alignment: .leading, spacing: 8) { pressureToggles }
                     }
                 }
             }
         }
         .padding(16)
-        .frame(width: 320)
+        .frame(width: 320, alignment: .leading)
         .background(Theme.panel)
+    }
+
+    @ViewBuilder
+    private var pressureToggles: some View {
+        PillToggle(title: "Changes the size", isOn: $document.pressureSize)
+        PillToggle(title: "Changes the opacity", isOn: $document.pressureOpacity)
     }
 
     private var opacity: Binding<Double> {
