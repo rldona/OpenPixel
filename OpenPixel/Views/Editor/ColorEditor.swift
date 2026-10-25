@@ -230,6 +230,48 @@ extension ColorHarmony {
     }
 }
 
+/// The side panel's always-on selector, as under Aseprite's palette: the
+/// saturation and brightness square, then hue and opacity bars.
+struct QuickColorPicker: View {
+    @Binding var color: PixelColor
+    @AppStorage(EditorSettings.alphaFormatKey) private var alphaFormat = AlphaFormat.percent
+    /// Kept apart from `color` so hue survives grays and black.
+    @State private var hsv: HSV
+
+    init(color: Binding<PixelColor>) {
+        _color = color
+        _hsv = State(initialValue: color.wrappedValue.hsv)
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            SaturationValueSquare(hsv: hsv) { set($0) }
+                .aspectRatio(1.25, contentMode: .fit)
+            HueBar(hue: hsv.h, handleHeight: 24) { set(HSV(h: $0, s: hsv.s, v: hsv.v)) }
+                .frame(height: 18)
+            AlphaBar(color: color, format: alphaFormat, handleHeight: 24) { a in
+                var c = color
+                c.a = UInt8(min(255, max(0, a)))
+                color = c
+            }
+            .frame(height: 18)
+        }
+        .onChange(of: color) { _, new in
+            // A palette pick, the eyedropper or the other chip: the handles follow.
+            guard PixelColor(hsv: hsv, alpha: new.a) != new else { return }
+            var next = new.hsv
+            if next.s == 0 || next.v == 0 { next.h = hsv.h }
+            if next.v == 0 { next.s = hsv.s }
+            hsv = next
+        }
+    }
+
+    private func set(_ new: HSV) {
+        hsv = HSV(h: min(359.99, max(0, new.h)), s: min(1, max(0, new.s)), v: min(1, max(0, new.v)))
+        color = PixelColor(hsv: hsv, alpha: color.a)
+    }
+}
+
 // MARK: - Controls
 
 /// Saturation left to right, brightness bottom to top, for one hue.
@@ -267,6 +309,7 @@ private struct SaturationValueSquare: View {
 
 private struct HueBar: View {
     let hue: Double
+    var handleHeight: CGFloat = 32
     let onChange: (Double) -> Void
 
     var body: some View {
@@ -277,7 +320,7 @@ private struct HueBar: View {
                     startPoint: .leading, endPoint: .trailing
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                Handle().position(x: hue / 360 * geo.size.width, y: geo.size.height / 2)
+                Handle(height: handleHeight).position(x: hue / 360 * geo.size.width, y: geo.size.height / 2)
             }
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
@@ -296,6 +339,7 @@ private struct HueBar: View {
 private struct AlphaBar: View {
     let color: PixelColor
     let format: AlphaFormat
+    var handleHeight: CGFloat = 32
     let onChange: (Double) -> Void
 
     var body: some View {
@@ -306,7 +350,7 @@ private struct AlphaBar: View {
                     LinearGradient(colors: [color.color.opacity(0), PixelColor(r: color.r, g: color.g, b: color.b).color], startPoint: .leading, endPoint: .trailing)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                Handle().position(x: Double(color.a) / 255 * geo.size.width, y: geo.size.height / 2)
+                Handle(height: handleHeight).position(x: Double(color.a) / 255 * geo.size.width, y: geo.size.height / 2)
             }
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
@@ -323,10 +367,12 @@ private struct AlphaBar: View {
 }
 
 private struct Handle: View {
+    var height: CGFloat = 32
+
     var body: some View {
         RoundedRectangle(cornerRadius: 3)
             .fill(.white)
-            .frame(width: 8, height: 32)
+            .frame(width: 8, height: height)
             .shadow(color: .black.opacity(0.35), radius: 2)
     }
 }

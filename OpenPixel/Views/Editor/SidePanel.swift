@@ -8,6 +8,8 @@ struct SidePanel: View {
     var mirrored = false
     @State private var editingPrimary = false
     @State private var editingSecondary = false
+    /// Which color the square under the palette edits.
+    @State private var pickingSecondary = false
     /// Palette edit mode: taps select a run of entries instead of picking a color.
     @State private var isEditingPalette = false
     @State private var paletteRange: ClosedRange<Int>?
@@ -100,42 +102,15 @@ struct SidePanel: View {
 
     // MARK: Colors
 
-    /// Primary over secondary, like Aseprite's foreground and background colors.
+    /// Aseprite's selector under the palette: the square edits whichever of
+    /// the two colors is picked in the chips below it.
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             SectionLabel("Color")
-            HStack(alignment: .top, spacing: 14) {
-                ZStack(alignment: .topLeading) {
-                    colorButton(document.secondary, size: 40, label: "Secondary color") { editingSecondary = true }
-                        .offset(x: 30, y: 30)
-                        .popover(isPresented: $editingSecondary) {
-                            ColorEditor(color: $document.secondary, palette: document.structure.palette) { document.addToPalette($0) }
-                                .presentationCompactAdaptation(.popover)
-                        }
-                    colorButton(document.primary, size: 52, label: "Primary color") { editingPrimary = true }
-                        .popover(isPresented: $editingPrimary) {
-                            ColorEditor(color: $document.primary, palette: document.structure.palette) { document.addToPalette($0) }
-                                .presentationCompactAdaptation(.popover)
-                        }
-                }
-                .frame(width: 72, height: 72, alignment: .topLeading)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: document.primary.hex).font(.system(size: 15, weight: .medium, design: .monospaced))
-                    if let index = document.paletteIndex(of: document.primary) {
-                        Text("Palette index \(index)").font(.system(size: 12)).foregroundStyle(Theme.muted)
-                    } else {
-                        Button { document.addToPalette(document.primary) } label: {
-                            Label("Not in palette", systemImage: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Theme.accentText)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint(Text("Adds it to the palette"))
-                    }
-                    Text("Secondary \(document.secondary.hex)").font(.system(size: 12)).foregroundStyle(Theme.muted)
-                }
-                Spacer(minLength: 0)
+            QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
+            HStack(spacing: 6) {
+                colorChip(secondary: false)
+                colorChip(secondary: true)
             }
             // Swapping the colors, then what changes the sprite's own colors;
             // the bottom two open floating windows and stay lit while they're open.
@@ -178,20 +153,63 @@ struct SidePanel: View {
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
-    private func colorButton(_ color: PixelColor, size: CGFloat, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            ZStack {
-                Checkerboard(cell: 6)
-                color.color
+    /// One of the two colors: its swatch, its hex (typed to change it) and,
+    /// while it isn't in the palette, Aseprite's warning that adds it.
+    /// Tapping picks it for the square; tapping the picked swatch opens the full editor.
+    private func colorChip(secondary: Bool) -> some View {
+        let color = secondary ? document.secondary : document.primary
+        let isOn = pickingSecondary == secondary
+        let binding = secondary ? $document.secondary : $document.primary
+        return HStack(spacing: 6) {
+            Button {
+                if isOn { if secondary { editingSecondary = true } else { editingPrimary = true } } else { pickingSecondary = secondary }
+            } label: {
+                ZStack {
+                    Checkerboard(cell: 5)
+                    color.color
+                }
+                .frame(width: 28, height: 28)
+                .clipShape(RoundedRectangle(cornerRadius: 7))
+                .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.strongBorder))
             }
-            .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: 11))
-            .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(Theme.strongBorder))
-            .overlay(RoundedRectangle(cornerRadius: 11).inset(by: 1).strokeBorder(Theme.panel, lineWidth: 1))
+            .buttonStyle(.plain)
+            .accessibilityLabel(secondary ? Text("Secondary color") : Text("Primary color"))
+            .accessibilityValue(Text(verbatim: color.hex))
+            .accessibilityHint(isOn ? Text("Opens the color editor") : Text("Edits it with the square"))
+            // Aseprite's warning, as a badge: the color isn't in the palette; tapping adds it.
+            .overlay(alignment: .topTrailing) {
+                if document.paletteIndex(of: color) == nil {
+                    Button { document.addToPalette(color) } label: {
+                        Image(systemName: "exclamationmark")
+                            .font(.system(size: 9, weight: .heavy))
+                            .foregroundStyle(Theme.onAccent)
+                            .frame(width: 16, height: 16)
+                            .background(Theme.accent, in: Circle())
+                            .overlay(Circle().strokeBorder(Theme.panel, lineWidth: 1.5))
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .offset(x: 12, y: -12)
+                    .accessibilityLabel(Text("Not in palette"))
+                    .accessibilityHint(Text("Adds it to the palette"))
+                }
+            }
+            .popover(isPresented: secondary ? $editingSecondary : $editingPrimary) {
+                ColorEditor(color: binding, palette: document.structure.palette) { document.addToPalette($0) }
+                    .presentationCompactAdaptation(.popover)
+            }
+
+            HexField(color: binding)
+                .simultaneousGesture(TapGesture().onEnded { pickingSecondary = secondary })
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(label))
-        .accessibilityValue(Text(verbatim: color.hex))
+        .padding(5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isOn ? Theme.accentSoft : Theme.chip, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isOn ? Theme.accent : .clear, lineWidth: 1.5))
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .onTapGesture { pickingSecondary = secondary }
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     // MARK: Palette
@@ -506,5 +524,28 @@ struct PaletteExport: Transferable {
             try PaletteFile.data(item.colors, name: item.name, format: item.format).write(to: url, options: .atomic)
             return SentTransferredFile(url)
         }
+    }
+}
+
+/// A color's hex, typed and applied on return; it follows the color otherwise.
+private struct HexField: View {
+    @Binding var color: PixelColor
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        TextField("Hex", text: $text)
+            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            .focused($focused)
+            .lineLimit(1)
+            .onSubmit {
+                if let parsed = PixelColor(hex: text) { color = parsed } else { text = color.hex }
+            }
+            .onAppear { text = color.hex }
+            // Typing only changes the color on return, so any change comes from elsewhere.
+            .onChange(of: color) { _, new in text = new.hex }
+            .onChange(of: focused) { _, isFocused in if !isFocused { text = color.hex } }
     }
 }

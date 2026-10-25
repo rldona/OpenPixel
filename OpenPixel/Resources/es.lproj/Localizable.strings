@@ -322,6 +322,8 @@
 "Hue" = "Tono";
 "Secondary color" = "Color secundario";
 "Not in palette" = "No está en la paleta";
+"Opens the color editor" = "Abre el editor de color";
+"Edits it with the square" = "Lo edita con el cuadrado";
 "Adds it to the palette" = "Lo añade a la paleta";
 "Replace color…" = "Reemplazar color…";
 "Load preset" = "Cargar predefinida";
