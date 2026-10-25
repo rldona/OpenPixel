@@ -11,6 +11,8 @@ struct FrameTimeline: View {
     @State private var pickingReferencePhoto = false
     @State private var referencePhoto: PhotosPickerItem?
     @State private var importingReferenceFile = false
+    /// The file picker brings an image or GIF in as a layer of pixels, not a reference.
+    @State private var importingAsLayer = false
     @State private var renameText = ""
     @State private var editingTag: FrameTag?
     /// Aseprite's "First frame as 0 (or any other number)".
@@ -474,9 +476,16 @@ struct FrameTimeline: View {
                     Button("New layer", systemImage: "square.3.layers.3d") { document.addLayer() }
                     Button("New group", systemImage: "folder.badge.plus") { document.groupActiveLayer() }
                     Button("New tilemap layer", systemImage: "square.grid.3x3.fill") { document.addTilemapLayer() }
+                    Button("Import image or GIF…", systemImage: "photo.stack") {
+                        importingAsLayer = true
+                        importingReferenceFile = true
+                    }
                     Section("New reference layer") {
                         Button("From Photos", systemImage: "photo.on.rectangle") { pickingReferencePhoto = true }
-                        Button("From Files", systemImage: "folder") { importingReferenceFile = true }
+                        Button("From Files", systemImage: "folder") {
+                            importingAsLayer = false
+                            importingReferenceFile = true
+                        }
                     }
                 } label: {
                     Image(systemName: "plus")
@@ -832,7 +841,12 @@ struct FrameTimeline: View {
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         guard let data = try? Data(contentsOf: url) else { return }
-        document.addReferenceLayer(imageData: data, name: url.deletingPathExtension().lastPathComponent)
+        let name = url.deletingPathExtension().lastPathComponent
+        if importingAsLayer {
+            document.importLayer(imageData: data, name: name)
+        } else {
+            document.addReferenceLayer(imageData: data, name: name)
+        }
     }
 
     // MARK: Tags

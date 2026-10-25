@@ -1159,6 +1159,53 @@ final class SpriteDocument {
         activeLayerID = layer.id
     }
 
+    /// An image or animated GIF as a new layer above the active one: one GIF
+    /// frame per timeline frame from the active frame on, adding the frames it
+    /// needs (with the GIF's durations). An image of another size is centered
+    /// and cropped. One undo step.
+    @discardableResult
+    func importLayer(imageData data: Data, name: String) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil), CGImageSourceGetCount(source) > 0 else {
+            notice = L10n.string("That image can't be opened")
+            return false
+        }
+        var images: [(image: PixelImage, duration: Int?)] = []
+        for index in 0..<CGImageSourceGetCount(source) {
+            guard let cgImage = CGImageSourceCreateImageAtIndex(source, index, nil), let image = PixelImage(cgImage: cgImage) else { continue }
+            let duration = DocumentStore.frameDelay(source, at: index).map { max(10, Int(($0 * 1000).rounded())) }
+            images.append((image, duration))
+        }
+        guard !images.isEmpty else {
+            notice = L10n.string("That image can't be opened")
+            return false
+        }
+        stopPlayback()
+        applyTransformIfNeeded()
+        let (w, h) = (storage.width, storage.height)
+        var layer = Layer(name: name)
+        let index = sprite.layers.firstIndex { $0.id == activeLayerID } ?? sprite.layers.count - 1
+        let active = sprite.layers.indices.contains(index) ? sprite.layers[index] : nil
+        layer.parent = active?.isGroup == true ? active?.id : active?.parent
+        let start = activeFrameIndex
+        perform { s in
+            s.layers.insert(layer, at: active?.isGroup == true ? index : index + 1)
+            for (offset, item) in images.enumerated() {
+                let frame = start + offset
+                if frame >= s.frames.count { s.insertFrame(Frame(duration: item.duration ?? s.frames.last?.duration ?? 100), at: s.frames.count) }
+                var cel = PixelImage(width: w, height: h)
+                let ox = (w - item.image.width) / 2, oy = (h - item.image.height) / 2
+                for y in 0..<item.image.height where (0..<h).contains(y + oy) {
+                    for x in 0..<item.image.width where (0..<w).contains(x + ox) {
+                        cel[x + ox, y + oy] = item.image[x, y]
+                    }
+                }
+                if !cel.isEmpty { s.cels[CelKey(layer: layer.id, frame: s.frames[frame].id)] = cel }
+            }
+        }
+        activeLayerID = layer.id
+        return true
+    }
+
     /// A tap on the timeline's projected cells: empty frames are added up to
     /// `frame` (an index) and `layersBelow` new layers under the bottom one, as
     /// one undo step, and the tapped cell becomes the active one.

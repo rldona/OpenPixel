@@ -208,7 +208,7 @@ final class DocumentStore {
     }
 
     /// A GIF's or animated PNG's delay for one frame, in seconds.
-    private nonisolated static func frameDelay(_ source: CGImageSource, at index: Int) -> Double? {
+    nonisolated static func frameDelay(_ source: CGImageSource, at index: Int) -> Double? {
         guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any] else { return nil }
         let gif = properties[kCGImagePropertyGIFDictionary] as? [CFString: Any]
         let png = properties[kCGImagePropertyPNGDictionary] as? [CFString: Any]

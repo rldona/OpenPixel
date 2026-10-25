@@ -576,6 +576,7 @@
 /* Tilemaps */
 "Tilemap %d" = "Tilemap %d";
 "New tilemap layer" = "Nueva capa de tilemap";
+"Import image or GIF…" = "Importar imagen o GIF…";
 "Convert to tilemap" = "Convertir en tilemap";
 "Tileset" = "Tileset";
 "Export tileset" = "Exportar el tileset";
