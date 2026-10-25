@@ -186,6 +186,12 @@ final class SpriteDocument {
     var timelineRange: TimelineRange?
     /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
     var isReplacingColor = false
+    /// Open script dialogs, shown as floating windows over the editor.
+    var scriptDialogs: [ScriptDialog] = []
+    /// A script's error or `app.alert`, shown as an alert.
+    var scriptMessage: ScriptMessage?
+    /// Scripts still running: waiting on a dialog, or with dialogs open.
+    @ObservationIgnored private(set) var scriptEngines: [ScriptEngine] = []
     /// The Color Shading window is open (the side panel's Color shading button).
     /// It and Hue/Saturation take turns: opening one closes the other.
     var isShowingColorShading = false
@@ -436,7 +442,7 @@ final class SpriteDocument {
     // `revision`; the canvas is told which area changed through `onCanvasChange`.
     // The stroke is committed (one undo step, one SwiftUI update) when it ends.
 
-    private var activeCelKey: CelKey { CelKey(layer: activeLayerID, frame: activeFrame.id) }
+    var activeCelKey: CelKey { CelKey(layer: activeLayerID, frame: activeFrame.id) }
 
     /// `pressure` is the Apple Pencil's force, 0...1 (1 for fingers).
     func beginStroke(at point: PixelPoint, pressure: Double = 1) {
@@ -2973,5 +2979,35 @@ private struct StructureKey: Equatable {
         links = s.links; celOpacity = s.celOpacity; grid = s.grid; slices = s.slices
         tilemaps = s.tilemaps
         filled = Set(s.cels.keys)
+    }
+}
+
+// MARK: - Scripts
+// https://www.aseprite.org/docs/scripting/
+
+extension SpriteDocument {
+    /// Runs an Aseprite script on this sprite.
+    func runScript(named name: String, source: String) {
+        applyTransformIfNeeded()
+        let engine = ScriptEngine(name: name, document: self)
+        scriptEngines.append(engine)
+        engine.start(source: source)
+    }
+
+    /// What a script changed, as one undo step (Aseprite's app.transaction).
+    func applyScript(_ sprite: Sprite, activeLayer: UUID, frameIndex: Int) {
+        if sprite != storage { perform { $0 = sprite } }
+        if storage.layers.contains(where: { $0.id == activeLayer && !$0.isGroup }) { activeLayerID = activeLayer }
+        activeFrameIndex = min(max(0, frameIndex), storage.frames.count - 1)
+    }
+
+    func scriptFinished(_ engine: ScriptEngine) {
+        scriptEngines.removeAll { $0 === engine }
+    }
+
+    /// The editor is closing: scripts stop and their dialogs close.
+    func stopScripts() {
+        for engine in scriptEngines { engine.stop() }
+        scriptDialogs = []
     }
 }

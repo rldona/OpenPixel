@@ -693,3 +693,26 @@
 "Its palettes are in the palette's Load preset menu, its dithering matrices in the gradient tool." = "Sus paletas están en el menú Cargar preajuste de la paleta y sus matrices de tramado en la herramienta de degradado.";
 "1 palette" = "1 paleta";
 "1 dithering matrix" = "1 matriz de tramado";
+
+/* Scripts */
+"Scripts" = "Scripts";
+"Add script…" = "Añadir script…";
+"Couldn't add the script" = "No se pudo añadir el script";
+"“%@” stopped" = "«%@» se ha detenido";
+"Run it from a sprite: … > Scripts." = "Ejecútalo desde un sprite: … > Scripts.";
+"Aseprite scripts (.lua) run in a sandbox: they change the open sprite and can't reach files or the network. Parts of Aseprite's API aren't available yet; a script that needs them stops and says which." = "Los scripts de Aseprite (.lua) se ejecutan aislados: cambian el sprite abierto y no pueden acceder a archivos ni a la red. Parte de la API de Aseprite aún no está disponible; si un script la necesita, se detiene e indica qué falta.";
+"%@ isn't available in OpenPixel yet" = "%@ aún no está disponible en OpenPixel";
+"%@ must be a Cel" = "%@ debe ser un Cel";
+"%@ must be a Color" = "%@ debe ser un Color";
+"%@ must be a Dialog" = "%@ debe ser un Dialog";
+"%@ must be a Layer" = "%@ debe ser un Layer";
+"%@ must be a number" = "%@ debe ser un número";
+"%@ must be an Image" = "%@ debe ser una Image";
+"Images must be between 1 and 4096 pixels on each side" = "Las imágenes deben medir entre 1 y 4096 píxeles por lado";
+"The cel was deleted" = "El cel se ha borrado";
+"The frame was deleted" = "El frame se ha borrado";
+"The layer was deleted" = "La capa se ha borrado";
+"The script took too long and was stopped" = "El script tardaba demasiado y se ha detenido";
+"The sprite was closed" = "El sprite se ha cerrado";
+"There's no frame %lld" = "No hay frame %lld";
+"There's no palette entry %lld" = "No hay entrada %lld en la paleta";

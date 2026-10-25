@@ -4,7 +4,7 @@ import SwiftUI
 /// the canvas's top right) and can be dragged by its title. Where it was dragged
 /// to is kept between uses, under its own key.
 struct FloatingWindow<Accessory: View, Content: View>: View {
-    let title: LocalizedStringKey
+    let title: Text
     /// The space it can be dragged in.
     let area: CGSize
     /// How far its starting place is from the area's right edge.
@@ -18,7 +18,7 @@ struct FloatingWindow<Accessory: View, Content: View>: View {
     @GestureState private var drag = CGSize.zero
     static var width: CGFloat { EditorView.panelWidth - 16 }
 
-    init(_ title: LocalizedStringKey, id: String, area: CGSize, trailingInset: CGFloat, approximateHeight: CGFloat,
+    init(_ title: Text, id: String, area: CGSize, trailingInset: CGFloat, approximateHeight: CGFloat,
          @ViewBuilder accessory: () -> Accessory, @ViewBuilder content: () -> Content) {
         self.title = title
         self.area = area
@@ -37,7 +37,7 @@ struct FloatingWindow<Accessory: View, Content: View>: View {
                     Image(systemName: "line.3.horizontal")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Theme.muted)
-                    Text(title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                    title.font(.system(size: 15, weight: .semibold)).lineLimit(1)
                     Spacer(minLength: 4)
                 }
                 .contentShape(Rectangle())

@@ -9,6 +9,7 @@ struct EditorView: View {
     @State private var showingExport = false
     @State private var showingGridSettings = false
     @State private var showingShortcuts = false
+    @State private var addingScript = false
     @State private var saveTask: Task<Void, Never>?
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
     @State private var focusMode = false
@@ -95,7 +96,11 @@ struct EditorView: View {
             .overlay {
                 GeometryReader { geometry in
                     let inset: CGFloat = focusMode ? 16 : (mirrored ? Self.railWidth : Self.panelWidth) + 16
-                    Group {
+                    ZStack(alignment: .topTrailing) {
+                        // Script dialogs stay open while drawing, as in Aseprite.
+                        ForEach(document.scriptDialogs) { dialog in
+                            ScriptDialogView(dialog: dialog, area: geometry.size, trailingInset: inset)
+                        }
                         if document.isAdjustingHueSaturation {
                             HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
                         } else if document.isShowingColorShading {
@@ -134,7 +139,22 @@ struct EditorView: View {
         .onChange(of: scenePhase) { _, phase in if phase != .active { save() } }
         .onDisappear {
             document.stopPlayback()
+            document.stopScripts()
             save()
+        }
+        // Scripts picked from Files are added to the Scripts menu and run.
+        .fileImporter(isPresented: $addingScript, allowedContentTypes: [.luaScript, .plainText]) { result in
+            do {
+                let script = try ScriptStore.shared.install(contentsOf: result.get())
+                document.runScript(named: script.name, source: try ScriptStore.shared.source(of: script))
+            } catch {
+                document.scriptMessage = ScriptMessage(title: L10n.string("Couldn't add the script"), text: error.localizedDescription)
+            }
+        }
+        .alert(Text(verbatim: document.scriptMessage?.title ?? ""), isPresented: Binding(get: { document.scriptMessage != nil }, set: { if !$0 { document.scriptMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(verbatim: document.scriptMessage?.text ?? "")
         }
         .task(id: document.notice) {
             guard document.notice != nil else { return }
@@ -263,7 +283,7 @@ struct EditorView: View {
 
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
-                EditMenu(document: document) { showingShortcuts = true }.help(Text("Edit"))
+                EditMenu(document: document, addScript: { addingScript = true }) { showingShortcuts = true }.help(Text("Edit"))
                 focusMenu
                 gridMenu
                 tiledModeMenu

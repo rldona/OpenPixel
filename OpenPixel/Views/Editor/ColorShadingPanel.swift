@@ -14,7 +14,7 @@ struct ColorShadingPanel: View {
 
     var body: some View {
         let base = base ?? document.primary
-        FloatingWindow("Color shading", id: "colorShading", area: area, trailingInset: trailingInset, approximateHeight: 300) {
+        FloatingWindow(Text("Color shading"), id: "colorShading", area: area, trailingInset: trailingInset, approximateHeight: 300) {
             HStack(spacing: 2) {
                 if self.base != nil {
                     headerButton("arrow.triangle.2.circlepath", label: "Follow color") { self.base = nil }

@@ -133,6 +133,11 @@ struct PreferencesView: View {
                     } label: {
                         Label("Extensions", systemImage: "puzzlepiece.extension")
                     }
+                    NavigationLink {
+                        ScriptsView()
+                    } label: {
+                        Label("Scripts", systemImage: "curlybraces")
+                    }
                 }
 
                 Section {

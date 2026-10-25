@@ -39,6 +39,8 @@ struct GalleryView: View {
     @State private var errorMessage: String?
     /// An Aseprite extension just added by opening it from Files.
     @State private var addedExtension: AsepriteExtension?
+    /// A script just added by opening it from Files.
+    @State private var addedScript: ScriptStore.Script?
 
     private let columns = [GridItem(.adaptive(minimum: 240, maximum: 340), spacing: 20)]
 
@@ -92,9 +94,16 @@ struct GalleryView: View {
             .onOpenURL { url in
                 if url.pathExtension.lowercased() == "aseprite-extension" {
                     attempt { addedExtension = try ExtensionStore.shared.install(contentsOf: url) }
+                } else if url.pathExtension.lowercased() == "lua" {
+                    attempt { addedScript = try ScriptStore.shared.install(contentsOf: url) }
                 } else {
                     attempt { path = [try store.importFile(at: url)] }
                 }
+            }
+            .alert(Text("“\(addedScript?.name ?? "")” added"), isPresented: Binding(get: { addedScript != nil }, set: { if !$0 { addedScript = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Run it from a sprite: … > Scripts.")
             }
             .alert(Text("“\(addedExtension?.displayName ?? "")” added"), isPresented: Binding(get: { addedExtension != nil }, set: { if !$0 { addedExtension = nil } })) {
                 Button("OK", role: .cancel) {}

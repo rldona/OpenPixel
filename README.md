@@ -73,7 +73,9 @@ It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working m
 - **Slices** ([Aseprite's](https://www.aseprite.org/docs/slices/), ⇧C, with the Move tool): drag to draw a named, colored rectangle; drag inside to move it or an edge or corner to resize it, tap another to pick it. Each slice can have a 9-slice center and a pivot, edited from its properties; changes on a later frame add a key there so slices can follow the animation. Exported as one PNG per slice or in the sprite sheet's JSON.
 - **Export**: PNG of the current frame, sprite sheet (optionally with Aseprite's JSON data: frames, durations, tags and slices, for game engines), animated GIF or one PNG per slice, at 1×–10× with nearest-neighbor scaling. Sprite sheets and GIFs can be limited to one tag, and GIFs follow the tag's direction and repeat count. Files are shared through the iOS share sheet.
 - **Autosave** to `Documents/Sprites` (visible in the Files app), as readable `.openpixel` JSON. Saving runs in the background.
-- **Preferences**: English (default) or Spanish, light, dark or system appearance, and the accent color (ember, blue, green, purple or pink).
+- **Preferences**: English (default) or Spanish, light, dark or system appearance, and the accent color (ember, blue, green, purple or pink). Editor preferences after [Aseprite's](https://www.aseprite.org/docs/preferences/): checkerboard size and colors, grid colors, alpha shown as 0–255 or %, rewind on stop, undo steps, what a finger, a Pencil double tap and a squeeze do, and a mirrored layout for left-handers (tools on the right).
+- **Scripts** ([Aseprite's](https://www.aseprite.org/docs/scripting/), Lua 5.4): add `.lua` scripts from Files and run them from … > Scripts. They see a subset of Aseprite's API — `app`, `Sprite`, `Layer`, `Cel`, `Frame`, `Image`, `Color`, `Palette`, `Point`, `Rectangle` and `Dialog`, shown as a floating window — so pixel scripts like [Isometric Box](https://darkwark.itch.io/isobox-for-aseprite) run as they are. Each run is one undo step. Scripts can't reach files or the network, and a script that needs a part of the API OpenPixel lacks stops and names it.
+- **Extensions** ([Aseprite's](https://www.aseprite.org/docs/extensions/)): `.aseprite-extension` packages add their palettes and dithering matrices.
 - Full-screen editing with no status bar, and a focus mode that leaves only the canvas.
 
 ## Performance
@@ -160,10 +162,13 @@ OpenPixel/
   App/         Entry point, theme, preferences
   Model/       Sprite, layers, frames, cels, tags, colors, palettes, rasterization
   Document/    SpriteDocument (editing state + undo) and storage
+  Files/       .aseprite files, extensions and the ZIP reader
+  Scripting/   The Lua script engine and the Aseprite API it offers
   Rendering/   CGImage conversion and PNG/GIF export
   Views/       Gallery, new sprite, editor (UIKit canvas, timeline, panel), export, preferences
   Resources/   Assets and localizations (en, es)
 OpenPixelTests/
+Vendor/Lua/    Lua 5.4 (MIT), core and safe libraries only
 ```
 
 ## Contributing
@@ -176,7 +181,7 @@ Contributions are welcome. Please write code, comments, commit messages, issues 
 ## Roadmap
 
 - Indexed and grayscale color modes
-- Opening and saving `.aseprite` files
+- More of Aseprite's scripting API, and extensions that add commands (`plugin:newCommand`)
 
 ## License
 

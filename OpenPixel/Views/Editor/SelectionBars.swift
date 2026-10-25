@@ -122,6 +122,7 @@ struct TransformBar: View {
 /// The editor's Edit menu: clipboard, selection and canvas commands.
 struct EditMenu: View {
     let document: SpriteDocument
+    var addScript: () -> Void = {}
     var showShortcuts: () -> Void = {}
 
     var body: some View {
@@ -190,6 +191,22 @@ struct EditMenu: View {
                 .pickerStyle(.menu)
             }
             Section {
+                // Aseprite's File > Scripts.
+                Menu {
+                    ForEach(ScriptStore.shared.scripts) { script in
+                        Button(script.name) {
+                            do {
+                                document.runScript(named: script.name, source: try ScriptStore.shared.source(of: script))
+                            } catch {
+                                document.scriptMessage = ScriptMessage(title: script.name, text: error.localizedDescription)
+                            }
+                        }
+                    }
+                    Divider()
+                    Button("Add script…", systemImage: "plus", action: addScript)
+                } label: {
+                    Label("Scripts", systemImage: "curlybraces")
+                }
                 Button("Keyboard shortcuts", systemImage: "keyboard", action: showShortcuts)
             }
         } label: {

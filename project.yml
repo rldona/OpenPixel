@@ -19,6 +19,10 @@ targets:
     platform: iOS
     sources:
       - OpenPixel
+      # Lua 5.4 for Aseprite scripts (Vendor/Lua/README.md).
+      - path: Vendor/Lua/src
+        group: Vendor/Lua
+        compilerFlags: ["-w"]
     # Merged with the generated Info.plist: the files OpenPixel opens from Files, AirDrop or Mail.
     info:
       path: OpenPixel/Info.plist
@@ -37,6 +41,9 @@ targets:
           - CFBundleTypeName: Aseprite extension
             LSItemContentTypes: [org.aseprite.extension]
             LSHandlerRank: Alternate
+          - CFBundleTypeName: Lua script
+            LSItemContentTypes: [org.lua.script]
+            LSHandlerRank: Alternate
         UTImportedTypeDeclarations:
           - UTTypeIdentifier: org.aseprite.aseprite
             UTTypeDescription: Aseprite sprite
@@ -48,6 +55,11 @@ targets:
             UTTypeConformsTo: [public.zip-archive]
             UTTypeTagSpecification:
               public.filename-extension: [aseprite-extension]
+          - UTTypeIdentifier: org.lua.script
+            UTTypeDescription: Lua script
+            UTTypeConformsTo: [public.source-code]
+            UTTypeTagSpecification:
+              public.filename-extension: [lua]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rldona.openpixel
@@ -63,6 +75,10 @@ targets:
         INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SWIFT_OBJC_BRIDGING_HEADER: OpenPixel/Scripting/Lua-Bridging-Header.h
+        HEADER_SEARCH_PATHS: $(SRCROOT)/Vendor/Lua/src
+        # iOS has no system(); Lua's os library isn't built, but its headers check this.
+        GCC_PREPROCESSOR_DEFINITIONS: $(inherited) LUA_USE_IOS=1
   OpenPixelTests:
     type: bundle.unit-test
     platform: iOS

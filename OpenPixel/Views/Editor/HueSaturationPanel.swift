@@ -13,7 +13,7 @@ struct HueSaturationPanel: View {
     @State private var everyCel = false
 
     var body: some View {
-        FloatingWindow("Hue/Saturation", id: "hueSaturation", area: area, trailingInset: trailingInset, approximateHeight: 425) {
+        FloatingWindow(Text("Hue/Saturation"), id: "hueSaturation", area: area, trailingInset: trailingInset, approximateHeight: 425) {
             Button("Reset") { adjustment = HueSaturation(mode: adjustment.mode) }
                 .font(.system(size: 13, weight: .medium))
                 .disabled(adjustment.isIdentity)
