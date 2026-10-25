@@ -90,4 +90,4 @@ El botón de simetría de la barra refleja lo que dibujas, como en [Aseprite](ht
 ## Cuadrícula y modo mosaico
 
 - **#** en la barra superior muestra la cuadrícula de píxeles. Mantenlo pulsado para definir una **cuadrícula** de cualquier tamaño de celda y desplazamiento, que se guarda con el sprite. **Ajustar a la cuadrícula** hace que los marcos tomen celdas enteras y que los movimientos vayan de celda en celda.
-- El **modo mosaico** (el botón junto a la cuadrícula) muestra el sprite repetido a su alrededor, en horizontal, en vertical o en ambos. Los trazos, las formas y los rellenos cruzan los bordes, para hacer texturas sin costuras.
+- El **modo mosaico** (en el menú de la cuadrícula: mantén pulsado **#**) muestra el sprite repetido a su alrededor, en horizontal, en vertical o en ambos. Los trazos, las formas y los rellenos cruzan los bordes, para hacer texturas sin costuras.

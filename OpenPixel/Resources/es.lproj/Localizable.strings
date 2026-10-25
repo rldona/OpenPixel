@@ -27,6 +27,8 @@
 "Name" = "Nombre";
 "Cancel" = "Cancelar";
 "Save" = "Guardar";
+"Rename sprite" = "Renombrar sprite";
+"Renames the sprite" = "Renombra el sprite";
 "Create" = "Crear";
 "Close" = "Cerrar";
 "Done" = "Listo";

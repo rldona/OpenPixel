@@ -32,13 +32,8 @@ struct ToolOptionsBar: View {
 
     private var items: some View {
         HStack(spacing: 10) {
-            Label(document.tool.title, systemImage: document.tool.systemImage)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.text)
-                .fixedSize()
-
             if document.activeLayer?.isTilemap == true, [.pencil, .eraser, .bucket, .eyedropper].contains(document.tool) {
-                divider
+                divider(.tilemap)
                 // Tilemaps: draw pixels or place whole tiles.
                 Picker("Draw", selection: $document.tileDrawMode) {
                     Image(systemName: "pencil").tag(TileDrawMode.pixels).accessibilityLabel(Text("Pixels"))
@@ -49,7 +44,7 @@ struct ToolOptionsBar: View {
             }
 
             if document.tool.usesBrush {
-                divider
+                divider(.brush)
                 if !usingCustomBrush { brushSize }
                 // The tip's shape only shows from 2 px up (or when there's a custom brush to pick).
                 if document.brushSize > 1 || document.customBrush != nil { brushShape }
@@ -59,12 +54,12 @@ struct ToolOptionsBar: View {
                 }
             }
             if document.tool == .spray {
-                divider
+                divider(.spray)
                 stepper(value: $document.sprayWidth, range: 1...32, label: "Width", unit: "px", presets: [2, 4, 6, 8, 12, 16, 24, 32])
                 stepper(value: $document.spraySpeed, range: 1...32, label: "Speed", unit: nil, presets: [1, 2, 4, 8, 16, 32])
             }
             if document.tool.usesInk || document.tool == .eraser {
-                divider
+                divider(.ink)
                 InkButton(document: document)
             }
             if document.tool == .pencil || document.tool == .eraser {
@@ -73,22 +68,22 @@ struct ToolOptionsBar: View {
                     .opacity(document.brushSize > 1 ? 0.4 : 1)
             }
             if document.tool == .rectangle || document.tool == .ellipse {
-                divider
+                divider(.shapeFill)
                 toggle("Fill", isOn: $document.shapeFilled)
             }
             if document.tool == .rectangle {
                 cornerRadius
             }
             if document.tool.buildsOverTouches || document.tool == .contour {
-                divider
+                divider(.progress)
                 shapeProgress
             }
             if document.tool == .gradient {
-                divider
+                divider(.gradient)
                 gradientOptions
             }
             if document.tool == .bucket || document.tool == .gradient {
-                divider
+                divider(.fill)
                 tolerance($document.fillTolerance)
                 toggle("Contiguous", isOn: $document.fillContiguous)
                 if document.fillContiguous { toggle("Diagonals", isOn: $document.fillDiagonal) }
@@ -96,7 +91,7 @@ struct ToolOptionsBar: View {
                 toggle("Stop at grid", isOn: $document.fillStopsAtGrid)
             }
             if document.tool == .eyedropper {
-                divider
+                divider(.eyedropper)
                 toggle("Active layer only", isOn: $document.eyedropperActiveLayer)
                 ViewThatFits(in: .horizontal) {
                     Text("Tap the canvas to pick a color")
@@ -107,7 +102,7 @@ struct ToolOptionsBar: View {
                 }
             }
             if document.tool.isSelection {
-                divider
+                divider(.selection)
                 selectionModes
                 if document.tool != .magicWand {
                     divider
@@ -132,17 +127,17 @@ struct ToolOptionsBar: View {
                 }
             }
             if document.tool == .magicWand {
-                divider
+                divider(.wand)
                 tolerance($document.wandTolerance)
                 toggle("Contiguous", isOn: $document.wandContiguous)
                 toggle("All layers", isOn: $document.wandSampleAllLayers)
             }
             if document.tool == .text {
-                divider
+                divider(.text)
                 textOptions
             }
             if document.tool == .slice {
-                divider
+                divider(.slice)
                 SliceOptions(document: document)
             }
             if document.tool == .move {
@@ -312,6 +307,27 @@ struct ToolOptionsBar: View {
 
     private var divider: some View {
         Rectangle().fill(Theme.border).frame(width: 1, height: 22)
+    }
+
+    /// The groups of options, in the bar's order; each starts with a divider.
+    private enum OptionGroup { case tilemap, brush, spray, ink, shapeFill, progress, gradient, fill, eyedropper, selection, wand, text, slice }
+
+    /// The first group shown: it has nothing before it to divide from.
+    private var firstGroup: OptionGroup? {
+        let tool = document.tool
+        let shown: [(OptionGroup, Bool)] = [
+            (.tilemap, document.activeLayer?.isTilemap == true && [.pencil, .eraser, .bucket, .eyedropper].contains(tool)),
+            (.brush, tool.usesBrush), (.spray, tool == .spray), (.ink, tool.usesInk || tool == .eraser),
+            (.shapeFill, tool == .rectangle || tool == .ellipse), (.progress, tool.buildsOverTouches || tool == .contour),
+            (.gradient, tool == .gradient), (.fill, tool == .bucket || tool == .gradient), (.eyedropper, tool == .eyedropper),
+            (.selection, tool.isSelection), (.wand, tool == .magicWand), (.text, tool == .text), (.slice, tool == .slice),
+        ]
+        return shown.first { $0.1 }?.0
+    }
+
+    @ViewBuilder
+    private func divider(_ group: OptionGroup) -> some View {
+        if group != firstGroup { divider }
     }
 
     private var brushSize: some View {

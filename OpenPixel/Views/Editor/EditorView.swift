@@ -13,6 +13,8 @@ struct EditorView: View {
     @State private var saveTask: Task<Void, Never>?
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
     @State private var focusMode = false
+    @State private var renamingSprite = false
+    @State private var renameText = ""
     /// Timeline height, set by dragging its top edge (Aseprite's splitter). Kept between sessions.
     /// Four layer rows by default: controls (44), frame numbers (25) and 4 × 30,
     /// less the home indicator's strip, which the timeline runs under.
@@ -262,26 +264,59 @@ struct EditorView: View {
         HStack(spacing: 0) {
             IconButton(systemImage: "chevron.left", label: "Back to projects") { dismiss() }
                 .frame(width: Self.railWidth)
+            spriteName
 
             ToolOptionsBar(document: document)
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity)
-            ZoomMenu(canvas: canvas)
 
+            // The view and the file: zoom, Edit, focus and grid in one capsule, then Export.
             HStack(spacing: 0) {
-                Spacer(minLength: 0)
+                ZoomMenu(canvas: canvas)
                 EditMenu(document: document, addScript: { addingScript = true }) { showingShortcuts = true }.help(Text("Edit"))
                 focusMenu
                 gridMenu
-                tiledModeMenu
-                exportButton.padding(.leading, 6)
             }
-            .padding(.horizontal, 8)
-            .frame(width: Self.panelWidth)
+            .padding(.horizontal, 4)
+            .frame(height: 44)
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
+            exportButton
+                .padding(.leading, 8)
+                .padding(.trailing, 8)
         }
         .frame(height: 56)
         .background(Theme.panel)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.border).frame(height: 1) }
+    }
+
+    /// The sprite's name beside Back; tap to rename it.
+    private var spriteName: some View {
+        Button {
+            renameText = document.name
+            renamingSprite = true
+        } label: {
+            Text(verbatim: document.name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.text)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 140, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 2)
+        .accessibilityLabel(Text(verbatim: document.name))
+        .accessibilityHint(Text("Renames the sprite"))
+        .alert("Rename sprite", isPresented: $renamingSprite) {
+            TextField("Name", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let name = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty { document.name = name }
+            }
+        }
     }
 
     /// "Export" with its label, or just the icon when the label doesn't fit.
@@ -327,13 +362,23 @@ struct EditorView: View {
 
     /// Tap toggles the pixel grid; touch and hold for the sprite's grid, snapping and its settings.
     private var gridMenu: some View {
-        let isOn = document.showGrid || document.showTileGrid
+        let isOn = document.showGrid || document.showTileGrid || document.tiledMode != .none
         return Menu {
             Section("Grid") {
                 Toggle(isOn: $document.showGrid) { Label("Pixel grid", systemImage: "grid") }
                 Toggle(isOn: $document.showTileGrid) { Label("Grid", systemImage: "square.grid.3x3") }
                 Toggle(isOn: $document.snapToGrid) { Label("Snap to grid", systemImage: "squareshape.split.3x3") }
             }
+            // Aseprite's View > Tiled Mode: the sprite repeated around itself.
+            Picker(selection: $document.tiledMode) {
+                Text("None").tag(TiledMode.none)
+                Text("Tile horizontally").tag(TiledMode.horizontal)
+                Text("Tile vertically").tag(TiledMode.vertical)
+                Text("Tile in both directions").tag(TiledMode.both)
+            } label: {
+                Label("Tiled mode", systemImage: "square.grid.3x3.square")
+            }
+            .pickerStyle(.menu)
             Button("Grid settings…", systemImage: "slider.horizontal.3") { showingGridSettings = true }
         } label: {
             topBarIcon("grid", isOn: isOn)
@@ -358,26 +403,6 @@ struct EditorView: View {
     }
 
     /// Aseprite's View > Tiled Mode.
-    private var tiledModeMenu: some View {
-        let isOn = document.tiledMode != .none
-        return Menu {
-            Section("Tiled mode") {
-                Picker("Tiled mode", selection: $document.tiledMode) {
-                    Text("None").tag(TiledMode.none)
-                    Text("Tile horizontally").tag(TiledMode.horizontal)
-                    Text("Tile vertically").tag(TiledMode.vertical)
-                    Text("Tile in both directions").tag(TiledMode.both)
-                }
-            }
-        } label: {
-            topBarIcon("square.grid.3x3.square", isOn: isOn)
-        }
-        .menuIndicator(.hidden)
-        .help(Text("Tiled mode"))
-        .accessibilityLabel(Text("Tiled mode"))
-        .accessibilityAddTraits(isOn ? .isSelected : [])
-    }
-
     @ViewBuilder
     private var noticeBanner: some View {
         if let notice = document.notice {
@@ -418,10 +443,9 @@ private struct ZoomMenu: View {
             .foregroundStyle(Theme.text)
             .padding(.horizontal, 10)
             .frame(height: 36)
-            .background(Theme.chip, in: RoundedRectangle(cornerRadius: 9))
+            .contentShape(Rectangle())
         }
         .menuIndicator(.hidden)
-        .padding(.trailing, 8)
         .accessibilityLabel(Text("Zoom"))
         .accessibilityValue(Text(verbatim: "\(Int((canvas.zoom * 100).rounded())) %"))
     }

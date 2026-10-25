@@ -90,4 +90,4 @@ The symmetry button in the rail mirrors what you draw, as in [Aseprite](https://
 ## Grid and tiled mode
 
 - **#** in the top bar shows the pixel grid. Touch and hold it to set a **grid** of any cell size and offset, saved with the sprite. **Snap to grid** makes marquees take whole cells and moves go cell by cell.
-- **Tiled mode** (the button next to the grid) shows the sprite repeated around itself, horizontally, vertically or both. Strokes, shapes and fills wrap across the edges, to make seamless textures.
+- **Tiled mode** (in the grid's menu: touch and hold **#**) shows the sprite repeated around itself, horizontally, vertically or both. Strokes, shapes and fills wrap across the edges, to make seamless textures.
