@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Aseprite's Hue/Saturation window: floats over the editor (at first at the
-/// canvas's top right) and can be dragged by its title; the canvas shows the
-/// result while the sliders move. Apply makes it one undo step.
+/// Aseprite's Hue/Saturation window: the canvas shows the result while the
+/// sliders move. Apply makes it one undo step.
 /// https://www.aseprite.org/docs/hue-saturation/
 struct HueSaturationPanel: View {
     let document: SpriteDocument
@@ -12,32 +11,13 @@ struct HueSaturationPanel: View {
     let trailingInset: CGFloat
     @State private var adjustment = HueSaturation()
     @State private var everyCel = false
-    /// Where it was dragged to, from its place at the top right; kept between uses.
-    @AppStorage("hueSaturationWindowX") private var offsetX = 0.0
-    @AppStorage("hueSaturationWindowY") private var offsetY = 0.0
-    @GestureState private var drag = CGSize.zero
-    private static let width: CGFloat = EditorView.panelWidth - 16
-    private static let approximateHeight: CGFloat = 425
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.muted)
-                Text("Hue/Saturation").font(.system(size: 15, weight: .semibold)).lineLimit(1)
-                Spacer(minLength: 4)
-                Button("Reset") { adjustment = HueSaturation(mode: adjustment.mode) }
-                    .font(.system(size: 13, weight: .medium))
-                    .disabled(adjustment.isIdentity)
-            }
-            .frame(minHeight: 32)
-            .contentShape(Rectangle())
-            .gesture(dragGesture)
-            // Double tap the title to put it back at the canvas's top right.
-            .onTapGesture(count: 2) { withAnimation(.snappy) { offsetX = 0; offsetY = 0 } }
-            .accessibilityHint(Text("Drag to move the window"))
-
+        FloatingWindow("Hue/Saturation", id: "hueSaturation", area: area, trailingInset: trailingInset, approximateHeight: 425) {
+            Button("Reset") { adjustment = HueSaturation(mode: adjustment.mode) }
+                .font(.system(size: 13, weight: .medium))
+                .disabled(adjustment.isIdentity)
+        } content: {
             Picker("Mode", selection: $adjustment.mode) {
                 ForEach(HueSaturation.Mode.allCases) { Text(verbatim: $0.title).tag($0) }
             }
@@ -79,35 +59,12 @@ struct HueSaturationPanel: View {
             }
             .font(.system(size: 15))
         }
-        .padding(14)
-        .frame(width: Self.width)
-        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border))
-        .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
-        .offset(clamped(CGSize(width: offsetX + drag.width, height: offsetY + drag.height)))
         // A short pause between slider moves keeps big sprites responsive.
         .task(id: Preview(adjustment: adjustment, everyCel: everyCel)) {
             try? await Task.sleep(for: .milliseconds(30))
             guard !Task.isCancelled else { return }
             document.previewHueSaturation(adjustment, everyCel: everyCel)
         }
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(coordinateSpace: .global)
-            .updating($drag) { value, state, _ in state = value.translation }
-            .onEnded { value in
-                let end = clamped(CGSize(width: offsetX + value.translation.width, height: offsetY + value.translation.height))
-                offsetX = end.width
-                offsetY = end.height
-            }
-    }
-
-    /// Keeps it inside the editor.
-    private func clamped(_ offset: CGSize) -> CGSize {
-        let maxLeft = max(0, area.width - Self.width - trailingInset - 8), maxRight = max(0, trailingInset - 8)
-        let maxDown = max(0, area.height - Self.approximateHeight - 24)
-        return CGSize(width: min(maxRight, max(-maxLeft, offset.width)), height: min(maxDown, max(-8, offset.height)))
     }
 
     private struct Preview: Hashable {

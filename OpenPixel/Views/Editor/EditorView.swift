@@ -90,16 +90,23 @@ struct EditorView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
-            // A floating window like Aseprite's: it opens at the canvas's top right
+            // Floating windows like Aseprite's: they open at the canvas's top right
             // and can be dragged anywhere in the editor, side panel included.
+            // Color Shading steps aside while Hue/Saturation is open.
             .overlay {
-                if document.isAdjustingHueSaturation {
+                if document.isAdjustingHueSaturation || document.isShowingColorShading {
                     GeometryReader { geometry in
                         let inset: CGFloat = focusMode ? 16 : Self.panelWidth + 16
-                        HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
-                            .padding(.trailing, inset)
-                            .padding(.top, focusMode ? 72 : 16)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        Group {
+                            if document.isAdjustingHueSaturation {
+                                HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
+                            } else {
+                                ColorShadingPanel(document: document, area: geometry.size, trailingInset: inset)
+                            }
+                        }
+                        .padding(.trailing, inset)
+                        .padding(.top, focusMode ? 72 : 16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     }
                     .transition(.opacity)
                 }

@@ -184,6 +184,8 @@ final class SpriteDocument {
     var timelineRange: TimelineRange?
     /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
     var isReplacingColor = false
+    /// The Color Shading window is open (the side panel's Color shading button).
+    var isShowingColorShading = false
     /// Text tool settings, shared by every sprite while the app runs.
     var textStyle = TextStyle()
     /// Where the text tool was tapped; set while the text is being typed.
