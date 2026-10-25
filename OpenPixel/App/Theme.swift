@@ -181,7 +181,7 @@ struct PixelWordmark: View {
     }
 }
 
-/// The app icon's four colored squares.
+/// The app icon's four colored squares, under a pixel grid.
 struct PixelLogo: View {
     var size: CGFloat = 32
 
@@ -193,6 +193,15 @@ struct PixelLogo: View {
             square(0xFFCD75, x: 4, y: 1, unit: unit)
             square(0x41A6F6, x: 1, y: 4, unit: unit)
             square(0x38B764, x: 4, y: 4, unit: unit)
+            // Eight cells a side over the colors, as in the icon.
+            Path { path in
+                for i in 1..<8 {
+                    let p = unit + unit * 6 * CGFloat(i) / 8
+                    path.move(to: CGPoint(x: p, y: unit)); path.addLine(to: CGPoint(x: p, y: unit * 7))
+                    path.move(to: CGPoint(x: unit, y: p)); path.addLine(to: CGPoint(x: unit * 7, y: p))
+                }
+            }
+            .stroke(Color(hex: 0x141417).opacity(0.3), lineWidth: max(0.5, size / 256))
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
