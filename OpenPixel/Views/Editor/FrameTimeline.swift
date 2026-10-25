@@ -539,13 +539,22 @@ struct FrameTimeline: View {
             // Projected layers: tapping one adds layers under the bottom one, down to it.
             ForEach(0..<projectedLayerRows, id: \.self) { row in
                 Button { document.extendTimeline(toFrame: nil, layersBelow: row + 1) } label: {
-                    RoundedRectangle(cornerRadius: 6)
-                        .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                        .frame(height: rowHeight - 8)
-                        .padding(.leading, 96)
-                        .padding(.trailing, 10)
-                        .frame(height: rowHeight)
-                        .contentShape(Rectangle())
+                    // The same eye, lock and continuity icons as a real row, faint.
+                    HStack(spacing: 0) {
+                        Image(systemName: "eye").frame(width: 34, height: rowHeight)
+                        Image(systemName: "lock.open").font(.system(size: 13)).frame(width: 30, height: rowHeight)
+                        ContinuityIcon(isOn: false, color: Theme.muted).frame(width: 26, height: rowHeight)
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                            .frame(height: rowHeight - 8)
+                            .padding(.leading, 6)
+                            .padding(.trailing, 10)
+                    }
+                    .foregroundStyle(Theme.muted)
+                    .opacity(0.35)
+                    .padding(.leading, 6)
+                    .frame(height: rowHeight)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("New layer"))
@@ -709,7 +718,7 @@ struct FrameTimeline: View {
         }
         .padding(.leading, 6)
         .frame(height: rowHeight)
-        .background(inRange ? Theme.accentSoft : (isActive && !document.isSelectingRange ? Theme.rowActive : Theme.panel))
+        .background(inRange ? Theme.accentSoft : (isActive && !document.isSelectingRange ? Theme.accentSoft : Theme.panel))
         .overlay { if inRange { Rectangle().strokeBorder(Theme.accent, lineWidth: 2) } }
         .contextMenu {
             Button("Rename", systemImage: "pencil") {
@@ -973,7 +982,7 @@ struct FrameTimeline: View {
                     }
                 }
                 .frame(height: rowHeight)
-                .background(layer.id == document.activeLayerID && !document.isSelectingRange ? Theme.rowActive : .clear)
+                .background(layer.id == document.activeLayerID && !document.isSelectingRange ? Theme.accentSoft : .clear)
             }
             }
             .overlay(alignment: .topLeading) { rangeOutline }
