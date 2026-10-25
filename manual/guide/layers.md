@@ -9,7 +9,7 @@ Each row has an **eye** (show or hide, ⇧X), a **lock** and the **continuity** 
 - **⚙** chooses whether the first frame is numbered 0 or 1;
 - **+** adds a layer above the active one (⇧N); touch and hold it for more (below);
 - the **bin** deletes the active layer;
-- **↑ ↓** move it up or down. You can also drag a layer to reorder it.
+- drag a layer to reorder it (or use **Move up** and **Move down** in its menu).
 
 ## The layer menu
 

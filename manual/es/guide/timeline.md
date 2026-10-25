@@ -14,13 +14,14 @@ Después del último frame y de la última capa, unos frames y capas **proyectad
 
 - **+ Frame** (⌥N) duplica el frame actual; mantenlo pulsado para uno vacío (⌥⇧N).
 - La **papelera** elimina el frame actual.
-- Arrastra el número de un frame para reordenarlo. Mantenlo pulsado para su menú.
+- **Desliza sobre los números** de frame para recorrer la animación. Mantén pulsado un número y arrastra para mover ese frame; su menú tiene el resto.
+- La columna del frame activo lleva un tinte, como la fila de la capa activa: se cruzan en el cel activo.
 - La **duración** (100 ms ⌄) fija cuánto dura el frame actual: −/+, valores predefinidos hasta 4 s, o escribe cualquier valor hasta 65 535 ms. Los frames que duran más o menos que la mayoría muestran su duración bajo el número.
 - `,` y `.` (o ← y →) van al frame anterior y al siguiente; Inicio y Fin, al primero y al último.
 
 ## Reproducción
 
-**▶** (↩) reproduce el tag del frame actual, o todos los frames si no tiene. **1× ⌄** fija la velocidad, de 0,25× a 3×. Los botones de alrededor van al primer frame, al anterior, al siguiente y al último. La **vista previa** del panel lateral tiene su propio botón de reproducir, así que la animación sigue en marcha mientras dibujas.
+**▶** (↩) reproduce el tag del frame actual, o todos los frames si no tiene. Los botones de al lado van al frame anterior y al siguiente; mantenlos pulsados para ir al primero y al último. Junto a ellos, **7 / 10** dice en qué frame estás. **1× ⌄** fija la velocidad, de 0,25× a 3×. La **vista previa** del panel lateral tiene su propio botón de reproducir, así que la animación sigue en marcha mientras dibujas.
 
 ## Tags
 
@@ -41,6 +42,8 @@ Toca un tag para editarlo. Los tags que se solapan van en **bandas** distintas; 
 - **opacidad**;
 - **teñir**: rojo antes, azul después;
 - **solo dentro del tag**.
+
+Mientras está activado, los frames que muestra se marcan bajo sus números: en rojo los anteriores y en azul los siguientes.
 
 ## Cels enlazados
 

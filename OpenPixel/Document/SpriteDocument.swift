@@ -33,6 +33,19 @@ struct OnionSkinSettings: Equatable {
     var onlyInTag = false
 }
 
+extension SpriteDocument {
+    /// How far `index` is from the active frame when the onion skin shows it
+    /// (negative before, positive after), or nil when it doesn't.
+    func onionOffset(of index: Int) -> Int? {
+        guard onionSkin, !isPlaying else { return nil }
+        let offset = index - activeFrameIndex
+        let settings = onionSettings
+        guard offset != 0, offset >= -settings.previous, offset <= settings.next, structure.frames.indices.contains(index) else { return nil }
+        if settings.onlyInTag, let tag = structure.tag(containing: activeFrameIndex), !tag.contains(index) { return nil }
+        return offset
+    }
+}
+
 /// Editing session for one sprite: the sprite itself, the editor state
 /// (active cel, tool, colors) and the undo history.
 @MainActor

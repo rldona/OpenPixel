@@ -14,13 +14,14 @@ Past the last frame and the last layer, faint **projected** frames and layers ke
 
 - **+ Frame** (⌥N) duplicates the current frame; touch and hold it for an empty one (⌥⇧N).
 - The **bin** deletes the current frame.
-- Drag a frame number to reorder it. Touch and hold it for its menu.
+- **Drag along the frame numbers** to scrub through the animation. Touch and hold a number, then drag, to move that frame; its menu has the rest.
+- The active frame's column is tinted, like the active layer's row: they cross on the active cel.
 - The **duration** (100 ms ⌄) sets how long the current frame lasts: −/+, presets up to 4 s, or type any value up to 65 535 ms. Frames that last longer or shorter than most show their duration under the number.
 - `,` and `.` (or ← and →) go to the previous and next frame; Home and End to the first and last.
 
 ## Playback
 
-**▶** (↩) plays the current frame's tag, or every frame if it has none. **1× ⌄** sets the speed, from 0.25× to 3×. The buttons around play go to the first, previous, next and last frame. The side panel's **preview** has its own play button, so the animation keeps running while you draw.
+**▶** (↩) plays the current frame's tag, or every frame if it has none. The buttons around it step to the previous and next frame; touch and hold them for the first and last. Next to them, **7 / 10** says which frame you're on. **1× ⌄** sets the speed, from 0.25× to 3×. The side panel's **preview** has its own play button, so the animation keeps running while you draw.
 
 ## Tags
 
@@ -41,6 +42,8 @@ Tap a tag to edit it. Overlapping tags go in separate **bands**; **focus a band*
 - **opacity**;
 - **tint**: red before, blue after;
 - **only inside the tag**.
+
+While it's on, the frames it shows are marked under their numbers: red before, blue after.
 
 ## Linked cels
 

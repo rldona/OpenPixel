@@ -141,9 +141,31 @@ struct FrameTimeline: View {
         }
     }
 
+    /// Steps one frame; touch and hold to jump to the first or last one.
+    private func stepButton(_ systemImage: String, label: LocalizedStringKey, by step: Int, endLabel: LocalizedStringKey, endImage: String, end: Int) -> some View {
+        Menu {
+            Button(endLabel, systemImage: endImage) { document.goToFrame(end) }
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 14.4, weight: .medium))
+                .frame(width: 36, height: 36)
+                .foregroundStyle(Theme.text)
+                .contentShape(Rectangle())
+        } primaryAction: {
+            document.goToFrame(document.activeFrameIndex + step)
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel(Text(label))
+        .accessibilityHint(Text("Touch and hold for the first or last frame"))
+    }
+
     /// Aseprite's keys: `,` `.` previous/next frame, ⇧X show/hide the active layer.
     private var shortcuts: some View {
         Group {
+            Button("First frame") { document.goToFrame(0) }
+                .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.home, modifiers: []))
+            Button("Last frame") { document.goToFrame(document.structure.frames.count - 1) }
+                .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.end, modifiers: []))
             Button("Previous frame") { document.goToFrame(document.activeFrameIndex - 1) }
                 .keyboardShortcut(",", modifiers: [])
             Button("Next frame") { document.goToFrame(document.activeFrameIndex + 1) }
@@ -296,26 +318,22 @@ struct FrameTimeline: View {
 
     private func playbackControls(compact: Bool) -> some View {
         HStack(spacing: 0) {
-            IconButton(systemImage: "backward.end", label: "First frame", size: 36) {
-                document.goToFrame(0)
-            }
-            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.home, modifiers: []))
-            IconButton(systemImage: "backward.frame", label: "Previous frame", size: 36) {
-                document.goToFrame(document.activeFrameIndex - 1)
-            }
-            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.leftArrow, modifiers: []))
+            // Touch and hold the step buttons to go to the first or last frame.
+            stepButton("backward.frame", label: "Previous frame", by: -1, endLabel: "First frame", endImage: "backward.end", end: 0)
+                .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.leftArrow, modifiers: []))
             IconButton(systemImage: document.isPlaying ? "pause.fill" : "play.fill", label: "Play or pause", isOn: document.isPlaying, size: 40) {
                 document.togglePlayback()
             }
             .keyboardShortcut(document.isTransforming || document.isBuildingShape ? nil : KeyboardShortcut(.return, modifiers: []))
-            IconButton(systemImage: "forward.frame", label: "Next frame", size: 36) {
-                document.goToFrame(document.activeFrameIndex + 1)
-            }
-            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.rightArrow, modifiers: []))
-            IconButton(systemImage: "forward.end", label: "Last frame", size: 36) {
-                document.goToFrame(document.structure.frames.count - 1)
-            }
-            .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.end, modifiers: []))
+            stepButton("forward.frame", label: "Next frame", by: 1, endLabel: "Last frame", endImage: "forward.end", end: document.structure.frames.count - 1)
+                .keyboardShortcut(document.isTransforming ? nil : KeyboardShortcut(.rightArrow, modifiers: []))
+            // Where playback is: the frame, of how many.
+            Text(verbatim: "\(document.activeFrameIndex + firstFrame) / \(document.structure.frames.count - 1 + firstFrame)")
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Theme.muted)
+                .fixedSize()
+                .padding(.horizontal, 6)
+                .accessibilityLabel(Text("Frame \(document.activeFrameIndex + firstFrame) of \(document.structure.frames.count)"))
             Menu {
                 Picker("Speed", selection: $document.playbackSpeed) {
                     ForEach(Self.speeds, id: \.self) { Text(Self.speedLabel($0)).tag($0) }
@@ -509,13 +527,7 @@ struct FrameTimeline: View {
 
                 IconButton(systemImage: "trash", label: "Delete layer", size: 28) { document.deleteLayer(document.activeLayerID) }
                     .opacity(document.structure.layers.count > 1 ? 1 : 0.35)
-                // Layer > Move up / Move down: the active layer past its neighbour.
-                IconButton(systemImage: "arrow.up", label: "Move layer up", size: 28) { document.moveLayer(document.activeLayerID, by: 1) }
-                    .disabled(!document.canMoveLayer(document.activeLayerID, by: 1))
-                    .opacity(document.canMoveLayer(document.activeLayerID, by: 1) ? 1 : 0.35)
-                IconButton(systemImage: "arrow.down", label: "Move layer down", size: 28) { document.moveLayer(document.activeLayerID, by: -1) }
-                    .disabled(!document.canMoveLayer(document.activeLayerID, by: -1))
-                    .opacity(document.canMoveLayer(document.activeLayerID, by: -1) ? 1 : 0.35)
+                // Layers move by dragging them, or with Move up / Move down in their menu.
             }
             .padding(.leading, 6)
             .padding(.trailing, 8)
@@ -1032,6 +1044,16 @@ struct FrameTimeline: View {
             }
             }
             .overlay(alignment: .topLeading) { rangeOutline }
+            // The active frame's column, tinted like the active layer's row: they cross on the active cel.
+            .background(alignment: .topLeading) {
+                if !document.isSelectingRange {
+                    Rectangle()
+                        .fill(Theme.accentSoft)
+                        .frame(width: celWidth, height: CGFloat(layersTopFirst.count) * rowHeight)
+                        .offset(x: CGFloat(document.activeFrameIndex) * celWidth)
+                        .allowsHitTesting(false)
+                }
+            }
             // Projected layers, across every column.
             if projectedLayerRows > 0 {
                 projectedCels(columns: 0..<shownFrames, rows: projectedLayerRows) { column, row in
@@ -1053,6 +1075,7 @@ struct FrameTimeline: View {
                 ForEach(frames.indices, id: \.self) { index in
                     frameHeader(index, count: frames.count, inActiveTag: activeTag?.contains(index) ?? false,
                                 duration: usualDuration.flatMap { frames[index].duration != $0 ? frames[index].duration : nil })
+                        .overlay(alignment: .bottom) { onionMark(index) }
                 }
                 if showsDropColumn {
                     Image(systemName: "plus")
@@ -1073,6 +1096,7 @@ struct FrameTimeline: View {
                     .accessibilityLabel(Text("New frame"))
                 }
             }
+            .simultaneousGesture(scrub)
         }
         .padding(.trailing, 16)
         .fixedSize()
@@ -1134,6 +1158,33 @@ struct FrameTimeline: View {
         guard let grabbed = items.first.flatMap(RangePayload.init) else { return false }
         document.dropRange(from: (grabbed.layer, grabbed.frame), to: (layer ?? grabbed.layer, frame))
         return true
+    }
+
+    /// Under the frames the onion skin shows: red before, blue after (gray without tint).
+    @ViewBuilder
+    private func onionMark(_ index: Int) -> some View {
+        if let offset = document.onionOffset(of: index) {
+            let tint = document.onionSettings.tint
+            Capsule()
+                .fill(!tint ? Theme.muted : (offset < 0 ? PixelColor.onionPrevious.color : PixelColor.onionNext.color))
+                .opacity(1 - 0.25 * Double(abs(offset) - 1))
+                .frame(width: celWidth - 18, height: 3)
+                .padding(.bottom, 1)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// Dragging along the frame numbers moves through the animation (Aseprite's
+    /// and Procreate's scrubbing); touch and hold a number to drag it elsewhere.
+    private var scrub: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { drag in
+                guard !document.isSelectingRange else { return }
+                let index = Int((drag.location.x / celWidth).rounded(.down))
+                guard document.structure.frames.indices.contains(index), index != document.activeFrameIndex else { return }
+                document.goToFrame(index)
+            }
     }
 
     /// `duration` is set when this frame lasts longer or shorter than most.

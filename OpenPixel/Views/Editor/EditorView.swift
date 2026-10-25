@@ -659,7 +659,6 @@ private struct CanvasHost: View {
         guard document.onionSkin, !document.isPlaying else { return [] }
         let settings = document.onionSettings
         let current = document.activeFrameIndex
-        let tag = settings.onlyInTag ? sprite.tag(containing: current) : nil
         var offsets: [Int] = []
         let maxDistance = max(settings.previous, settings.next)
         if maxDistance > 0 {
@@ -668,9 +667,10 @@ private struct CanvasHost: View {
                 if d <= settings.next { offsets.append(d) }
             }
         }
+        // The same frames the timeline marks under their numbers.
         return offsets.compactMap { offset in
             let index = current + offset
-            guard sprite.frames.indices.contains(index), tag?.contains(index) ?? true else { return nil }
+            guard document.onionOffset(of: index) != nil else { return nil }
             var image = sprite.composite(frameIndex: index)
             if settings.tint { image = image.tinted(offset < 0 ? .onionPrevious : .onionNext) }
             guard let cgImage = image.makeCGImage() else { return nil }

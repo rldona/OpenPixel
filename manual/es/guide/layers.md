@@ -9,7 +9,7 @@ Cada fila tiene un **ojo** (mostrar u ocultar, ⇧X), un **candado** y los **pun
 - **⚙** elige si el primer frame es el 0 o el 1;
 - **+** añade una capa encima de la activa (⇧N); mantenlo pulsado para más opciones (abajo);
 - la **papelera** elimina la capa activa;
-- **↑ ↓** la suben o la bajan. También puedes arrastrar una capa para reordenarla.
+- arrastra una capa para reordenarla (o usa **Subir** y **Bajar** en su menú).
 
 ## El menú de la capa
 

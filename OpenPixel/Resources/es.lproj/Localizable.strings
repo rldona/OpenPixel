@@ -293,6 +293,8 @@
 "A sprite needs at least one layer" = "Un sprite necesita al menos una capa";
 "First frame" = "Primer frame";
 "Last frame" = "Último frame";
+"Touch and hold for the first or last frame" = "Mantén pulsado para ir al primer o al último frame";
+"Frame %lld of %lld" = "Frame %lld de %lld";
 "Hide all layers" = "Ocultar todas las capas";
 "Select all layers" = "Seleccionar todas las capas";
 "Deselect all layers" = "Deseleccionar todas las capas";
