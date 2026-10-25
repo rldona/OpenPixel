@@ -26,7 +26,9 @@ struct FrameTimeline: View {
     private let rowHeight: CGFloat = 30
     /// Frame numbers grow a second line when some frame's duration differs.
     private var headerHeight: CGFloat { document.structure.usualFrameDuration == nil ? 24 : 34 }
-    private let tagLaneHeight: CGFloat = 20
+    /// With one band, tags are a slim strip right on top of the frame numbers;
+    /// several bands get full lanes, to tell them apart.
+    private var tagLaneHeight: CGFloat { document.structure.tagBandCount > 1 ? 20 : 15 }
     private static let durationPresets = [50, 80, 100, 150, 200, 300, 500, 1000, 2000, 4000]
     /// The duration being typed: for the active frame, or for every selected frame.
     @State private var typingDuration: DurationTarget?
@@ -123,7 +125,7 @@ struct FrameTimeline: View {
     /// The height that shows every layer without scrolling (controls, tags, frame numbers and rows).
     static func fittingHeight(for sprite: Sprite) -> CGFloat {
         let bands = CGFloat(sprite.tags.isEmpty ? 0 : sprite.tagBandCount)
-        let tags = bands > 0 ? bands * 20 + 4 : 0
+        let tags = bands > 1 ? bands * 20 + 4 : (bands == 1 ? 16 : 0)
         let header: CGFloat = sprite.usualFrameDuration == nil ? 24 : 34
         return 44 + 1 + tags + header + CGFloat(sprite.layers.count) * 30 + 12
     }
@@ -908,7 +910,7 @@ struct FrameTimeline: View {
 
     /// No room for tags until the sprite has some, like Aseprite.
     private var tagRowHeight: CGFloat {
-        document.structure.tags.isEmpty ? 0 : CGFloat(visibleBands.count) * tagLaneHeight + 4
+        document.structure.tags.isEmpty ? 0 : CGFloat(visibleBands.count) * tagLaneHeight + (document.structure.tagBandCount > 1 ? 4 : 1)
     }
 
     /// Next to each tag band, the button that focuses it (only with several bands).
@@ -949,7 +951,7 @@ struct FrameTimeline: View {
             Color.clear
             ForEach(shown, id: \.tag.id) { item in
                 tagBar(item.tag, band: item.band)
-                    .offset(x: CGFloat(item.tag.from) * celWidth + 2, y: CGFloat(bands.firstIndex(of: item.band) ?? 0) * tagLaneHeight + 2)
+                    .offset(x: CGFloat(item.tag.from) * celWidth + 2, y: CGFloat(bands.firstIndex(of: item.band) ?? 0) * tagLaneHeight + (document.structure.tagBandCount > 1 ? 2 : 1))
             }
         }
         .frame(width: CGFloat(frames) * celWidth, height: tagRowHeight, alignment: .topLeading)
@@ -959,8 +961,8 @@ struct FrameTimeline: View {
         let light = Int(tag.color.r) * 3 + Int(tag.color.g) * 6 + Int(tag.color.b) > 1400
         return Button { editingTag = tag } label: {
             HStack(spacing: 4) {
-                Image(systemName: tag.direction.systemImage).font(.system(size: 9, weight: .bold))
-                Text(verbatim: tag.name).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                Image(systemName: tag.direction.systemImage).font(.system(size: tagLaneHeight > 16 ? 9 : 7, weight: .bold))
+                Text(verbatim: tag.name).font(.system(size: tagLaneHeight > 16 ? 11 : 9.5, weight: .semibold)).lineLimit(1)
                 if tag.repeatCount > 0 {
                     Text(verbatim: "×\(tag.repeatCount)").font(.system(size: 10, weight: .semibold, design: .monospaced))
                 }
@@ -969,7 +971,7 @@ struct FrameTimeline: View {
             .foregroundStyle(light ? Theme.onAccent : .white)
             .padding(.horizontal, 6)
             .frame(width: CGFloat(tag.frameCount) * celWidth - 4, height: tagLaneHeight - 4, alignment: .leading)
-            .background(tag.color.color, in: RoundedRectangle(cornerRadius: 6))
+            .background(tag.color.color, in: RoundedRectangle(cornerRadius: tagLaneHeight > 16 ? 6 : 4))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Tag \(tag.name), frames \(tag.from + firstFrame) to \(tag.to + firstFrame)") + Text(verbatim: ", ") + Text(tag.direction.title))

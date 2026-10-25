@@ -25,6 +25,16 @@ final class DocumentStoreTests: XCTestCase {
         XCTAssertFalse(store.items.contains { $0.id == id }, "and no file either")
     }
 
+    func testNewSpritesGetNumberedNames() throws {
+        let store = makeStore()
+        let blank = Sprite.blank(width: 4, height: 4, background: nil, palette: [])
+        try store.create(name: "Untitled", sprite: blank)
+        try store.create(name: "Untitled", sprite: blank)
+        try store.create(name: "Untitled", sprite: blank)
+        try store.create(name: "Walk", sprite: blank)
+        XCTAssertEqual(Set(store.items.map(\.name)), ["Untitled", "Untitled 2", "Untitled 3", "Walk"])
+    }
+
     func testDeletingASpriteWhoseFileIsGoneDoesNotFail() throws {
         let store = makeStore()
         let id = try store.create(name: "Gone", sprite: .blank(width: 4, height: 4, background: nil, palette: []))

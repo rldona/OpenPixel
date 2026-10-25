@@ -333,12 +333,6 @@ private struct SpriteCard: View {
                 HStack(spacing: 8) {
                     Text(item.name).font(.headline).foregroundStyle(Theme.text).lineLimit(1)
                     Spacer(minLength: 4)
-                    Text(verbatim: "RGBA")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.muted)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Theme.chip, in: RoundedRectangle(cornerRadius: 6))
                 }
                 (Text(verbatim: "\(item.width)×\(item.height) · ")
                     + (item.frameCount == 1 ? Text("1 frame") : Text("\(item.frameCount) frames"))

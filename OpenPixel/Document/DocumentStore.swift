@@ -148,11 +148,21 @@ final class DocumentStore {
         items.insert(summary, at: 0)
     }
 
+    /// New sprites and imports get a name no other sprite has: a second
+    /// "Untitled" becomes "Untitled 2", then "Untitled 3"…
     @discardableResult
     func create(name: String, sprite: Sprite) throws -> UUID {
         let id = UUID()
-        try write(SpriteFile(name: name, sprite: sprite), id: id)
+        try write(SpriteFile(name: uniqueName(name), sprite: sprite), id: id)
         return id
+    }
+
+    func uniqueName(_ name: String) -> String {
+        let taken = Set(items.map(\.name))
+        guard taken.contains(name) else { return name }
+        var n = 2
+        while taken.contains("\(name) \(n)") { n += 1 }
+        return "\(name) \(n)"
     }
 
     func rename(_ id: UUID, to name: String) throws {

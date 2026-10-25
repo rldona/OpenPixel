@@ -168,7 +168,7 @@ struct SidePanel: View {
     }
 
     /// One of the two colors: its swatch, its hex (typed to change it) and,
-    /// while it isn't in the palette, Aseprite's warning that adds it.
+    /// for the primary while it isn't in the palette, Aseprite's warning that adds it.
     /// Tapping picks it for the square; tapping the picked swatch opens the full editor.
     private func colorChip(secondary: Bool) -> some View {
         let color = secondary ? document.secondary : document.primary
@@ -190,9 +190,10 @@ struct SidePanel: View {
             .accessibilityLabel(secondary ? Text("Secondary color") : Text("Primary color"))
             .accessibilityValue(Text(verbatim: color.hex))
             .accessibilityHint(isOn ? Text("Opens the color editor") : Text("Edits it with the square"))
-            // Aseprite's warning, as a badge: the color isn't in the palette; tapping adds it.
+            // Aseprite's warning, as a badge: the color you paint with isn't in the
+            // palette; tapping adds it. Only on the primary, the one that paints.
             .overlay(alignment: .topTrailing) {
-                if document.paletteIndex(of: color) == nil {
+                if !secondary && document.paletteIndex(of: color) == nil {
                     Button { document.addToPalette(color) } label: {
                         Image(systemName: "exclamationmark")
                             .font(.system(size: 9, weight: .heavy))
