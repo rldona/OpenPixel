@@ -1,8 +1,12 @@
+<p align="center"><img src="Assets/cover.png" alt="OpenPixel: pixel art and animation for iPad, built for the Apple Pencil" width="100%"></p>
+
 # OpenPixel
 
 An **open source** pixel art and animation editor for iPad, built for Apple Pencil.
 
 [Español](README.es.md)
+
+📖 **User manual**, in English and Spanish: <https://rldona.github.io/OpenPixel/> (source in [`manual/`](manual/)).
 
 It pairs the clean interface of [Pixaki](https://pixaki.com/) with the working model of [Aseprite](https://www.aseprite.org/docs/): a sprite has **layers** and **frames**, and the image at each layer × frame intersection is a **cel**.
 
@@ -169,6 +173,8 @@ OpenPixel/
   Resources/   Assets and localizations (en, es)
 OpenPixelTests/
 Vendor/Lua/    Lua 5.4 (MIT), core and safe libraries only
+manual/        The user manual (VitePress), published to GitHub Pages
+Assets/        The repository cover (scripts/make-cover.sh renders it)
 ```
 
 ## Contributing

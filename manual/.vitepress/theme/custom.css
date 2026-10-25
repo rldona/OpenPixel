@@ -1,0 +1,32 @@
+/* OpenPixel's ember accent, and screenshots that sit on the page like the app's panels. */
+:root {
+  --vp-c-brand-1: #c9461f;
+  --vp-c-brand-2: #dd5a32;
+  --vp-c-brand-3: #ff7a59;
+  --vp-c-brand-soft: rgba(255, 122, 89, 0.16);
+}
+.dark {
+  --vp-c-brand-1: #ff9a80;
+  --vp-c-brand-2: #ff7a59;
+  --vp-c-brand-3: #dd5a32;
+}
+.vp-doc img {
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+  margin: 16px 0;
+}
+.vp-doc img.rail {
+  float: right;
+  width: 64px;
+  margin: 0 0 16px 24px;
+}
+.vp-doc .clear { clear: both; }
+.vp-doc .crop-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.vp-doc .crop-row p { margin: 0; }
+.vp-doc .crop-row img { max-width: min(100%, 360px); margin: 0; }
+.VPHero .image-src { max-width: 220px; border-radius: 44px; image-rendering: pixelated; }
