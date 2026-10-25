@@ -131,7 +131,10 @@ final class DocumentStore {
         for task in tasks { await task.value }
         let files = pendingFiles
         pendingFiles = [:]
-        for (id, file) in files { updateSummary(Self.summary(id: id, file: file, modified: Date())) }
+        // A save that failed leaves no file: no card for it.
+        for (id, file) in files where FileManager.default.fileExists(atPath: url(for: id).path) {
+            updateSummary(Self.summary(id: id, file: file, modified: Date()))
+        }
     }
 
     private func write(_ file: SpriteFile, id: UUID) throws {
@@ -164,9 +167,23 @@ final class DocumentStore {
         try write(file, id: UUID())
     }
 
+    /// Deleting forgets the sprite's pending card too, or the next `flush`
+    /// would bring a card back for a file that's gone. A save still running
+    /// is let finish and its file removed after it.
     func delete(_ id: UUID) throws {
-        try FileManager.default.removeItem(at: url(for: id))
+        pendingFiles[id] = nil
         items.removeAll { $0.id == id }
+        let url = url(for: id)
+        if let pending = pendingSaves.removeValue(forKey: id) {
+            Task {
+                await pending.value
+                try? FileManager.default.removeItem(at: url)
+            }
+            return
+        }
+        // Already gone: nothing left to delete.
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.removeItem(at: url)
     }
 
     /// Makes a project from an Aseprite file or an image; an animated GIF
