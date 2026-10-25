@@ -445,36 +445,39 @@ private struct ZoomMenu: View {
     }
 }
 
-/// A vertical slider for the rail (Procreate's brush size and opacity):
-/// drag anywhere on it; its value shows in a bubble beside it while dragging.
+/// A vertical slider for the rail, like Procreate's brush size and opacity:
+/// a plain track with a pill to drag; while dragging, a card beside the rail
+/// names it and shows its value and what it does.
 private struct RailSlider: View {
+    enum Preview { case size, opacity }
     let label: LocalizedStringKey
     @Binding var value: Double
     let range: ClosedRange<Double>
     let text: (Double) -> String
+    let preview: Preview
     var mirrored = false
     @State private var dragging = false
-    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         GeometryReader { geo in
             let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
-            ZStack(alignment: .bottom) {
+            let thumb: CGFloat = 14
+            ZStack(alignment: .top) {
                 Capsule().fill(Theme.chip)
-                Capsule().fill(Theme.accent.opacity(dragging ? 0.9 : 0.6))
-                    .frame(height: max(geo.size.width, geo.size.height * fraction))
+                    .overlay(Capsule().strokeBorder(Theme.border))
+                Capsule()
+                    .fill(Theme.panel)
+                    .frame(width: geo.size.width - 6, height: thumb)
+                    .shadow(color: .black.opacity(0.25), radius: 1.5, y: 1)
+                    .offset(y: 3 + (geo.size.height - thumb - 6) * (1 - fraction))
             }
-            .overlay(alignment: mirrored ? .leading : .trailing) {
+            .overlay(alignment: .top) {
                 if dragging {
-                    Text(verbatim: text(value))
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .fixedSize()
-                        .foregroundStyle(Theme.onAccent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Theme.accent, in: Capsule())
-                        .offset(x: mirrored ? -geo.size.width - 64 : geo.size.width + 64)
-                        .position(x: geo.size.width / 2, y: geo.size.height * (1 - fraction))
+                    // Beside the rail, whichever slider it is.
+                    let x = geo.frame(in: .named("rail"))
+                    card
+                        .offset(x: mirrored ? -(x.minX + 8 + 150) : EditorView.railWidth - x.minX + 8)
+                        .frame(width: geo.size.width, alignment: .leading)
                         .allowsHitTesting(false)
                 }
             }
@@ -482,12 +485,12 @@ private struct RailSlider: View {
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { drag in
                     dragging = true
-                    let f = 1 - min(1, max(0, drag.location.y / max(1, geo.size.height)))
+                    let f = 1 - min(1, max(0, (drag.location.y - thumb / 2) / max(1, geo.size.height - thumb)))
                     value = range.lowerBound + f * (range.upperBound - range.lowerBound)
                 }
                 .onEnded { _ in dragging = false })
         }
-        .frame(width: 22)
+        .frame(width: 24)
         .accessibilityElement()
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(verbatim: text(value)))
@@ -495,6 +498,33 @@ private struct RailSlider: View {
             let step = (range.upperBound - range.lowerBound) / 16
             value = min(range.upperBound, max(range.lowerBound, value + (direction == .increment ? step : -step)))
         }
+    }
+
+    /// The name and value, and a dot as big (or as opaque) as the brush will paint.
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Text(label).font(.system(size: 15, weight: .semibold))
+                Text(verbatim: text(value)).font(.system(size: 15, weight: .regular, design: .monospaced))
+            }
+            .foregroundStyle(Theme.text)
+            .fixedSize()
+            ZStack {
+                switch preview {
+                case .size:
+                    let side = 6 + (value - range.lowerBound) / (range.upperBound - range.lowerBound) * 70
+                    Rectangle().fill(Theme.text).frame(width: side, height: side)
+                case .opacity:
+                    Circle().fill(Theme.text.opacity(value / range.upperBound)).frame(width: 60, height: 60)
+                }
+            }
+            .frame(width: 120, height: 80)
+        }
+        .padding(14)
+        .frame(width: 150, alignment: .leading)
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
     }
 }
 
@@ -519,11 +549,11 @@ struct ToolRail: View {
             if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
                 HStack(spacing: 6) {
                     RailSlider(label: "Brush size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
-                               range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, mirrored: mirrored)
+                               range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, preview: .size, mirrored: mirrored)
                         .opacity(document.tool.usesBrush && document.activeCustomBrushImage == nil ? 1 : 0.3)
                         .disabled(!document.tool.usesBrush || document.activeCustomBrushImage != nil)
                     RailSlider(label: "Opacity", value: Binding(get: { Double(document.toolOpacity) }, set: { document.toolOpacity = Int($0.rounded()) }),
-                               range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded())) %" }, mirrored: mirrored)
+                               range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded())) %" }, preview: .opacity, mirrored: mirrored)
                 }
                 .frame(maxHeight: 150)
                 .padding(.top, 6)
@@ -539,6 +569,9 @@ struct ToolRail: View {
         }
         .padding(.vertical, 12)
         .frame(width: EditorView.railWidth)
+        // The sliders place their card beside the rail.
+        .coordinateSpace(.named("rail"))
+        .zIndex(1)
         // Background and divider run under the home indicator, like the side panel.
         .background {
             HStack(spacing: 0) {
