@@ -26,4 +26,4 @@ The arrows button in the top bar (or ⇥ Tab, or a four-finger tap) hides the pa
 
 ## Zoom
 
-Pinch to zoom; the zoom snaps to whole levels so pixels stay square. The side panel's **100%**, **Center** and **Fit screen** buttons (⌘1, ⌘0) set it at once.
+Pinch to zoom; the zoom snaps to whole levels so pixels stay square. The zoom menu in the top bar (it shows the zoom, like **400 %**) has **Actual size** (⌘1), **Center**, **Fit to screen** (⌘0), **Zoom in** and **Zoom out**. Fit to screen makes the sprite as big as it fits, centered.

@@ -8,10 +8,10 @@ OpenPixel is an open source pixel art and animation editor for iPad, built for t
 
 | Area | What it does |
 |---|---|
-| **Top bar** | Back to the gallery, the active tool's options in the middle, and on the right the Edit menu (…), focus mode, grid, tiled mode and **Export**. |
+| **Top bar** | Back to the gallery, the active tool's options in the middle, the **zoom** (400 % ⌄), and on the right the Edit menu (…), focus mode, grid, tiled mode and **Export**. |
 | **Tool rail** (left) | Drawing tools, selection, move, symmetry, scripts, and undo and redo at the bottom. See [Drawing tools](./drawing). |
 | **Canvas** (centre) | Where you draw. Pinch to zoom, drag with two fingers to pan. |
-| **Side panel** (right) | The animated preview, zoom buttons, the palette, the color selector and quick color actions. See [Color and palettes](./color). |
+| **Side panel** (right) | The animated preview, the palette (or a tilemap's tileset), the color selector, recent colors and color actions. See [Color and palettes](./color). |
 | **Timeline** (bottom) | Playback, frames, tags and layers. See [Layers](./layers) and [Frames and animation](./timeline). |
 
 ## Your first sprite in five steps

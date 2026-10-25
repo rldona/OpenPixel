@@ -18,7 +18,11 @@ The two **chips** under the selector show them with their hex value:
 - Tap the active chip's swatch to open the full **color editor**.
 - Tap the hex value to type one; it applies when you press return.
 - A **!** badge on a swatch means that color isn't in the palette. Tap it to add it.
-- **Swap** (X) exchanges the two colors. The Apple Pencil Pro **squeeze** does the same.
+- **⇄** between the chips (or X) swaps the two colors. The Apple Pencil Pro **squeeze** does the same.
+
+## Recent colors
+
+The row under the chips keeps the last 8 colors you painted with, newest first. Tap one to use it again: it goes to the color the square is editing. Handy for colors that aren't in the palette.
 
 ## The color selector
 
@@ -43,10 +47,11 @@ Tap a color to make it the primary. The primary and secondary colors are marked 
 
 ## Color actions
 
+The three icons at the bottom:
+
 | Button | What it does |
 |---|---|
-| **Swap** | Exchanges the primary and secondary colors. |
-| **Replace…** (⇧R) | Replaces one color with another, with a tolerance, in the current cel or every cel, and only inside the selection if there is one. |
+| **Replace color…** (⇧R) | Replaces one color with another, with a tolerance, in the current cel or every cel, and only inside the selection if there is one. |
 | **Hue/Saturation** | A floating window to shift hue, saturation, lightness (or value) and alpha, or the R, G, B and A channels, in the current cel or every cel, previewed live. **Apply** keeps it, **Cancel** goes back. The canvas can still be moved and zoomed while it's open, but not painted. |
 | **Color shading** | A floating window with ramps of the primary color, lighter and darker. Tap a shade to paint with it; touch and hold it to use it as the secondary color or add it to the palette. |
 

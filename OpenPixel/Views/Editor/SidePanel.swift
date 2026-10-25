@@ -16,11 +16,13 @@ struct SidePanel: View {
     @State private var paletteAnchor: Int?
     @State private var editingEntry: PaletteEntry?
     @State private var importingPalette = false
+    /// The Tileset tab is on (only while a tilemap layer is active).
+    @State private var showingTileset = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 8)
 
     var body: some View {
-        // Everything fits without scrolling; it only scrolls when a tileset is shown too.
+        // Everything fits without scrolling.
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -29,19 +31,34 @@ struct SidePanel: View {
                         .frame(height: 180)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
-                    viewButtons
                 }
 
-                paletteSection
-                colorSection
-                // Only while a tilemap layer is active.
+                // A tilemap layer's tileset shares the palette's place, as a tab,
+                // so the panel doesn't grow.
                 if let tileset = document.activeLayer?.tileset {
-                    TilesetPanel(document: document, tileset: tileset)
+                    Picker("Show", selection: $showingTileset) {
+                        Text("Palette").tag(false)
+                        Text("Tileset").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    // The tabs take the room of a palette row or so, so the panel still fits.
+                    if showingTileset {
+                        ScrollView { TilesetPanel(document: document, tileset: tileset) }
+                            .frame(height: 140)
+                    } else {
+                        paletteSection(maxHeight: 120)
+                    }
+                } else {
+                    paletteSection()
                 }
+                colorSection
             }
             .padding(16)
         }
         .scrollBounceBehavior(.basedOnSize)
+        // Picking a tilemap layer shows its tiles; leaving it shows the palette.
+        .onChange(of: document.activeLayer?.tileset != nil, initial: true) { _, isTilemap in showingTileset = isTilemap }
         // Background and divider run under the home indicator; the content stays in the safe area.
         .background {
             HStack(spacing: 0) {
@@ -59,82 +76,94 @@ struct SidePanel: View {
         }
     }
 
-    // MARK: View
-
-    /// Aseprite's 100% / Center / Fit Screen buttons for the canvas.
-    private var viewButtons: some View {
-        HStack(spacing: 6) {
-            viewButton(Text(verbatim: "100%"), label: "Actual size") { canvas.actualSize() }
-                .keyboardShortcut("1", modifiers: .command)
-            viewButton(Text("Center"), label: "Center") { canvas.center() }
-            viewButton(Text("Fit screen"), label: "Fit to screen") { canvas.fit() }
-        }
-    }
-
-    private func viewButton(_ title: Text, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            title
-                .font(.system(size: 13, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .foregroundStyle(Theme.text)
-                .frame(maxWidth: .infinity, minHeight: 36)
-                .background(Theme.chip, in: RoundedRectangle(cornerRadius: 9))
-                .contentShape(RoundedRectangle(cornerRadius: 9))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(label))
-    }
-
     // MARK: Colors
 
     /// Aseprite's selector under the palette: the square edits whichever of
     /// the two colors is picked in the chips below it.
     private var colorSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
-            HStack(spacing: 6) {
+            // Swap sits between the two colors, as in Aseprite's color bar.
+            HStack(spacing: 4) {
                 colorChip(secondary: false)
+                Button { document.swapColors() } label: {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: 24, height: 38)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Swap colors"))
                 colorChip(secondary: true)
             }
-            // Swapping the colors, then what changes the sprite's own colors;
-            // the bottom two open floating windows and stay lit while they're open.
-            Grid(horizontalSpacing: 6, verticalSpacing: 6) {
-                GridRow {
-                    colorAction("Swap", "arrow.left.arrow.right") { document.swapColors() }
-                    colorAction("Replace…", "drop.halffull") { document.isReplacingColor = true }
-                        .accessibilityLabel(Text("Replace color…"))
+            recentColors
+            // What changes the sprite's own colors; the last two open floating
+            // windows and stay lit while they're open.
+            HStack(spacing: 6) {
+                colorAction("Replace color…", "drop.halffull") { document.isReplacingColor = true }
+                // One window at a time: each opens its own and closes the other, or
+                // closes its own when it's open. Hue/Saturation closes without applying, like Cancel.
+                colorAction("Hue/Saturation", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
+                    if document.isAdjustingHueSaturation {
+                        document.endHueSaturation(apply: nil, everyCel: false)
+                    } else {
+                        document.beginHueSaturation()
+                    }
                 }
-                GridRow {
-                    // One window at a time: each opens its own and closes the other, or
-                    // closes its own when it's open. Hue/Saturation closes without applying, like Cancel.
-                    colorAction("Hue/Saturation", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
-                        if document.isAdjustingHueSaturation {
-                            document.endHueSaturation(apply: nil, everyCel: false)
-                        } else {
-                            document.beginHueSaturation()
-                        }
-                    }
-                    colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
-                        document.toggleColorShading()
-                    }
+                colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
+                    document.toggleColorShading()
                 }
             }
         }
     }
 
+    /// The last colors painted with, newest first; tapping one picks it for
+    /// the color the square edits. Empty slots keep the row's place.
+    private var recentColors: some View {
+        let colors = document.recentColors
+        return HStack(spacing: 4) {
+            ForEach(0..<SpriteDocument.recentColorCount, id: \.self) { i in
+                if i < colors.count {
+                    let color = colors[i]
+                    Button {
+                        if pickingSecondary { document.secondary = color } else { pick(color) }
+                    } label: {
+                        ZStack {
+                            Checkerboard(cell: 3)
+                            color.color
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 16)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("Recent color \(color.hex)"))
+                } else {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 16)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+
+    /// An icon button for a color action, with its name as the label.
     private func colorAction(_ title: LocalizedStringKey, _ systemImage: String, isOn: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Image(systemName: systemImage).font(.system(size: 16, weight: .medium)).frame(height: 20)
-                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).minimumScaleFactor(0.8)
-            }
-            .foregroundStyle(isOn ? Theme.accent : Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(isOn ? Theme.accentSoft : Theme.chip, in: RoundedRectangle(cornerRadius: 10))
-            .contentShape(RoundedRectangle(cornerRadius: 10))
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(isOn ? Theme.accent : Theme.text)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .background(isOn ? Theme.accentSoft : Theme.chip, in: RoundedRectangle(cornerRadius: 9))
+                .contentShape(RoundedRectangle(cornerRadius: 9))
         }
         .buttonStyle(.plain)
+        .help(Text(title))
+        .accessibilityLabel(Text(title))
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
@@ -199,7 +228,7 @@ struct SidePanel: View {
 
     // MARK: Palette
 
-    private var paletteSection: some View {
+    private func paletteSection(maxHeight: CGFloat = 151) -> some View {
         let palette = document.structure.palette
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -223,7 +252,7 @@ struct SidePanel: View {
                 paletteGrid(palette)
                 ScrollView { paletteGrid(palette) }
             }
-            .frame(maxHeight: 122)
+            .frame(maxHeight: maxHeight)
             if isEditingPalette { paletteEditBar }
         }
     }
@@ -291,9 +320,9 @@ struct SidePanel: View {
                 Checkerboard(cell: 4)
                 color.color
             }
-            .frame(height: 21)
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(
+            .frame(height: 27)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(
                 selected ? Theme.accent : (isPrimary && !isEditingPalette ? Theme.text : .white.opacity(0.08)),
                 lineWidth: selected ? 2.5 : (isPrimary && !isEditingPalette ? 2 : 1)
             ))

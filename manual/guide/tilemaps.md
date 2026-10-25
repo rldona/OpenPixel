@@ -7,7 +7,7 @@ A **tilemap layer** is drawn with tiles, as in [Aseprite](https://www.aseprite.o
 - From the timeline's **+** menu, **New tilemap layer**: its tiles take the size of the grid's cells (set the grid by touching and holding **#**).
 - Or convert an existing layer from its menu, **Convert to tilemap**. **Convert to normal layer** turns it back.
 
-While a tilemap layer is active, its **tileset** shows in the side panel.
+While a tilemap layer is active, the side panel shows **Palette | Tileset** tabs in the palette's place, and opens on **Tileset**.
 
 ## Pixels or tiles
 

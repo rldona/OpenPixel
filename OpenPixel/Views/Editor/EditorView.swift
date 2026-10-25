@@ -124,6 +124,7 @@ struct EditorView: View {
                 Button("Zoom out") { canvas.zoomOut() }.keyboardShortcut("-", modifiers: .command)
                 Button("Zoom in") { canvas.zoomIn() }.keyboardShortcut("+", modifiers: .command)
                 Button("Fit to screen") { canvas.fit() }.keyboardShortcut("0", modifiers: .command)
+                Button("Actual size") { canvas.actualSize() }.keyboardShortcut("1", modifiers: .command)
                 Button("Keyboard shortcuts") { showingShortcuts = true }.keyboardShortcut("/", modifiers: .command)
             }
             .opacity(0)
@@ -283,6 +284,7 @@ struct EditorView: View {
             ToolOptionsBar(document: document)
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity)
+            ZoomMenu(canvas: canvas)
 
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
@@ -407,6 +409,39 @@ struct EditorView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .allowsHitTesting(false)
         }
+    }
+}
+
+/// The canvas zoom, as a percentage, and what sets it (Aseprite's 100%,
+/// Center and Fit Screen). Its own view, so pinching redraws only this.
+private struct ZoomMenu: View {
+    let canvas: CanvasController
+
+    var body: some View {
+        Menu {
+            Button("Actual size", systemImage: "1.magnifyingglass") { canvas.actualSize() }
+            Button("Center", systemImage: "scope") { canvas.center() }
+            Button("Fit to screen", systemImage: "arrow.up.left.and.arrow.down.right.square") { canvas.fit() }
+            Divider()
+            Button("Zoom in", systemImage: "plus.magnifyingglass") { canvas.zoomIn() }
+            Button("Zoom out", systemImage: "minus.magnifyingglass") { canvas.zoomOut() }
+        } label: {
+            HStack(spacing: 4) {
+                Text(verbatim: "\(Int((canvas.zoom * 100).rounded())) %")
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .lineLimit(1)
+                    .fixedSize()
+                Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+            }
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 10)
+            .frame(height: 36)
+            .background(Theme.chip, in: RoundedRectangle(cornerRadius: 9))
+        }
+        .menuIndicator(.hidden)
+        .padding(.trailing, 8)
+        .accessibilityLabel(Text("Zoom"))
+        .accessibilityValue(Text(verbatim: "\(Int((canvas.zoom * 100).rounded())) %"))
     }
 }
 

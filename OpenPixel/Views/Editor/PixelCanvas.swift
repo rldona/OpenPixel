@@ -2,8 +2,11 @@ import SwiftUI
 
 /// Lets SwiftUI controls (zoom buttons) talk to the UIKit canvas.
 @MainActor
+@Observable
 final class CanvasController {
-    fileprivate weak var view: PixelCanvasView?
+    @ObservationIgnored fileprivate weak var view: PixelCanvasView?
+    /// Screen points per sprite pixel, for the zoom menu.
+    fileprivate(set) var zoom: CGFloat = 1
 
     func zoomIn() { view?.zoom(by: 2) }
     func zoomOut() { view?.zoom(by: 0.5) }
@@ -39,6 +42,11 @@ struct PixelCanvas: UIViewRepresentable {
         let view = PixelCanvasView()
         view.document = document
         controller.view = view
+        // After the update in progress: the zoom label is SwiftUI state.
+        view.onZoomChange = { [weak controller] zoom in
+            guard controller?.zoom != zoom else { return }
+            DispatchQueue.main.async { controller?.zoom = zoom }
+        }
         connect(view)
         view.onTransformBegan = { [weak document] in document?.beginTransformDrag($0, at: $1) }
         view.onTransformMoved = { [weak document] in document?.continueTransformDrag(to: $0) }

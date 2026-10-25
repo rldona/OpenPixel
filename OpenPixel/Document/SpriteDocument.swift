@@ -603,8 +603,22 @@ final class SpriteDocument {
         resetStroke()
         let key = activeCelKey
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
-        if start != storage { registerUndo(DocumentSnapshot(sprite: start, selection: selection)) }
+        if start != storage {
+            registerUndo(DocumentSnapshot(sprite: start, selection: selection))
+            if tool.usesInk && !(useCustomBrush && tool.usesBrush && !customBrushUsesColor) { remember(primary) }
+        }
         changed(.stroke)
+    }
+
+    /// The last colors painted with, newest first (the side panel's recent row).
+    private(set) var recentColors: [PixelColor] = []
+    static let recentColorCount = 8
+
+    private func remember(_ color: PixelColor) {
+        guard color.a > 0, recentColors.first != color else { return }
+        recentColors.removeAll { $0 == color }
+        recentColors.insert(color, at: 0)
+        if recentColors.count > Self.recentColorCount { recentColors.removeLast() }
     }
 
     /// Reverts the stroke in progress, e.g. when a finger stroke turns out to be

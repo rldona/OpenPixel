@@ -26,4 +26,4 @@ El botón de las flechas de la barra superior (o ⇥ Tab, o un toque con cuatro 
 
 ## Zoom
 
-Pellizca para hacer zoom; se ajusta a niveles enteros para que los píxeles sigan cuadrados. Los botones **100%**, **Centrar** y **Ajustar** del panel lateral (⌘1, ⌘0) lo fijan de una vez.
+Pellizca para hacer zoom; se ajusta a niveles enteros para que los píxeles sigan cuadrados. El menú de zoom de la barra superior (muestra el zoom, como **400 %**) tiene **Tamaño real** (⌘1), **Centrar**, **Ajustar a pantalla** (⌘0), **Acercar** y **Alejar**. Ajustar a pantalla deja el sprite lo más grande que cabe, centrado.

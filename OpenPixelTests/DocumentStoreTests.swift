@@ -33,3 +33,28 @@ final class DocumentStoreTests: XCTestCase {
         XCTAssertFalse(store.items.contains { $0.id == id })
     }
 }
+
+@MainActor
+final class RecentColorTests: XCTestCase {
+    private func stroke(_ doc: SpriteDocument, _ color: PixelColor, at x: Int) {
+        doc.primary = color
+        doc.beginStroke(at: PixelPoint(x: x, y: 0))
+        doc.endStroke()
+    }
+
+    func testPaintedColorsAreRememberedNewestFirst() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 16, height: 4, background: nil, palette: []))
+        let red = PixelColor(r: 255, g: 0, b: 0), blue = PixelColor(r: 0, g: 0, b: 255)
+        stroke(doc, red, at: 0)
+        stroke(doc, blue, at: 1)
+        stroke(doc, red, at: 2)
+        XCTAssertEqual(doc.recentColors, [red, blue], "no duplicates, the latest first")
+        doc.select(.eraser)
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.endStroke()
+        XCTAssertEqual(doc.recentColors, [red, blue], "erasing isn't painting")
+        doc.select(.pencil)
+        for i in 0..<10 { stroke(doc, PixelColor(r: UInt8(i * 20), g: 50, b: 50), at: i) }
+        XCTAssertEqual(doc.recentColors.count, SpriteDocument.recentColorCount)
+    }
+}

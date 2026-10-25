@@ -66,6 +66,7 @@
 "Zoom out" = "Alejar";
 "Zoom in" = "Acercar";
 "Fit to screen" = "Ajustar a pantalla";
+"Zoom" = "Zoom";
 "Export" = "Exportar";
 " + symmetry" = " + simetría";
 "frame %lld/%lld" = "frame %lld/%lld";
@@ -102,6 +103,7 @@
 "Swap" = "Intercambiar";
 "Add to palette" = "A la paleta";
 "Palette" = "Paleta";
+"Show" = "Mostrar";
 "Color %@" = "Color %@";
 "Use as secondary" = "Usar como secundario";
 "Remove from palette" = "Eliminar de la paleta";
@@ -666,6 +668,7 @@
 "As in iPadOS Settings" = "Como en Ajustes de iPadOS";
 "Switch to the eraser" = "Cambiar a la goma";
 "Swap colors" = "Intercambiar colores";
+"Recent color %@" = "Color reciente %@";
 "Switch to the eyedropper" = "Cambiar al cuentagotas";
 "Nothing" = "Nada";
 "Reset editor preferences" = "Restablecer preferencias del editor";

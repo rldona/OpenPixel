@@ -18,7 +18,11 @@ Los dos **chips** bajo el selector los muestran con su valor hexadecimal:
 - Toca la muestra del chip activo para abrir el **editor de color** completo.
 - Toca el valor hexadecimal para escribir uno; se aplica al pulsar intro.
 - Una insignia **!** en una muestra indica que ese color no está en la paleta. Tócala para añadirlo.
-- **Intercambiar** (X) cambia un color por el otro. **Apretar** el Apple Pencil Pro hace lo mismo.
+- **⇄** entre los chips (o X) cambia un color por el otro. **Apretar** el Apple Pencil Pro hace lo mismo.
+
+## Colores recientes
+
+La fila de debajo de los chips guarda los últimos 8 colores con los que has pintado, el más reciente primero. Toca uno para volver a usarlo: va al color que está editando el cuadrado. Muy útil con colores que no están en la paleta.
 
 ## El selector de color
 
@@ -43,10 +47,11 @@ Toca un color para que pase a ser el principal. Los colores principal y secundar
 
 ## Acciones de color
 
+Los tres iconos de abajo:
+
 | Botón | Qué hace |
 |---|---|
-| **Intercambiar** | Cambia el color principal por el secundario. |
-| **Reemplazar…** (⇧R) | Sustituye un color por otro, con una tolerancia, en el cel actual o en todos, y solo dentro de la selección si la hay. |
+| **Reemplazar color…** (⇧R) | Sustituye un color por otro, con una tolerancia, en el cel actual o en todos, y solo dentro de la selección si la hay. |
 | **Tono/Saturación** | Una ventana flotante para cambiar el tono, la saturación, la luminosidad (o el valor) y el alfa, o los canales R, G, B y A, en el cel actual o en todos, con vista previa. **Aplicar** lo deja, **Cancelar** lo deshace. Mientras está abierta se puede mover y ampliar el lienzo, pero no pintar. |
 | **Sombreado de color** | Una ventana flotante con rampas del color principal, más claras y más oscuras. Toca un tono para pintar con él; mantenlo pulsado para usarlo como secundario o añadirlo a la paleta. |
 

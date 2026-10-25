@@ -7,7 +7,7 @@ Una **capa de tilemap** se dibuja con tiles, como en [Aseprite](https://www.asep
 - En el menú **+** del timeline, **Nueva capa de tilemap**: sus tiles toman el tamaño de las celdas de la cuadrícula (defínela manteniendo pulsado **#**).
 - O convierte una capa desde su menú con **Convertir en tilemap**. **Convertir en capa normal** la devuelve.
 
-Mientras una capa de tilemap está activa, su **tileset** aparece en el panel lateral.
+Mientras una capa de tilemap está activa, el panel lateral muestra las pestañas **Paleta | Tileset** en el sitio de la paleta, y se abre en **Tileset**.
 
 ## Píxeles o tiles
 

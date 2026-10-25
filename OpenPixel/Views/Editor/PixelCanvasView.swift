@@ -441,7 +441,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     /// Moves and resizes the layers after a pan, zoom or rotation. Nothing is redrawn.
+    /// Called with the zoom whenever the geometry changes.
+    var onZoomChange: ((CGFloat) -> Void)?
+
     private func updateGeometry() {
+        onZoomChange?(scale)
         let rect = spriteRect
         spriteLayer.frame = rect
         shadowLayer.frame = rect
