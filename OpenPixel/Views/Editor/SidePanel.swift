@@ -16,7 +16,6 @@ struct SidePanel: View {
     @State private var paletteAnchor: Int?
     @State private var editingEntry: PaletteEntry?
     @State private var importingPalette = false
-    @AppStorage(EditorSettings.alphaFormatKey) private var alphaFormat = AlphaFormat.percent
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 8)
 
@@ -39,20 +38,6 @@ struct SidePanel: View {
                 if let tileset = document.activeLayer?.tileset {
                     TilesetPanel(document: document, tileset: tileset)
                 }
-
-                VStack(spacing: 8) {
-                    // What used to float over the canvas: tool, cel and tag.
-                    infoRow("Tool", Text(document.tool.title)
-                        + Text(verbatim: document.tool.usesBrush ? " · \(document.brushSize) px" : "")
-                        + (document.symmetry.isOn ? Text(" + symmetry") : Text(verbatim: "")))
-                    infoRow("Active cel", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)/\(document.structure.frames.count)")
-                    if let tag = document.activeTag { infoRow("Tag", tag.name) }
-                    infoRow("Layer opacity", alphaFormat.text(document.activeLayer?.opacity ?? 1))
-                    infoRow("Animation", "\(document.structure.totalDuration) ms")
-                }
-                .padding(14)
-                .background(Theme.field, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border))
             }
             .padding(16)
         }
@@ -440,19 +425,6 @@ struct SidePanel: View {
             return
         }
         document.setPalette(colors)
-    }
-
-    private func infoRow(_ title: LocalizedStringKey, _ value: String) -> some View {
-        infoRow(title, Text(verbatim: value))
-    }
-
-    private func infoRow(_ title: LocalizedStringKey, _ value: Text) -> some View {
-        HStack {
-            Text(title).foregroundStyle(Theme.muted)
-            Spacer()
-            value.lineLimit(1).truncationMode(.middle)
-        }
-        .font(.system(size: 13))
     }
 }
 
