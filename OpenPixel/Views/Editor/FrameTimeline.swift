@@ -550,7 +550,7 @@ struct FrameTimeline: View {
                 Button { document.extendTimeline(toFrame: nil, layersBelow: row + 1) } label: {
                     // The same eye, lock and continuity icons as a real row, faint.
                     HStack(spacing: 0) {
-                        Image(systemName: "eye").frame(width: 34, height: rowHeight)
+                        Image(systemName: "eye").font(.system(size: 13)).frame(width: 34, height: rowHeight)
                         Image(systemName: "lock.open").font(.system(size: 13)).frame(width: 30, height: rowHeight)
                         ContinuityIcon(isOn: false, color: Theme.muted).frame(width: 26, height: rowHeight)
                         RoundedRectangle(cornerRadius: 6)
@@ -580,7 +580,7 @@ struct FrameTimeline: View {
         return HStack(spacing: 0) {
             Button { document.toggleAllVisibility() } label: {
                 Image(systemName: allVisible ? "eye" : "eye.slash")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .frame(width: 34, height: headerHeight)
             }
             .accessibilityLabel(allVisible ? Text("Hide all layers") : Text("Show all layers"))
@@ -651,6 +651,8 @@ struct FrameTimeline: View {
         return HStack(spacing: 0) {
             Button { document.toggleVisibility(layer.id) } label: {
                 Image(systemName: layer.isVisible ? "eye" : "eye.slash")
+                    // The size of the lock and the continuity dots next to it.
+                    .font(.system(size: 13))
                     .frame(width: 34, height: rowHeight)
                     .foregroundStyle(document.structure.shows(layer) ? Theme.text : Theme.muted)
             }
@@ -689,6 +691,12 @@ struct FrameTimeline: View {
                     Text(verbatim: layer.name)
                     if layer.blendMode != .normal {
                         Text(layer.blendMode.title).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.muted)
+                    }
+                    if !layer.isGroup && !layer.isReference {
+                        Spacer(minLength: 4)
+                        LayerThumbnail(document: document, layerID: layer.id)
+                            .frame(width: 34, height: rowHeight - 8)
+                            .opacity(layer.isVisible ? 1 : 0.4)
                     }
                 }
                     .font(.system(size: 13, weight: .medium))
@@ -1392,5 +1400,51 @@ private struct PillLabelStyle: LabelStyle {
         } else {
             Label(configuration)
         }
+    }
+}
+
+/// What a layer shows in the current frame, cropped to its content, small,
+/// next to its name (as Pixquare does). It's its own view so that a committed stroke redraws the
+/// thumbnails and not the whole timeline; cels that didn't change keep their image.
+private struct LayerThumbnail: View {
+    let document: SpriteDocument
+    let layerID: UUID
+    @State private var cache = Cache()
+
+    final class Cache {
+        var cel: PixelImage?
+        var image: CGImage?
+    }
+
+    var body: some View {
+        // `sprite` reads `revision`, so this follows every committed change.
+        let sprite = document.sprite
+        let cel = sprite.frames.indices.contains(document.activeFrameIndex)
+            ? sprite.cel(layer: layerID, frame: sprite.frames[document.activeFrameIndex].id) : nil
+        ZStack {
+            Checkerboard(cell: 3)
+            if let image = image(for: cel, ratio: sprite.pixelRatio) {
+                Image(decorative: image, scale: 1)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(2)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border))
+        .accessibilityHidden(true)
+    }
+
+    private func image(for cel: PixelImage?, ratio: PixelRatio) -> CGImage? {
+        guard let cel else { return nil }
+        // Comparing an untouched cel is cheap: its pixels still share storage.
+        if cache.cel != cel {
+            cache.cel = cel
+            // Cropped to what's drawn, so a small element still reads at this size.
+            cache.image = SelectionMask.opaquePixels(of: cel).bounds
+                .map { cel.cropped(to: $0).scaled(x: ratio.width, y: ratio.height).makeCGImage() } ?? nil
+        }
+        return cache.image
     }
 }
