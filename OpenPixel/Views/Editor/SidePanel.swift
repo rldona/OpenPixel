@@ -142,24 +142,32 @@ struct SidePanel: View {
                 colorAction("Swap", "arrow.left.arrow.right") { document.swapColors() }
                 colorAction("Replace…", "drop.halffull") { document.isReplacingColor = true }
                     .accessibilityLabel(Text("Replace color…"))
-                colorAction("Hue/Sat…", "slider.horizontal.3") { document.beginHueSaturation() }
-                    .accessibilityLabel(Text("Hue/Saturation…"))
+                // A toggle: tapping it again closes the window without applying, like Cancel.
+                colorAction("Hue/Sat…", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
+                    if document.isAdjustingHueSaturation {
+                        document.endHueSaturation(apply: nil, everyCel: false)
+                    } else {
+                        document.beginHueSaturation()
+                    }
+                }
+                .accessibilityLabel(Text("Hue/Saturation…"))
             }
         }
     }
 
-    private func colorAction(_ title: LocalizedStringKey, _ systemImage: String, action: @escaping () -> Void) -> some View {
+    private func colorAction(_ title: LocalizedStringKey, _ systemImage: String, isOn: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: systemImage).font(.system(size: 16, weight: .medium))
                 Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).minimumScaleFactor(0.8)
             }
-            .foregroundStyle(Theme.text)
+            .foregroundStyle(isOn ? Theme.accent : Theme.text)
             .frame(maxWidth: .infinity, minHeight: 54)
-            .background(Theme.chip, in: RoundedRectangle(cornerRadius: 10))
+            .background(isOn ? Theme.accentSoft : Theme.chip, in: RoundedRectangle(cornerRadius: 10))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     // MARK: Color shading
