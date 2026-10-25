@@ -47,6 +47,21 @@ final class HueSaturationTests: XCTestCase {
         XCTAssertEqual(doc.sprite, original, "applying is one undo step")
     }
 
+    func testWindowsTakeTurns() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
+        doc.toggleColorShading()
+        XCTAssertTrue(doc.isShowingColorShading)
+        doc.beginHueSaturation()
+        XCTAssertTrue(doc.isAdjustingHueSaturation)
+        XCTAssertFalse(doc.isShowingColorShading, "opening Hue/Saturation closes Color Shading")
+        doc.previewHueSaturation(HueSaturation(hue: 120), everyCel: false)
+        doc.toggleColorShading()
+        XCTAssertTrue(doc.isShowingColorShading)
+        XCTAssertFalse(doc.isAdjustingHueSaturation, "and the other way round, without applying")
+        doc.toggleColorShading()
+        XCTAssertFalse(doc.isShowingColorShading)
+    }
+
     func testShadingRamps() {
         let base = PixelColor(r: 200, g: 80, b: 40)
         for ramp in [ColorShading.shades(base), ColorShading.lights(base), ColorShading.saturations(base), ColorShading.hues(base)] {

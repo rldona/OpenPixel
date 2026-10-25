@@ -90,22 +90,18 @@ struct EditorView: View {
             }
             // Floating windows like Aseprite's: they open at the canvas's top right
             // and can be dragged anywhere in the editor, side panel included.
-            // Both can be open; the one last touched or chosen is in front.
+            // Only one is open at a time.
             .overlay {
                 GeometryReader { geometry in
                     let inset: CGFloat = focusMode ? 16 : Self.panelWidth + 16
-                    ZStack(alignment: .topTrailing) {
+                    Group {
                         if document.isAdjustingHueSaturation {
-                            floatingWindow(.hueSaturation) {
-                                HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
-                            }
-                        }
-                        if document.isShowingColorShading {
-                            floatingWindow(.colorShading) {
-                                ColorShadingPanel(document: document, area: geometry.size, trailingInset: inset)
-                            }
+                            HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
+                        } else if document.isShowingColorShading {
+                            ColorShadingPanel(document: document, area: geometry.size, trailingInset: inset)
                         }
                     }
+                    .transition(.opacity)
                     .padding(.trailing, inset)
                     .padding(.top, focusMode ? 72 : 16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -285,17 +281,6 @@ struct EditorView: View {
     }
 
     /// An icon in the top bar. On, it takes a soft tint, so solid accent stays for Export.
-    /// A floating window that comes to the front when touched.
-    private func floatingWindow(_ window: FloatingWindowKind, @ViewBuilder content: () -> some View) -> some View {
-        content()
-            .zIndex(document.frontWindow == window ? 1 : 0)
-            // Any touch on it, taps on its buttons included.
-            .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
-                if document.frontWindow != window { document.frontWindow = window }
-            })
-            .transition(.opacity)
-    }
-
     private func topBarIcon(_ systemImage: String, isOn: Bool) -> some View {
         Image(systemName: systemImage)
             .font(.system(size: 17.6, weight: .medium))

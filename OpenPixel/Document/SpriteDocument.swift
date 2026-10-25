@@ -185,9 +185,8 @@ final class SpriteDocument {
     /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
     var isReplacingColor = false
     /// The Color Shading window is open (the side panel's Color shading button).
+    /// It and Hue/Saturation take turns: opening one closes the other.
     var isShowingColorShading = false
-    /// Which floating window is in front when both are open.
-    var frontWindow = FloatingWindowKind.hueSaturation
     /// Text tool settings, shared by every sprite while the app runs.
     var textStyle = TextStyle()
     /// Where the text tool was tapped; set while the text is being typed.
@@ -1523,7 +1522,17 @@ final class SpriteDocument {
         applyTransformIfNeeded()
         stopPlayback()
         adjustmentBase = DocumentSnapshot(sprite: storage, selection: selection)
-        frontWindow = .hueSaturation
+        isShowingColorShading = false
+    }
+
+    /// Shows or hides Color Shading. Showing it closes Hue/Saturation without applying it.
+    func toggleColorShading() {
+        if isShowingColorShading {
+            isShowingColorShading = false
+        } else {
+            endHueSaturation(apply: nil, everyCel: false)
+            isShowingColorShading = true
+        }
     }
 
     /// Shows the adjustment on the canvas without committing it.
@@ -2942,9 +2951,4 @@ private struct StructureKey: Equatable {
         tilemaps = s.tilemaps
         filled = Set(s.cels.keys)
     }
-}
-
-/// The editor's floating windows.
-enum FloatingWindowKind {
-    case hueSaturation, colorShading
 }

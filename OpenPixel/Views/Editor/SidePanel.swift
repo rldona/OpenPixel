@@ -142,26 +142,17 @@ struct SidePanel: View {
                         .accessibilityLabel(Text("Replace color…"))
                 }
                 GridRow {
-                    // Opens its window, brings it to the front if the other one covers it,
-                    // or closes it. Closing Hue/Saturation here doesn't apply it, like Cancel.
+                    // One window at a time: each opens its own and closes the other, or
+                    // closes its own when it's open. Hue/Saturation closes without applying, like Cancel.
                     colorAction("Hue/Saturation", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
-                        if !document.isAdjustingHueSaturation {
-                            document.beginHueSaturation()
-                        } else if document.isShowingColorShading && document.frontWindow != .hueSaturation {
-                            document.frontWindow = .hueSaturation
-                        } else {
+                        if document.isAdjustingHueSaturation {
                             document.endHueSaturation(apply: nil, everyCel: false)
+                        } else {
+                            document.beginHueSaturation()
                         }
                     }
                     colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
-                        if !document.isShowingColorShading {
-                            document.isShowingColorShading = true
-                            document.frontWindow = .colorShading
-                        } else if document.isAdjustingHueSaturation && document.frontWindow != .colorShading {
-                            document.frontWindow = .colorShading
-                        } else {
-                            document.isShowingColorShading = false
-                        }
+                        document.toggleColorShading()
                     }
                 }
             }
