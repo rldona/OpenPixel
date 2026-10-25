@@ -2505,6 +2505,33 @@ extension SpriteDocument {
         timelineRange = TimelineRange(kind: .layers, layers: Set(ids[min(a, b)...max(a, b)]), frames: 0...(sprite.frames.count - 1))
     }
 
+    /// The layers checked in the timeline: those of a layer selection.
+    var checkedLayers: Set<UUID> {
+        guard let range = timelineRange, range.kind == .layers else { return [] }
+        return range.layers
+    }
+
+    /// A layer's check box (as in Pixquare): adds the layer to the layer
+    /// selection, or takes it out, starting the selection if there's none.
+    /// Unchecking the last one ends it.
+    func toggleLayerCheck(_ layer: UUID) {
+        var layers = checkedLayers
+        if layers.contains(layer) { layers.remove(layer) } else { layers.insert(layer) }
+        guard !layers.isEmpty else { endRangeSelection(); return }
+        isSelectingRange = true
+        rangeAnchor = (layer, activeFrameIndex)
+        timelineRange = TimelineRange(kind: .layers, layers: layers, frames: 0...(sprite.frames.count - 1))
+    }
+
+    /// The header's check box: every layer, or none when they're all checked.
+    func toggleAllLayerChecks() {
+        let all = Set(sprite.layers.map(\.id))
+        guard checkedLayers != all else { endRangeSelection(); return }
+        isSelectingRange = true
+        rangeAnchor = (sprite.layers.last!.id, activeFrameIndex)
+        timelineRange = TimelineRange(kind: .layers, layers: all, frames: 0...(sprite.frames.count - 1))
+    }
+
     func endRangeSelection() {
         isSelectingRange = false
         timelineRange = nil

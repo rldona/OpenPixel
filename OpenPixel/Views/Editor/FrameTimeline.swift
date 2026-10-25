@@ -19,7 +19,9 @@ struct FrameTimeline: View {
     @AppStorage("timelineFirstFrame") private var firstFrame = 1
     private let clipboard = TimelineClipboard.shared
 
-    private let nameColumn: CGFloat = 270
+    private let nameColumn: CGFloat = 294
+    /// The check boxes to the left of the eye.
+    private let checkColumn: CGFloat = 26
     private let celWidth: CGFloat = 32
     private let rowHeight: CGFloat = 30
     /// Frame numbers grow a second line when some frame's duration differs.
@@ -550,6 +552,7 @@ struct FrameTimeline: View {
                 Button { document.extendTimeline(toFrame: nil, layersBelow: row + 1) } label: {
                     // The same eye, lock and continuity icons as a real row, faint.
                     HStack(spacing: 0) {
+                        checkBox(false).frame(width: checkColumn, height: rowHeight)
                         Image(systemName: "eye").font(.system(size: 13)).frame(width: 34, height: rowHeight)
                         Image(systemName: "lock.open").font(.system(size: 13)).frame(width: 30, height: rowHeight)
                         ContinuityIcon(isOn: false, color: Theme.muted).frame(width: 26, height: rowHeight)
@@ -577,7 +580,13 @@ struct FrameTimeline: View {
         let layers = document.structure.layers
         let allVisible = layers.allSatisfy(\.isVisible), allLocked = layers.allSatisfy(\.isLocked)
         let allContinuous = layers.allSatisfy(\.isContinuous)
+        let checked = document.checkedLayers
+        let allChecked = !layers.isEmpty && checked.count == layers.count
         return HStack(spacing: 0) {
+            Button { document.toggleAllLayerChecks() } label: {
+                checkBox(allChecked, partly: !checked.isEmpty && !allChecked).frame(width: checkColumn, height: headerHeight)
+            }
+            .accessibilityLabel(allChecked ? Text("Deselect all layers") : Text("Select all layers"))
             Button { document.toggleAllVisibility() } label: {
                 Image(systemName: allVisible ? "eye" : "eye.slash")
                     .font(.system(size: 12))
@@ -598,6 +607,13 @@ struct FrameTimeline: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(Theme.muted)
+    }
+
+    /// A layer's check box; `partly` is the header's when only some are checked.
+    private func checkBox(_ isOn: Bool, partly: Bool = false) -> some View {
+        Image(systemName: isOn ? "checkmark.square.fill" : (partly ? "minus.square.fill" : "square"))
+            .font(.system(size: 14))
+            .foregroundStyle(isOn || partly ? Theme.accent : Theme.muted.opacity(0.6))
     }
 
     /// Timeline preferences (Aseprite's Configure Timeline button).
@@ -648,7 +664,15 @@ struct FrameTimeline: View {
     private func layerRow(_ layer: Layer) -> some View {
         let isActive = layer.id == document.activeLayerID
         let inRange = document.timelineRange.map { $0.kind == .layers && $0.layers.contains(layer.id) } ?? false
+        let isChecked = document.checkedLayers.contains(layer.id)
         return HStack(spacing: 0) {
+            Button { document.toggleLayerCheck(layer.id) } label: {
+                checkBox(isChecked).frame(width: checkColumn, height: rowHeight)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(verbatim: layer.name))
+            .accessibilityValue(isChecked ? Text("Selected") : Text("Not selected"))
+            .accessibilityHint(Text("Adds the layer to the timeline selection or takes it out"))
             Button { document.toggleVisibility(layer.id) } label: {
                 Image(systemName: layer.isVisible ? "eye" : "eye.slash")
                     // The size of the lock and the continuity dots next to it.
@@ -1077,20 +1101,32 @@ struct FrameTimeline: View {
         .accessibilityHidden(true)
     }
 
-    /// One border around the whole selected block, like Aseprite's range.
+    /// A border around each run of selected rows, like Aseprite's range
+    /// (checked layers needn't be next to each other).
     @ViewBuilder
     private var rangeOutline: some View {
-        let rows = layersTopFirst.map(\.id)
-        if let range = document.timelineRange,
-           let top = rows.firstIndex(where: range.layers.contains),
-           let bottom = rows.lastIndex(where: range.layers.contains) {
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Theme.accent, lineWidth: 2.5)
-                .frame(width: CGFloat(range.frames.count) * celWidth, height: CGFloat(bottom - top + 1) * rowHeight - 2)
-                .offset(x: CGFloat(range.frames.lowerBound) * celWidth, y: CGFloat(top) * rowHeight + 1)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+        if let range = document.timelineRange {
+            let rows = layersTopFirst.map { range.layers.contains($0.id) }
+            ForEach(Self.runs(of: rows), id: \.lowerBound) { run in
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Theme.accent, lineWidth: 2.5)
+                    .frame(width: CGFloat(range.frames.count) * celWidth, height: CGFloat(run.count) * rowHeight - 2)
+                    .offset(x: CGFloat(range.frames.lowerBound) * celWidth, y: CGFloat(run.lowerBound) * rowHeight + 1)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
         }
+    }
+
+    /// The runs of consecutive `true`s.
+    static func runs(of flags: [Bool]) -> [ClosedRange<Int>] {
+        var runs: [ClosedRange<Int>] = []
+        var start: Int?
+        for (i, on) in (flags + [false]).enumerated() {
+            if on, start == nil { start = i }
+            if !on, let s = start { runs.append(s...(i - 1)); start = nil }
+        }
+        return runs
     }
 
     /// Drops a dragged block on (`layer`, `frame`); a nil layer keeps the block's layers (drops on frame numbers).

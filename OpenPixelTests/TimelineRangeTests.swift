@@ -177,3 +177,57 @@ final class TimelineRangeTests: XCTestCase {
         XCTAssertEqual(marker(doc, frame: 3), 3)
     }
 }
+
+@MainActor
+final class LayerCheckTests: XCTestCase {
+    private func makeDocument() -> SpriteDocument {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
+        doc.addLayer()
+        doc.addLayer()
+        doc.addFrame(empty: true)
+        return doc
+    }
+
+    func testChecksBuildALayerSelection() {
+        let doc = makeDocument()
+        let ids = doc.sprite.layers.map(\.id)
+        doc.toggleLayerCheck(ids[0])
+        doc.toggleLayerCheck(ids[2])
+        XCTAssertTrue(doc.isSelectingRange)
+        XCTAssertEqual(doc.timelineRange?.kind, .layers)
+        XCTAssertEqual(doc.checkedLayers, [ids[0], ids[2]], "layers needn't be next to each other")
+        XCTAssertEqual(doc.timelineRange?.frames, 0...1, "every frame")
+        doc.toggleLayerCheck(ids[0])
+        XCTAssertEqual(doc.checkedLayers, [ids[2]])
+        doc.toggleLayerCheck(ids[2])
+        XCTAssertNil(doc.timelineRange, "unchecking the last one ends the selection")
+        XCTAssertFalse(doc.isSelectingRange)
+    }
+
+    func testHeaderChecksAllThenNone() {
+        let doc = makeDocument()
+        doc.toggleAllLayerChecks()
+        XCTAssertEqual(doc.checkedLayers, Set(doc.sprite.layers.map(\.id)))
+        doc.toggleAllLayerChecks()
+        XCTAssertNil(doc.timelineRange)
+    }
+
+    func testACelSelectionIsReplacedByChecks() {
+        let doc = makeDocument()
+        let ids = doc.sprite.layers.map(\.id)
+        doc.isSelectingRange = true
+        doc.extendRange(layer: ids[1], frameIndex: 0)
+        XCTAssertEqual(doc.checkedLayers, [], "cels aren't checked layers")
+        doc.toggleLayerCheck(ids[0])
+        XCTAssertEqual(doc.checkedLayers, [ids[0]])
+    }
+
+    func testCheckedLayersCanBeDeleted() {
+        let doc = makeDocument()
+        let ids = doc.sprite.layers.map(\.id)
+        doc.toggleLayerCheck(ids[1])
+        doc.toggleLayerCheck(ids[2])
+        doc.deleteRangeLayers()
+        XCTAssertEqual(doc.sprite.layers.map(\.id), [ids[0]])
+    }
+}

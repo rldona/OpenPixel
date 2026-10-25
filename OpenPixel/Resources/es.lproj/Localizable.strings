@@ -292,6 +292,11 @@
 "First frame" = "Primer frame";
 "Last frame" = "Último frame";
 "Hide all layers" = "Ocultar todas las capas";
+"Select all layers" = "Seleccionar todas las capas";
+"Deselect all layers" = "Deseleccionar todas las capas";
+"Selected" = "Seleccionada";
+"Not selected" = "Sin seleccionar";
+"Adds the layer to the timeline selection or takes it out" = "Añade la capa a la selección del timeline o la quita";
 "Show all layers" = "Mostrar todas las capas";
 "Lock all layers" = "Bloquear todas las capas";
 "Unlock all layers" = "Desbloquear todas las capas";
