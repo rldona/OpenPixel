@@ -29,6 +29,12 @@ struct FrameTimeline: View {
     @State private var durationText = ""
 
     private enum DurationTarget { case activeFrame, range }
+    /// Empty frames and layers drawn past the sprite's, so the grid never ends in a gap;
+    /// tapping one adds frames or layers up to it.
+    private static let projectedFrames = 50
+    private static let projectedLayers = 20
+    /// How far the cels are scrolled sideways; the header follows it.
+    @State private var gridOffset: CGFloat = 0
     private static let speeds: [Double] = [0.25, 0.5, 1, 1.5, 2, 3]
 
     var body: some View {
@@ -44,11 +50,29 @@ struct FrameTimeline: View {
         VStack(spacing: 0) {
             controls
             Rectangle().fill(Theme.border).frame(height: 1)
+            // The header stays put while the layers scroll, and slides sideways with the cels.
+            HStack(alignment: .top, spacing: 0) {
+                layerHeader
+                    .overlay(alignment: .trailing) { Rectangle().fill(Theme.strongBorder).frame(width: 1) }
+                // An overlay, so the strip (wider than the screen) takes no room of its own.
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: tagRowHeight + headerHeight)
+                    .overlay(alignment: .topLeading) { frameHeaderStrip.offset(x: gridOffset) }
+                    .clipped()
+            }
+            .background(Theme.timelineHeader)
+            .overlay(alignment: .bottom) { Rectangle().fill(Theme.strongBorder).frame(height: 1) }
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     HStack(alignment: .top, spacing: 0) {
                         layerColumn
-                        ScrollView(.horizontal, showsIndicators: false) { celGrid }
+                            .overlay(alignment: .trailing) { Rectangle().fill(Theme.strongBorder).frame(width: 1) }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            celGrid
+                                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("cels")).minX } action: { gridOffset = $0 }
+                        }
+                        .coordinateSpace(.named("cels"))
                     }
                 }
                 // Keep the layer being worked on in view, also when the timeline
@@ -437,7 +461,8 @@ struct FrameTimeline: View {
 
     // MARK: Layers
 
-    private var layerColumn: some View {
+    /// The tag band buttons and, above the layers, the buttons that act on them.
+    private var layerHeader: some View {
         VStack(spacing: 0) {
             if !document.structure.tags.isEmpty { tagBandHeaders }
 
@@ -484,7 +509,18 @@ struct FrameTimeline: View {
             .padding(.leading, 6)
             .padding(.trailing, 8)
             .frame(height: headerHeight)
+        }
+        .frame(width: nameColumn)
+    }
 
+    /// Rows still free before the projected ones end.
+    private var projectedLayerRows: Int { max(0, Self.projectedLayers - layersTopFirst.count) }
+
+    /// Columns drawn: the sprite's frames, then projected ones up to 50.
+    private var shownFrames: Int { max(document.structure.frames.count, Self.projectedFrames) }
+
+    private var layerColumn: some View {
+        VStack(spacing: 0) {
             ForEach(layersTopFirst) { layer in
                 layerRow(layer)
                     .draggable(layerDragPayload(layer)) { dragPreview(Text(verbatim: layer.name)) }
@@ -499,6 +535,20 @@ struct FrameTimeline: View {
                         return true
                     }
                     .id(layer.id)
+            }
+            // Projected layers: tapping one adds layers under the bottom one, down to it.
+            ForEach(0..<projectedLayerRows, id: \.self) { row in
+                Button { document.extendTimeline(toFrame: nil, layersBelow: row + 1) } label: {
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                        .frame(height: rowHeight - 8)
+                        .padding(.leading, 96)
+                        .padding(.trailing, 10)
+                        .frame(height: rowHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("New layer"))
             }
         }
         .frame(width: nameColumn)
@@ -884,23 +934,7 @@ struct FrameTimeline: View {
 
     private var celGrid: some View {
         let frames = document.structure.frames
-        let activeTag = document.activeTag
-        let usualDuration = document.structure.usualFrameDuration
         return VStack(alignment: .leading, spacing: 0) {
-            if !document.structure.tags.isEmpty { tagRow }
-            HStack(spacing: 0) {
-                ForEach(frames.indices, id: \.self) { index in
-                    frameHeader(index, count: frames.count, inActiveTag: activeTag?.contains(index) ?? false,
-                                duration: usualDuration.flatMap { frames[index].duration != $0 ? frames[index].duration : nil })
-                }
-                if showsDropColumn {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.muted)
-                        .frame(width: celWidth, height: headerHeight)
-                        .dropDestination(for: String.self) { items, _ in dropRange(items, layer: nil, frame: frames.count) }
-                }
-            }
             VStack(alignment: .leading, spacing: 0) {
             ForEach(layersTopFirst) { layer in
                 HStack(spacing: 0) {
@@ -933,14 +967,83 @@ struct FrameTimeline: View {
                             .dropDestination(for: String.self) { items, _ in dropRange(items, layer: layer.id, frame: frames.count) }
                             .accessibilityLabel(Text("After the last frame"))
                     }
+                    // Projected frames: tapping one adds empty frames up to it.
+                    projectedCels(columns: (frames.count + (showsDropColumn ? 1 : 0))..<shownFrames, rows: 1) { column, _ in
+                        document.extendTimeline(toFrame: column, layersBelow: 0, layer: layer.id)
+                    }
                 }
                 .frame(height: rowHeight)
                 .background(layer.id == document.activeLayerID && !document.isSelectingRange ? Theme.rowActive : .clear)
             }
             }
             .overlay(alignment: .topLeading) { rangeOutline }
+            // Projected layers, across every column.
+            if projectedLayerRows > 0 {
+                projectedCels(columns: 0..<shownFrames, rows: projectedLayerRows) { column, row in
+                    document.extendTimeline(toFrame: column, layersBelow: row + 1)
+                }
+            }
         }
         .padding(.trailing, 16)
+    }
+
+    /// The frame numbers (and tags above them), scrolled with the cels.
+    private var frameHeaderStrip: some View {
+        let frames = document.structure.frames
+        let activeTag = document.activeTag
+        let usualDuration = document.structure.usualFrameDuration
+        return VStack(alignment: .leading, spacing: 0) {
+            if !document.structure.tags.isEmpty { tagRow }
+            HStack(spacing: 0) {
+                ForEach(frames.indices, id: \.self) { index in
+                    frameHeader(index, count: frames.count, inActiveTag: activeTag?.contains(index) ?? false,
+                                duration: usualDuration.flatMap { frames[index].duration != $0 ? frames[index].duration : nil })
+                }
+                if showsDropColumn {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: celWidth, height: headerHeight)
+                        .dropDestination(for: String.self) { items, _ in dropRange(items, layer: nil, frame: frames.count) }
+                }
+                ForEach((frames.count + (showsDropColumn ? 1 : 0))..<max(shownFrames, frames.count + (showsDropColumn ? 1 : 0)), id: \.self) { index in
+                    Button { document.extendTimeline(toFrame: index, layersBelow: 0) } label: {
+                        Text(verbatim: "\(index + firstFrame)")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Theme.muted.opacity(0.4))
+                            .frame(width: celWidth, height: headerHeight)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("New frame"))
+                }
+            }
+        }
+        .padding(.trailing, 16)
+        .fixedSize()
+    }
+
+    /// Dashed placeholders for frames and layers that don't exist yet, drawn in one
+    /// pass; `tap` gets the column and row tapped.
+    private func projectedCels(columns: Range<Int>, rows: Int, tap: @escaping (Int, Int) -> Void) -> some View {
+        let width = CGFloat(max(0, columns.count)) * celWidth, height = CGFloat(rows) * rowHeight
+        return Canvas { context, _ in
+            let style = StrokeStyle(lineWidth: 1, dash: [3, 3])
+            for row in 0..<rows {
+                for column in 0..<columns.count {
+                    let rect = CGRect(x: CGFloat(column) * celWidth + 2.5, y: CGFloat(row) * rowHeight + 3.5, width: celWidth - 5, height: rowHeight - 7)
+                    context.stroke(Path(roundedRect: rect, cornerRadius: 6), with: .color(Theme.border), style: style)
+                }
+            }
+        }
+        .frame(width: width, height: height)
+        .contentShape(Rectangle())
+        .gesture(SpatialTapGesture().onEnded { value in
+            let column = columns.lowerBound + min(columns.count - 1, max(0, Int(value.location.x / celWidth)))
+            let row = min(rows - 1, max(0, Int(value.location.y / rowHeight)))
+            tap(column, row)
+        })
+        .accessibilityHidden(true)
     }
 
     /// One border around the whole selected block, like Aseprite's range.
@@ -988,9 +1091,16 @@ struct FrameTimeline: View {
                         .foregroundStyle(Theme.accentText)
                 }
             }
-                .foregroundStyle(inRange || isActive ? Theme.accentText : (inActiveTag ? Theme.text : Theme.muted))
+                .foregroundStyle(inRange ? Theme.accentText : (isActive ? Theme.onAccent : (inActiveTag ? Theme.text : Theme.muted)))
                 .frame(width: celWidth, height: headerHeight)
-                .background(inRange ? Theme.accentSoft : .clear)
+                .background {
+                    if inRange {
+                        Theme.accentSoft
+                    } else if isActive {
+                        // The active frame in a pill, so it's found at a glance.
+                        RoundedRectangle(cornerRadius: 6).fill(Theme.accent).padding(.horizontal, 3).padding(.vertical, 3)
+                    }
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

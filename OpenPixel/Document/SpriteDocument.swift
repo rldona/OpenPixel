@@ -1154,6 +1154,36 @@ final class SpriteDocument {
         activeLayerID = layer.id
     }
 
+    /// A tap on the timeline's projected cells: empty frames are added up to
+    /// `frame` (an index) and `layersBelow` new layers under the bottom one, as
+    /// one undo step, and the tapped cell becomes the active one.
+    func extendTimeline(toFrame frame: Int?, layersBelow: Int, layer: UUID? = nil) {
+        let addedFrames = max(0, (frame ?? 0) + 1 - sprite.frames.count)
+        guard addedFrames > 0 || layersBelow > 0 else {
+            if let layer { activeLayerID = layer }
+            if let frame { goToFrame(frame) }
+            return
+        }
+        var names = Set(sprite.layers.map(\.name))
+        var newLayers: [Layer] = []
+        for _ in 0..<layersBelow {
+            var n = sprite.layers.count + newLayers.count + 1
+            while names.contains(L10n.string("Layer %d", n)) { n += 1 }
+            let name = L10n.string("Layer %d", n)
+            names.insert(name)
+            newLayers.append(Layer(name: name))
+        }
+        perform { s in
+            let duration = s.frames.last?.duration ?? 100
+            for _ in 0..<addedFrames { s.insertFrame(Frame(duration: duration), at: s.frames.count) }
+            // Under the bottom layer, but never below the background.
+            let bottom = s.layers.first?.isBackground == true ? 1 : 0
+            s.layers.insert(contentsOf: newLayers.reversed(), at: bottom)
+        }
+        if let last = newLayers.last { activeLayerID = last.id } else if let layer { activeLayerID = layer }
+        if let frame { goToFrame(frame) }
+    }
+
     /// Deletes a layer; a group goes with everything in it.
     func deleteLayer(_ id: UUID) {
         let removed = Set([id] + sprite.descendants(of: id).map(\.id))

@@ -13,6 +13,8 @@ enum Theme {
     static let selection = adaptive(light: 0xE3E3EA, dark: 0x2E2E37)
     static let rowActive = adaptive(light: 0xECECF1, dark: 0x222229)
     static let columnActive = adaptive(light: 0xE6E6EC, dark: 0x2A2A33)
+    /// The timeline's header (frame numbers and layer buttons), set apart from the rows.
+    static let timelineHeader = adaptive(light: 0xF1F1F5, dark: 0x202027)
     static let border = adaptive(light: 0xDCDCE2, dark: 0x2A2A31)
     static let strongBorder = adaptive(light: 0xC4C4CC, dark: 0x3A3A43)
     static let text = adaptive(light: 0x17171A, dark: 0xF2F2F5)
