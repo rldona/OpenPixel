@@ -28,6 +28,7 @@ struct PixelCanvas: UIViewRepresentable {
     let symmetry: Symmetry
     let tiledMode: TiledMode
     let pixelRatio: PixelRatio
+    var editingLocked = false
     var onFocusToggle: () -> Void = {}
 
     func makeUIView(context: Context) -> PixelCanvasView {
@@ -72,6 +73,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.symmetry = symmetry
         view.tiledMode = tiledMode
         view.pixelRatio = pixelRatio
+        view.editingLocked = editingLocked
         view.onionLayers = onionLayers
         view.references = references
         if view.renderedRevision != revision || view.renderedFrame != frameIndex {

@@ -142,19 +142,27 @@ struct SidePanel: View {
                         .accessibilityLabel(Text("Replace color…"))
                 }
                 GridRow {
-                    // Tapping it again closes the window without applying, like Cancel.
+                    // Opens its window, brings it to the front if the other one covers it,
+                    // or closes it. Closing Hue/Saturation here doesn't apply it, like Cancel.
                     colorAction("Hue/Saturation", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
-                        if document.isAdjustingHueSaturation {
-                            document.endHueSaturation(apply: nil, everyCel: false)
-                        } else {
+                        if !document.isAdjustingHueSaturation {
                             document.beginHueSaturation()
+                        } else if document.isShowingColorShading && document.frontWindow != .hueSaturation {
+                            document.frontWindow = .hueSaturation
+                        } else {
+                            document.endHueSaturation(apply: nil, everyCel: false)
                         }
                     }
-                    // Its window waits while Hue/Saturation is open: the canvas can't be painted then.
-                    colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading && !document.isAdjustingHueSaturation) {
-                        document.isShowingColorShading.toggle()
+                    colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
+                        if !document.isShowingColorShading {
+                            document.isShowingColorShading = true
+                            document.frontWindow = .colorShading
+                        } else if document.isAdjustingHueSaturation && document.frontWindow != .colorShading {
+                            document.frontWindow = .colorShading
+                        } else {
+                            document.isShowingColorShading = false
+                        }
                     }
-                    .disabled(document.isAdjustingHueSaturation)
                 }
             }
         }

@@ -186,6 +186,8 @@ final class SpriteDocument {
     var isReplacingColor = false
     /// The Color Shading window is open (the side panel's Color shading button).
     var isShowingColorShading = false
+    /// Which floating window is in front when both are open.
+    var frontWindow = FloatingWindowKind.hueSaturation
     /// Text tool settings, shared by every sprite while the app runs.
     var textStyle = TextStyle()
     /// Where the text tool was tapped; set while the text is being typed.
@@ -1521,6 +1523,7 @@ final class SpriteDocument {
         applyTransformIfNeeded()
         stopPlayback()
         adjustmentBase = DocumentSnapshot(sprite: storage, selection: selection)
+        frontWindow = .hueSaturation
     }
 
     /// Shows the adjustment on the canvas without committing it.
@@ -2939,4 +2942,9 @@ private struct StructureKey: Equatable {
         tilemaps = s.tilemaps
         filled = Set(s.cels.keys)
     }
+}
+
+/// The editor's floating windows.
+enum FloatingWindowKind {
+    case hueSaturation, colorShading
 }

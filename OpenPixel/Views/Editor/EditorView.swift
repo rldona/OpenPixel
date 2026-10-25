@@ -46,8 +46,6 @@ struct EditorView: View {
                                 onRevision: scheduleSave
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
-                            // The canvas shows the Hue/Saturation preview; drawing waits until it's applied.
-                            .allowsHitTesting(!document.isAdjustingHueSaturation)
                         }
                         .overlay(alignment: .topTrailing) {
                             if focusMode { focusExitButton }
@@ -92,23 +90,25 @@ struct EditorView: View {
             }
             // Floating windows like Aseprite's: they open at the canvas's top right
             // and can be dragged anywhere in the editor, side panel included.
-            // Color Shading steps aside while Hue/Saturation is open.
+            // Both can be open; the one last touched or chosen is in front.
             .overlay {
-                if document.isAdjustingHueSaturation || document.isShowingColorShading {
-                    GeometryReader { geometry in
-                        let inset: CGFloat = focusMode ? 16 : Self.panelWidth + 16
-                        Group {
-                            if document.isAdjustingHueSaturation {
+                GeometryReader { geometry in
+                    let inset: CGFloat = focusMode ? 16 : Self.panelWidth + 16
+                    ZStack(alignment: .topTrailing) {
+                        if document.isAdjustingHueSaturation {
+                            floatingWindow(.hueSaturation) {
                                 HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
-                            } else {
+                            }
+                        }
+                        if document.isShowingColorShading {
+                            floatingWindow(.colorShading) {
                                 ColorShadingPanel(document: document, area: geometry.size, trailingInset: inset)
                             }
                         }
-                        .padding(.trailing, inset)
-                        .padding(.top, focusMode ? 72 : 16)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     }
-                    .transition(.opacity)
+                    .padding(.trailing, inset)
+                    .padding(.top, focusMode ? 72 : 16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
             }
         }
@@ -285,6 +285,17 @@ struct EditorView: View {
     }
 
     /// An icon in the top bar. On, it takes a soft tint, so solid accent stays for Export.
+    /// A floating window that comes to the front when touched.
+    private func floatingWindow(_ window: FloatingWindowKind, @ViewBuilder content: () -> some View) -> some View {
+        content()
+            .zIndex(document.frontWindow == window ? 1 : 0)
+            // Any touch on it, taps on its buttons included.
+            .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
+                if document.frontWindow != window { document.frontWindow = window }
+            })
+            .transition(.opacity)
+    }
+
     private func topBarIcon(_ systemImage: String, isOn: Bool) -> some View {
         Image(systemName: systemImage)
             .font(.system(size: 17.6, weight: .medium))
@@ -523,6 +534,9 @@ private struct CanvasHost: View {
             symmetry: document.symmetry,
             tiledMode: document.tiledMode,
             pixelRatio: sprite.pixelRatio,
+            // The canvas shows the Hue/Saturation preview: it can still be moved and
+            // zoomed, but drawing waits until the adjustment is applied or cancelled.
+            editingLocked: document.isAdjustingHueSaturation,
             onFocusToggle: onFocusToggle
         )
         .onChange(of: document.revision) { onRevision() }

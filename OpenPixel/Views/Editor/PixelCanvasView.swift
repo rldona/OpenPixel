@@ -82,6 +82,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private var needsFit = true
     private var lastBoundsSize: CGSize = .zero
     private var pencilOnly = false
+    /// Touches don't draw (the gestures still pan and zoom), e.g. while Hue/Saturation previews.
+    var editingLocked = false
     private weak var drawingTouch: UITouch?
     private var strokeActive = false
     private weak var transformTouch: UITouch?
@@ -890,7 +892,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if transformTouch != nil || axisTouch != nil { return }
+        if editingLocked || transformTouch != nil || axisTouch != nil { return }
         // Any touch can drag a symmetry axis by its handle.
         if drawingTouch == nil, let touch = touches.first {
             let location = touch.location(in: self)
