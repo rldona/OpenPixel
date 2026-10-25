@@ -86,6 +86,8 @@ final class SpriteDocument {
     }
     private(set) var tool: Tool = .pencil
     private var previousTool: Tool = .pencil
+    /// The frame playback started from, for Preferences > Rewind on stop.
+    @ObservationIgnored private var playbackStartFrame: Int?
     var primary: PixelColor
     var secondary: PixelColor
     var symmetry = Symmetry()
@@ -274,7 +276,6 @@ final class SpriteDocument {
     var isBuildingShape: Bool { pendingShapeStage != 0 }
     static let maxBrushSize = 32
     @ObservationIgnored private var playTask: Task<Void, Never>?
-    private static let historyLimit = 100
 
     init(id: UUID = UUID(), name: String, sprite: Sprite) {
         self.id = id
@@ -312,7 +313,8 @@ final class SpriteDocument {
 
     private func registerUndo(_ snapshot: DocumentSnapshot) {
         undoStack.append(snapshot)
-        if undoStack.count > Self.historyLimit { undoStack.removeFirst() }
+        // Preferences > Undo limit.
+        if undoStack.count > EditorSettings.undoLimit { undoStack.removeFirst(undoStack.count - EditorSettings.undoLimit) }
         redoStack.removeAll()
     }
 
@@ -394,11 +396,25 @@ final class SpriteDocument {
     }
 
     /// Apple Pencil double tap: toggles between the eraser and the last tool.
-    func toggleEraser() {
-        if tool == .eraser {
-            select(previousTool == .eraser ? .pencil : previousTool)
+    func toggleEraser() { toggle(.eraser) }
+
+    /// Switches to `other`, or back to the previous tool when it's already in use.
+    func toggle(_ other: Tool) {
+        if tool == other {
+            select(previousTool == other ? .pencil : previousTool)
         } else {
-            select(.eraser)
+            select(other)
+        }
+    }
+
+    /// An Apple Pencil double tap or squeeze.
+    func perform(_ action: PencilAction) {
+        switch action {
+        case .system, .eraser: toggle(.eraser)
+        case .swapColors: swapColors()
+        case .eyedropper: toggle(.eyedropper)
+        case .undo: undo()
+        case .nothing: break
         }
     }
 
@@ -1595,7 +1611,14 @@ final class SpriteDocument {
     // MARK: - Playback
 
     func togglePlayback() {
-        isPlaying ? stopPlayback() : startPlayback()
+        if isPlaying {
+            stopPlayback()
+            // Preferences > Rewind on stop: back to where playback started.
+            if EditorSettings.rewindOnStop, let start = playbackStartFrame, start < sprite.frames.count { activeFrameIndex = start }
+        } else {
+            playbackStartFrame = activeFrameIndex
+            startPlayback()
+        }
     }
 
     /// Plays the tag that contains the active frame (with its direction and

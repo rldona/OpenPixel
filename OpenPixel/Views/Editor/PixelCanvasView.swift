@@ -42,6 +42,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var tileGrid: GridSettings? { didSet { if oldValue != tileGrid { updateOverlays() } } }
     var symmetry = Symmetry() { didSet { if oldValue != symmetry { updateOverlays() } } }
     var tiledMode = TiledMode.none { didSet { if oldValue != tiledMode { updateGeometry() } } }
+    /// Checker and grid colors from Preferences.
+    var look = CanvasLook() { didSet { if oldValue != look { applyAppearance() } } }
+    var fingerInput = FingerInput.automatic
+    var pencilDoubleTap = PencilAction.system
+    var pencilSqueeze = PencilAction.system
 
     /// Points come with the Apple Pencil's pressure, 0...1 (always 1 for fingers).
     var onStrokeBegan: ((PixelPoint, Double) -> Void)?
@@ -51,9 +56,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onUndo: (() -> Void)?
     var onRedo: (() -> Void)?
     var onEyedropper: ((PixelPoint) -> Void)?
-    var onPencilDoubleTap: (() -> Void)?
-    /// Apple Pencil Pro squeeze.
-    var onPencilSqueeze: (() -> Void)?
+    /// Apple Pencil double tap, or Apple Pencil Pro squeeze, with what it's set to do.
+    var onPencilAction: ((PencilAction) -> Void)?
     /// Four-finger tap: show or hide the panels around the canvas.
     var onFocusToggle: (() -> Void)?
     /// A symmetry axis handle was dragged: which axis, and where to (in half pixels).
@@ -85,6 +89,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     /// Touches don't draw (the gestures still pan and zoom), e.g. while Hue/Saturation previews.
     var editingLocked = false
     private weak var drawingTouch: UITouch?
+    /// A touch made while holding Option picks colors, like Alt in Aseprite.
+    private weak var pickingTouch: UITouch?
     private var strokeActive = false
     private weak var transformTouch: UITouch?
     /// A touch dragging a symmetry axis by its handle (true for the horizontal line of vertical symmetry).
@@ -137,8 +143,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private static let topInset: CGFloat = 32
     private static let bottomInset: CGFloat = 72
     private var isDark: Bool { traitCollection.userInterfaceStyle == .dark }
-    private var checkerLight: PixelColor { isDark ? PixelColor(r: 69, g: 69, b: 69) : PixelColor(r: 236, g: 236, b: 236) }
-    private var checkerDark: PixelColor { isDark ? PixelColor(r: 54, g: 54, b: 54) : PixelColor(r: 212, g: 212, b: 212) }
+    private var checkerLight: PixelColor { look.checkerLight ?? (isDark ? PixelColor(r: 69, g: 69, b: 69) : PixelColor(r: 236, g: 236, b: 236)) }
+    private var checkerDark: PixelColor { look.checkerDark ?? (isDark ? PixelColor(r: 54, g: 54, b: 54) : PixelColor(r: 212, g: 212, b: 212)) }
     /// Layer properties we change every frame must not animate.
     private static let noAnimations: [String: CAAction] = [
         "contents": NSNull(), "position": NSNull(), "bounds": NSNull(), "frame": NSNull(),
@@ -164,8 +170,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private func applyAppearance() {
         let traits = traitCollection
         spriteLayer.borderColor = UIColor(Theme.border).resolvedColor(with: traits).cgColor
-        gridLayer.strokeColor = (isDark ? UIColor(white: 1, alpha: 0.22) : UIColor(white: 0, alpha: 0.18)).cgColor
-        tileGridLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).withAlphaComponent(0.7).cgColor
+        gridLayer.strokeColor = look.pixelGrid.map { UIColor($0.color).cgColor }
+            ?? (isDark ? UIColor(white: 1, alpha: 0.22) : UIColor(white: 0, alpha: 0.18)).cgColor
+        tileGridLayer.strokeColor = look.tileGrid.map { UIColor($0.color).cgColor }
+            ?? UIColor(Theme.accent).resolvedColor(with: traits).withAlphaComponent(0.7).cgColor
         mirrorLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         axisKnobsLayer.fillColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         boxLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
@@ -408,9 +416,14 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     /// Checker squares are a whole number of sprite pixels (1, 2, 4…) so they line up
     /// with the pixel grid; at high zoom each square is exactly one pixel.
+    /// A fixed size from Preferences overrides that.
     private func updateChecker() {
         var pixelsPerCell = 1
-        while scale * CGFloat(pixelsPerCell) < 8 { pixelsPerCell *= 2 }
+        if look.checkerSize > 0 {
+            pixelsPerCell = look.checkerSize
+        } else {
+            while scale * CGFloat(pixelsPerCell) < 8 { pixelsPerCell *= 2 }
+        }
         let columns = Int((spriteSize.width / CGFloat(pixelsPerCell)).rounded(.up))
         let rows = Int((spriteSize.height / CGFloat(pixelsPerCell)).rounded(.up))
         let key = [pixelsPerCell, columns, rows]
@@ -867,13 +880,22 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     @available(iOS 17.5, *)
     func pencilInteraction(_ interaction: UIPencilInteraction, didReceiveSqueeze squeeze: UIPencilInteraction.Squeeze) {
-        guard squeeze.phase == .ended, UIPencilInteraction.preferredSqueezeAction != .ignore else { return }
-        onPencilSqueeze?()
+        guard squeeze.phase == .ended else { return }
+        // Aseprite paints with the secondary color on right-click; on iPad a squeeze swaps the colors.
+        if pencilSqueeze == .system {
+            if UIPencilInteraction.preferredSqueezeAction != .ignore { onPencilAction?(.swapColors) }
+        } else {
+            onPencilAction?(pencilSqueeze)
+        }
     }
 
     private func handlePencilTap() {
-        guard UIPencilInteraction.preferredTapAction != .ignore else { return }
-        onPencilDoubleTap?()
+        // "As in iPadOS Settings" switches to the eraser unless the gesture is turned off there.
+        if pencilDoubleTap == .system {
+            if UIPencilInteraction.preferredTapAction != .ignore { onPencilAction?(.eraser) }
+        } else {
+            onPencilAction?(pencilDoubleTap)
+        }
     }
 
     // MARK: - Drawing touches
@@ -886,7 +908,12 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private func canDraw(with touch: UITouch) -> Bool {
         switch touch.type {
         case .pencil, .indirectPointer: true
-        case .direct: !pencilOnly
+        case .direct:
+            switch fingerInput {
+            case .automatic: !pencilOnly
+            case .draws: true
+            case .navigates: false
+            }
         default: false
         }
     }
@@ -935,6 +962,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         guard let touch = touches.first(where: canDraw) else { return }
         if touch.type == .pencil { pencilOnly = true }
         if touch.type == .direct, (event?.allTouches?.filter { $0.type == .direct }.count ?? 1) > 1 { return }
+        if event?.modifierFlags.contains(.alternate) == true {
+            pickingTouch = touch
+            if let p = spritePoint(touch.location(in: self)) { onEyedropper?(p) }
+            return
+        }
         drawingTouch = touch
         if let p = spritePoint(touch.location(in: self)) {
             strokeActive = true
@@ -946,6 +978,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         if let axis = axisTouch, touches.contains(axis.touch) {
             let p = toSprite(axis.touch.location(in: self))
             onSymmetryAxisMoved?(axis.vertical, Int(((axis.vertical ? p.y : p.x) * 2).rounded()))
+            return
+        }
+        if let touch = pickingTouch, touches.contains(touch) {
+            if let p = spritePoint(touch.location(in: self)) { onEyedropper?(p) }
             return
         }
         if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
@@ -986,6 +1022,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             axisTouch = nil
             return
         }
+        if let touch = pickingTouch, touches.contains(touch) {
+            pickingTouch = nil
+            return
+        }
         if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
             // A tap inside the selection: select the element under it.
             pendingSelectionTouch = nil
@@ -1009,6 +1049,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             axisTouch = nil
             return
         }
+        if let touch = pickingTouch, touches.contains(touch) {
+            pickingTouch = nil
+            return
+        }
         if let pending = pendingSelectionTouch, touches.contains(pending.touch) {
             pendingSelectionTouch = nil
             return
@@ -1027,4 +1071,14 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         drawingTouch = nil
         strokeActive = false
     }
+}
+
+/// Checker and grid colors chosen in Preferences; nil keeps the default.
+struct CanvasLook: Equatable {
+    /// Checker squares in sprite pixels; 0 sizes them with the zoom.
+    var checkerSize = 0
+    var checkerLight: PixelColor?
+    var checkerDark: PixelColor?
+    var pixelGrid: PixelColor?
+    var tileGrid: PixelColor?
 }

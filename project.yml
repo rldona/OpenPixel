@@ -25,6 +25,8 @@ targets:
       properties:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # The app's folder in Files (On My iPad > OpenPixel).
+        UIFileSharingEnabled: true
         CFBundleDocumentTypes:
           - CFBundleTypeName: Aseprite sprite
             LSItemContentTypes: [org.aseprite.aseprite]
@@ -32,12 +34,20 @@ targets:
           - CFBundleTypeName: Image
             LSItemContentTypes: [public.png, com.compuserve.gif]
             LSHandlerRank: Alternate
+          - CFBundleTypeName: Aseprite extension
+            LSItemContentTypes: [org.aseprite.extension]
+            LSHandlerRank: Alternate
         UTImportedTypeDeclarations:
           - UTTypeIdentifier: org.aseprite.aseprite
             UTTypeDescription: Aseprite sprite
             UTTypeConformsTo: [public.data]
             UTTypeTagSpecification:
               public.filename-extension: [aseprite, ase]
+          - UTTypeIdentifier: org.aseprite.extension
+            UTTypeDescription: Aseprite extension
+            UTTypeConformsTo: [public.zip-archive]
+            UTTypeTagSpecification:
+              public.filename-extension: [aseprite-extension]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rldona.openpixel

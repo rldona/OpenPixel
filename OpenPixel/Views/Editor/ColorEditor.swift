@@ -23,6 +23,7 @@ struct ColorEditor: View {
 
     @AppStorage("colorEditorMode") private var mode = Mode.spectrum
     @AppStorage("colorEditorHarmony") private var harmony = ColorHarmony.complementary
+    @AppStorage(EditorSettings.alphaFormatKey) private var alphaFormat = AlphaFormat.percent
     /// Kept apart from `color` so hue survives grays and black.
     @State private var hsv: HSV
     @State private var hexText: String
@@ -61,8 +62,14 @@ struct ColorEditor: View {
                 channel("S", value: hsv.s * 100, range: 0...100) { setHSV(HSV(h: hsv.h, s: $0 / 100, v: hsv.v)) }
                 channel("B", value: hsv.v * 100, range: 0...100) { setHSV(HSV(h: hsv.h, s: hsv.s, v: $0 / 100)) }
             }
-            AlphaBar(color: color) { set(a: $0) }
-                .frame(height: 26)
+            HStack(spacing: 10) {
+                AlphaBar(color: color, format: alphaFormat) { set(a: $0) }
+                    .frame(height: 26)
+                Text(verbatim: alphaFormat.text(Double(color.a) / 255))
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
+                    .frame(width: 48, alignment: .trailing)
+            }
 
             swatchRow(title: "Shades", colors: color.shadesAndTints)
             VStack(alignment: .leading, spacing: 6) {
@@ -288,6 +295,7 @@ private struct HueBar: View {
 
 private struct AlphaBar: View {
     let color: PixelColor
+    let format: AlphaFormat
     let onChange: (Double) -> Void
 
     var body: some View {
@@ -307,7 +315,7 @@ private struct AlphaBar: View {
         }
         .accessibilityElement()
         .accessibilityLabel(Text("Opacity"))
-        .accessibilityValue(Text(verbatim: "\(Int(Double(color.a) / 255 * 100)) %"))
+        .accessibilityValue(Text(verbatim: format.text(Double(color.a) / 255)))
         .accessibilityAdjustableAction { direction in
             onChange(Double(color.a) + (direction == .increment ? 16 : -16))
         }

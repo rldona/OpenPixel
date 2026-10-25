@@ -210,7 +210,7 @@ struct ToolOptionsBar: View {
             }
             Menu {
                 Picker("Dithering", selection: $document.gradientDither) {
-                    ForEach(GradientDither.allCases) { Text($0.title).tag($0) }
+                    ForEach(GradientDither.builtIn + ExtensionStore.shared.ditheringMatrices) { Text($0.title).tag($0) }
                 }
             } label: {
                 HStack(spacing: 4) {

@@ -625,3 +625,71 @@
 "Move layer up" = "Subir capa";
 "Move layer down" = "Bajar capa";
 "Drag to move the window" = "Arrastra para mover la ventana";
+
+/* Preferences: editor, Pencil, layout */
+"Layout" = "Disposición";
+"Tools on the left" = "Herramientas a la izquierda";
+"Tools on the right" = "Herramientas a la derecha";
+"Tools on the right and the color panel on the left suits left-handed drawing, like Aseprite's mirrored layout." = "Herramientas a la derecha y panel de color a la izquierda va mejor para dibujar con la zurda, como la disposición en espejo de Aseprite.";
+"Transparent background" = "Fondo transparente";
+"Checker size" = "Tamaño del cuadro";
+"Automatic" = "Automático";
+"Light squares" = "Cuadros claros";
+"Dark squares" = "Cuadros oscuros";
+"Use the appearance's colors" = "Usar los colores de la apariencia";
+"Automatic keeps the squares a similar size on screen at any zoom." = "Automático mantiene los cuadros de un tamaño parecido en pantalla con cualquier zoom.";
+"Tile grid" = "Rejilla de tiles";
+"Use the default colors" = "Usar los colores por defecto";
+"The color's opacity is the grid's opacity." = "La opacidad del color es la opacidad de la rejilla.";
+"Alpha and opacity" = "Alfa y opacidad";
+"Rewind on stop" = "Rebobinar al parar";
+"Undo steps" = "Pasos de deshacer";
+"Editor" = "Editor";
+"Rewind on stop goes back to the frame playback started from. More undo steps use more memory with big sprites." = "Rebobinar al parar vuelve al frame donde empezó la reproducción. Más pasos de deshacer usan más memoria con sprites grandes.";
+"Finger" = "Dedo";
+"Double tap" = "Doble toque";
+"Squeeze" = "Apretar";
+"Apple Pencil and touch" = "Apple Pencil y táctil";
+"Two fingers always move and zoom the canvas. Squeeze needs an Apple Pencil Pro." = "Con dos dedos siempre se mueve y se hace zoom en el lienzo. Apretar necesita un Apple Pencil Pro.";
+"Draws until the Pencil is used" = "Dibuja hasta que se usa el Pencil";
+"Always draws" = "Siempre dibuja";
+"Only moves the canvas" = "Solo mueve el lienzo";
+"As in iPadOS Settings" = "Como en Ajustes de iPadOS";
+"Switch to the eraser" = "Cambiar a la goma";
+"Swap colors" = "Intercambiar colores";
+"Switch to the eyedropper" = "Cambiar al cuentagotas";
+"Nothing" = "Nada";
+"Reset editor preferences" = "Restablecer preferencias del editor";
+"Reset editor preferences?" = "¿Restablecer las preferencias del editor?";
+"Language, appearance and accent color are kept." = "Se mantienen el idioma, la apariencia y el color de acento.";
+
+/* Keyboard shortcuts */
+"Keyboard shortcuts" = "Atajos de teclado";
+"Tools" = "Herramientas";
+"View" = "Vista";
+"Hold while tapping to pick a color" = "Mantener al tocar para tomar un color";
+"Smaller or bigger brush" = "Pincel más pequeño o más grande";
+"Flip horizontal" = "Voltear en horizontal";
+"Flip vertical" = "Voltear en vertical";
+"Apply the transform or finish the shape" = "Aplicar la transformación o terminar la forma";
+"Cancel the transform or the shape" = "Cancelar la transformación o la forma";
+"Nudge while transforming" = "Mover píxel a píxel al transformar";
+
+/* Extensions */
+"Extensions" = "Extensiones";
+"Add extension…" = "Añadir extensión…";
+"Installed" = "Instaladas";
+"Uninstall" = "Desinstalar";
+"Uninstall “%@”?" = "¿Desinstalar «%@»?";
+"Sprites keep the colors they already use." = "Los sprites conservan los colores que ya usan.";
+"Couldn't add the extension" = "No se pudo añadir la extensión";
+"%lld palettes" = "%lld paletas";
+"%lld dithering matrices" = "%lld matrices de tramado";
+"Aseprite extensions (.aseprite-extension) with palettes or dithering matrices. Themes, languages, keys and scripts are Aseprite's own and aren't used." = "Extensiones de Aseprite (.aseprite-extension) con paletas o matrices de tramado. Los temas, idiomas, atajos y scripts son propios de Aseprite y no se usan.";
+"This isn't an Aseprite extension: it has no package.json." = "Esto no es una extensión de Aseprite: no tiene package.json.";
+"The extension has no palettes or dithering matrices." = "La extensión no tiene paletas ni matrices de tramado.";
+"The extension only has %@, which OpenPixel can't use. Only palettes and dithering matrices are imported." = "La extensión solo tiene %@, que OpenPixel no puede usar. Solo se importan paletas y matrices de tramado.";
+"“%@” added" = "«%@» añadida";
+"Its palettes are in the palette's Load preset menu, its dithering matrices in the gradient tool." = "Sus paletas están en el menú Cargar preajuste de la paleta y sus matrices de tramado en la herramienta de degradado.";
+"1 palette" = "1 paleta";
+"1 dithering matrix" = "1 matriz de tramado";

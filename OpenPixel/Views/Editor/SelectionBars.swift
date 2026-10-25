@@ -122,6 +122,7 @@ struct TransformBar: View {
 /// The editor's Edit menu: clipboard, selection and canvas commands.
 struct EditMenu: View {
     let document: SpriteDocument
+    var showShortcuts: () -> Void = {}
 
     var body: some View {
         Menu {
@@ -187,6 +188,9 @@ struct EditMenu: View {
                     Label("Pixel ratio", systemImage: "aspectratio")
                 }
                 .pickerStyle(.menu)
+            }
+            Section {
+                Button("Keyboard shortcuts", systemImage: "keyboard", action: showShortcuts)
             }
         } label: {
             Image(systemName: "ellipsis.circle")

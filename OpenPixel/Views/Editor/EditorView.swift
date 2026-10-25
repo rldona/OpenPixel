@@ -8,6 +8,7 @@ struct EditorView: View {
     @State private var canvas = CanvasController()
     @State private var showingExport = false
     @State private var showingGridSettings = false
+    @State private var showingShortcuts = false
     @State private var saveTask: Task<Void, Never>?
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
     @State private var focusMode = false
@@ -19,6 +20,8 @@ struct EditorView: View {
     @AppStorage("timelineCollapsed") private var timelineCollapsed = false
     /// How far the timeline has been dragged below its smallest size, to show it giving way.
     @State private var timelinePull = 0.0
+    /// Aseprite's Mirrored Default layout (Preferences > Layout): tools on the right, panel on the left.
+    @AppStorage(EditorSettings.mirroredLayoutKey) private var mirrored = false
     private static let timelineHeights = 120.0...560.0
     /// The tool rail's and side panel's widths; the top bar lines up with them.
     static let railWidth: CGFloat = 68
@@ -31,10 +34,10 @@ struct EditorView: View {
             if !focusMode {
                 topBar.transition(.move(edge: .top).combined(with: .opacity))
             }
-            // Three full-height columns: tools | canvas over timeline | side panel.
+            // Three full-height columns: tools | canvas over timeline | side panel, or the other way round.
             HStack(spacing: 0) {
                 if !focusMode {
-                    ToolRail(document: document).transition(.move(edge: .leading).combined(with: .opacity))
+                    if mirrored { sidePanel } else { toolRail }
                 }
                 VStack(spacing: 0) {
                     Group {
@@ -83,9 +86,7 @@ struct EditorView: View {
                     }
                 }
                 if !focusMode {
-                    SidePanel(document: document, canvas: canvas)
-                        .frame(width: Self.panelWidth)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    if mirrored { toolRail } else { sidePanel }
                 }
             }
             // Floating windows like Aseprite's: they open at the canvas's top right
@@ -93,7 +94,7 @@ struct EditorView: View {
             // Only one is open at a time.
             .overlay {
                 GeometryReader { geometry in
-                    let inset: CGFloat = focusMode ? 16 : Self.panelWidth + 16
+                    let inset: CGFloat = focusMode ? 16 : (mirrored ? Self.railWidth : Self.panelWidth) + 16
                     Group {
                         if document.isAdjustingHueSaturation {
                             HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
@@ -115,6 +116,7 @@ struct EditorView: View {
                 Button("Zoom out") { canvas.zoomOut() }.keyboardShortcut("-", modifiers: .command)
                 Button("Zoom in") { canvas.zoomIn() }.keyboardShortcut("+", modifiers: .command)
                 Button("Fit to screen") { canvas.fit() }.keyboardShortcut("0", modifiers: .command)
+                Button("Keyboard shortcuts") { showingShortcuts = true }.keyboardShortcut("/", modifiers: .command)
             }
             .opacity(0)
             .accessibilityHidden(true)
@@ -123,6 +125,7 @@ struct EditorView: View {
         .background { EditorShortcuts(document: document) }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) { ExportView(document: document) }
+        .sheet(isPresented: $showingShortcuts) { NavigationStack { KeyboardShortcutsView(showsDone: true) } }
         .sheet(isPresented: $document.isReplacingColor) { ReplaceColorSheet(document: document) }
         .sheet(isPresented: Binding(get: { document.textAnchor != nil }, set: { if !$0 { document.textAnchor = nil } })) {
             TextEntrySheet(document: document)
@@ -238,6 +241,17 @@ struct EditorView: View {
     /// Laid out over the three columns below: back over the tool rail, the
     /// active tool's options centered over the canvas, and the view buttons
     /// with Export over the side panel.
+    private var toolRail: some View {
+        ToolRail(document: document, mirrored: mirrored)
+            .transition(.move(edge: mirrored ? .trailing : .leading).combined(with: .opacity))
+    }
+
+    private var sidePanel: some View {
+        SidePanel(document: document, canvas: canvas, mirrored: mirrored)
+            .frame(width: Self.panelWidth)
+            .transition(.move(edge: mirrored ? .leading : .trailing).combined(with: .opacity))
+    }
+
     private var topBar: some View {
         HStack(spacing: 0) {
             IconButton(systemImage: "chevron.left", label: "Back to projects") { dismiss() }
@@ -249,7 +263,7 @@ struct EditorView: View {
 
             HStack(spacing: 0) {
                 Spacer(minLength: 0)
-                EditMenu(document: document).help(Text("Edit"))
+                EditMenu(document: document) { showingShortcuts = true }.help(Text("Edit"))
                 focusMenu
                 gridMenu
                 tiledModeMenu
@@ -375,6 +389,8 @@ struct EditorView: View {
 
 struct ToolRail: View {
     @Bindable var document: SpriteDocument
+    /// On the right of the canvas, so its divider goes on the left.
+    var mirrored = false
 
     var body: some View {
         VStack(spacing: 6) {
@@ -397,8 +413,9 @@ struct ToolRail: View {
         // Background and divider run under the home indicator, like the side panel.
         .background {
             HStack(spacing: 0) {
+                if mirrored { Rectangle().fill(Theme.border).frame(width: 1) }
                 Theme.panel
-                Rectangle().fill(Theme.border).frame(width: 1)
+                if !mirrored { Rectangle().fill(Theme.border).frame(width: 1) }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -501,6 +518,14 @@ private struct CanvasHost: View {
     let onFocusToggle: () -> Void
     /// Called after every committed change (autosave).
     let onRevision: () -> Void
+    @AppStorage(EditorSettings.checkerSizeKey) private var checkerSize = 0
+    @AppStorage(EditorSettings.checkerLightKey) private var checkerLight = ""
+    @AppStorage(EditorSettings.checkerDarkKey) private var checkerDark = ""
+    @AppStorage(EditorSettings.pixelGridColorKey) private var pixelGridColor = ""
+    @AppStorage(EditorSettings.tileGridColorKey) private var tileGridColor = ""
+    @AppStorage(EditorSettings.fingerInputKey) private var fingerInput = FingerInput.automatic
+    @AppStorage(EditorSettings.pencilDoubleTapKey) private var pencilDoubleTap = PencilAction.system
+    @AppStorage(EditorSettings.pencilSqueezeKey) private var pencilSqueeze = PencilAction.system
 
     var body: some View {
         let sprite = document.sprite
@@ -522,6 +547,16 @@ private struct CanvasHost: View {
             // The canvas shows the Hue/Saturation preview: it can still be moved and
             // zoomed, but drawing waits until the adjustment is applied or cancelled.
             editingLocked: document.isAdjustingHueSaturation,
+            look: CanvasLook(
+                checkerSize: checkerSize,
+                checkerLight: StoredColor.color(checkerLight),
+                checkerDark: StoredColor.color(checkerDark),
+                pixelGrid: StoredColor.color(pixelGridColor),
+                tileGrid: StoredColor.color(tileGridColor)
+            ),
+            fingerInput: fingerInput,
+            pencilDoubleTap: pencilDoubleTap,
+            pencilSqueeze: pencilSqueeze,
             onFocusToggle: onFocusToggle
         )
         .onChange(of: document.revision) { onRevision() }

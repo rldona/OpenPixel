@@ -29,6 +29,10 @@ struct PixelCanvas: UIViewRepresentable {
     let tiledMode: TiledMode
     let pixelRatio: PixelRatio
     var editingLocked = false
+    var look = CanvasLook()
+    var fingerInput = FingerInput.automatic
+    var pencilDoubleTap = PencilAction.system
+    var pencilSqueeze = PencilAction.system
     var onFocusToggle: () -> Void = {}
 
     func makeUIView(context: Context) -> PixelCanvasView {
@@ -47,9 +51,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.onUndo = { [weak document] in document?.undo() }
         view.onRedo = { [weak document] in document?.redo() }
         view.onEyedropper = { [weak document] in document?.pickColor(at: $0) }
-        view.onPencilDoubleTap = { [weak document] in document?.toggleEraser() }
-        // Aseprite paints with the secondary color on right-click; on iPad a squeeze swaps the colors.
-        view.onPencilSqueeze = { [weak document] in document?.swapColors() }
+        view.onPencilAction = { [weak document] in document?.perform($0) }
         view.onSymmetryAxisMoved = { [weak document] in document?.moveSymmetryAxis(vertical: $0, to: $1) }
         return view
     }
@@ -74,6 +76,10 @@ struct PixelCanvas: UIViewRepresentable {
         view.tiledMode = tiledMode
         view.pixelRatio = pixelRatio
         view.editingLocked = editingLocked
+        view.look = look
+        view.fingerInput = fingerInput
+        view.pencilDoubleTap = pencilDoubleTap
+        view.pencilSqueeze = pencilSqueeze
         view.onionLayers = onionLayers
         view.references = references
         if view.renderedRevision != revision || view.renderedFrame != frameIndex {

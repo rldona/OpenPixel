@@ -37,6 +37,8 @@ struct GalleryView: View {
     @State private var renameText = ""
     @State private var deleting: SpriteSummary?
     @State private var errorMessage: String?
+    /// An Aseprite extension just added by opening it from Files.
+    @State private var addedExtension: AsepriteExtension?
 
     private let columns = [GridItem(.adaptive(minimum: 240, maximum: 340), spacing: 20)]
 
@@ -88,7 +90,16 @@ struct GalleryView: View {
             }
             // Files, AirDrop or Mail opening a sprite in OpenPixel.
             .onOpenURL { url in
-                attempt { path = [try store.importFile(at: url)] }
+                if url.pathExtension.lowercased() == "aseprite-extension" {
+                    attempt { addedExtension = try ExtensionStore.shared.install(contentsOf: url) }
+                } else {
+                    attempt { path = [try store.importFile(at: url)] }
+                }
+            }
+            .alert(Text("“\(addedExtension?.displayName ?? "")” added"), isPresented: Binding(get: { addedExtension != nil }, set: { if !$0 { addedExtension = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Its palettes are in the palette's Load preset menu, its dithering matrices in the gradient tool.")
             }
             .alert("Rename project", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
                 TextField("Name", text: $renameText)

@@ -4,6 +4,8 @@ import UniformTypeIdentifiers
 struct SidePanel: View {
     @Bindable var document: SpriteDocument
     let canvas: CanvasController
+    /// On the left of the canvas, so its divider goes on the right.
+    var mirrored = false
     @State private var editingPrimary = false
     @State private var editingSecondary = false
     /// Palette edit mode: taps select a run of entries instead of picking a color.
@@ -12,6 +14,7 @@ struct SidePanel: View {
     @State private var paletteAnchor: Int?
     @State private var editingEntry: PaletteEntry?
     @State private var importingPalette = false
+    @AppStorage(EditorSettings.alphaFormatKey) private var alphaFormat = AlphaFormat.percent
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 8)
 
@@ -42,7 +45,7 @@ struct SidePanel: View {
                         + (document.symmetry.isOn ? Text(" + symmetry") : Text(verbatim: "")))
                     infoRow("Active cel", "\(document.activeLayer?.name ?? "–") · \(document.activeFrameIndex + 1)/\(document.structure.frames.count)")
                     if let tag = document.activeTag { infoRow("Tag", tag.name) }
-                    infoRow("Layer opacity", "\(Int((document.activeLayer?.opacity ?? 1) * 100)) %")
+                    infoRow("Layer opacity", alphaFormat.text(document.activeLayer?.opacity ?? 1))
                     infoRow("Animation", "\(document.structure.totalDuration) ms")
                 }
                 .padding(14)
@@ -54,8 +57,9 @@ struct SidePanel: View {
         // Background and divider run under the home indicator; the content stays in the safe area.
         .background {
             HStack(spacing: 0) {
-                Rectangle().fill(Theme.border).frame(width: 1)
+                if !mirrored { Rectangle().fill(Theme.border).frame(width: 1) }
                 Theme.panel
+                if mirrored { Rectangle().fill(Theme.border).frame(width: 1) }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -234,6 +238,15 @@ struct SidePanel: View {
             Menu("Load preset") {
                 ForEach(Palette.all) { preset in
                     Button(LocalizedStringKey(preset.name)) { document.setPalette(preset.colors) }
+                }
+                // Palettes from Aseprite extensions (Preferences > Extensions).
+                let extensionPalettes = ExtensionStore.shared.palettes
+                if !extensionPalettes.isEmpty {
+                    Section("Extensions") {
+                        ForEach(extensionPalettes) { palette in
+                            Button(palette.id) { document.setPalette(palette.colors) }
+                        }
+                    }
                 }
             }
             Button("Palette from sprite", systemImage: "eyedropper.halffull") { document.paletteFromSprite() }

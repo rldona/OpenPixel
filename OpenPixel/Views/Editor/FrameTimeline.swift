@@ -690,7 +690,7 @@ struct FrameTimeline: View {
             if !layer.isBackground {
                 Menu("Opacity") {
                     ForEach([100, 75, 50, 25], id: \.self) { pct in
-                        Button(String("\(pct) %")) { document.setOpacity(Double(pct) / 100, layer: layer.id) }
+                        Button(EditorSettings.alphaFormat.text(Double(pct) / 100)) { document.setOpacity(Double(pct) / 100, layer: layer.id) }
                     }
                 }
             }
@@ -1098,7 +1098,7 @@ struct FrameTimeline: View {
             if filled {
                 Menu("Cel opacity") {
                     ForEach([100, 75, 50, 25], id: \.self) { pct in
-                        Button(String("\(pct) %")) { document.setCelOpacity(Double(pct) / 100, layer: layer.id, frameIndex: frameIndex) }
+                        Button(EditorSettings.alphaFormat.text(Double(pct) / 100)) { document.setCelOpacity(Double(pct) / 100, layer: layer.id, frameIndex: frameIndex) }
                     }
                 }
             }

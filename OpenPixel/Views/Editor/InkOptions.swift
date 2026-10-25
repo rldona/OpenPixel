@@ -3,6 +3,7 @@ import SwiftUI
 /// The ink, opacity and Pencil dynamics, behind one button in the tool options bar.
 struct InkButton: View {
     @Bindable var document: SpriteDocument
+    @AppStorage(EditorSettings.alphaFormatKey) private var alphaFormat = AlphaFormat.percent
     @State private var showing = false
 
     var body: some View {
@@ -11,7 +12,7 @@ struct InkButton: View {
                 Image(systemName: usesInk ? document.ink.systemImage : "circle.lefthalf.filled")
                     .font(.system(size: 14, weight: .medium))
                 if usesInk { Text(document.ink.title) }
-                Text(verbatim: "\(Int((Double(document.toolOpacity) / 255 * 100).rounded()))%")
+                Text(verbatim: alphaFormat.text(Double(document.toolOpacity) / 255))
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(Theme.muted)
                 if hasDynamics, document.pressureSize || document.pressureOpacity {
@@ -41,6 +42,7 @@ struct InkButton: View {
 }
 
 struct InkOptions: View {
+    @AppStorage(EditorSettings.alphaFormatKey) private var alphaFormat = AlphaFormat.percent
     @Bindable var document: SpriteDocument
     let usesInk: Bool
     let hasDynamics: Bool
@@ -86,7 +88,7 @@ struct InkOptions: View {
             section("Opacity") {
                 HStack(spacing: 10) {
                     Slider(value: opacity, in: 1...255)
-                    Text(verbatim: "\(Int((Double(document.toolOpacity) / 255 * 100).rounded()))%")
+                    Text(verbatim: alphaFormat.text(Double(document.toolOpacity) / 255))
                         .font(.system(size: 13, weight: .medium, design: .monospaced))
                         .frame(width: 44, alignment: .trailing)
                 }

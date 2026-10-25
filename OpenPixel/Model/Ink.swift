@@ -93,21 +93,41 @@ enum GradientShape: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Ordered dithering between the two gradient colors, as in Aseprite.
-enum GradientDither: Int, CaseIterable, Identifiable {
-    /// A smooth blend between the two colors.
-    case none = 0
-    case bayer2 = 2, bayer4 = 4, bayer8 = 8
-    var id: Int { rawValue }
+/// Ordered dithering between the two gradient colors, as in Aseprite: the
+/// Bayer matrices, plus any that extensions add.
+struct GradientDither: Hashable, Identifiable, Codable {
+    let id: String
+    /// Shown as is, or looked up in the strings for the built-in ones.
+    let name: String
+    /// Per-cell thresholds in 0...1, by row; empty for a smooth blend.
+    let thresholds: [[Double]]
 
-    var title: LocalizedStringKey {
-        switch self {
-        case .none: "Smooth"
-        case .bayer2: "Bayer 2×2"
-        case .bayer4: "Bayer 4×4"
-        case .bayer8: "Bayer 8×8"
-        }
+    /// A smooth blend between the two colors.
+    static let none = GradientDither(id: "none", name: "Smooth", thresholds: [])
+    static let bayer2 = bayer(2), bayer4 = bayer(4), bayer8 = bayer(8)
+
+    private static func bayer(_ n: Int) -> GradientDither {
+        let cells = Double(n * n)
+        return GradientDither(id: "bayer\(n)", name: "Bayer \(n)×\(n)", thresholds: Raster.bayer(n).map { $0.map { (Double($0) + 0.5) / cells } })
     }
+
+    /// From a matrix of levels (an extension's image): each distinct level gets
+    /// an evenly spaced threshold, lowest first.
+    init(id: String, name: String, levels: [[Int]]) {
+        let distinct = Array(Set(levels.joined())).sorted()
+        let rank = Dictionary(uniqueKeysWithValues: distinct.enumerated().map { ($1, $0) })
+        self.init(id: id, name: name, thresholds: levels.map { row in row.map { (Double(rank[$0]!) + 0.5) / Double(distinct.count) } })
+    }
+
+    init(id: String, name: String, thresholds: [[Double]]) {
+        self.id = id
+        self.name = name
+        self.thresholds = thresholds
+    }
+
+    static let builtIn: [GradientDither] = [.none, .bayer2, .bayer4, .bayer8]
+
+    var title: LocalizedStringKey { LocalizedStringKey(name) }
 }
 
 /// Colors of a gradient from `from` (at `a`) to `to` (at `b`).
@@ -118,7 +138,6 @@ struct Gradient {
     let b: PixelPoint
     let shape: GradientShape
     let dither: GradientDither
-    private let matrix: [[Int]]
 
     init(from: PixelColor, to: PixelColor, a: PixelPoint, b: PixelPoint, shape: GradientShape, dither: GradientDither) {
         self.from = from
@@ -127,7 +146,6 @@ struct Gradient {
         self.b = b
         self.shape = shape
         self.dither = dither
-        matrix = dither == .none ? [] : Raster.bayer(dither.rawValue)
     }
 
     /// How far along the gradient pixel `p` is, 0 (at `a`) to 1 (at `b` and beyond).
@@ -142,9 +160,9 @@ struct Gradient {
 
     func color(at p: PixelPoint) -> PixelColor {
         let t = position(of: p)
-        guard dither != .none else { return from.mixed(with: to, t) }
-        let n = dither.rawValue
-        let threshold = (Double(matrix[((p.y % n) + n) % n][((p.x % n) + n) % n]) + 0.5) / Double(n * n)
-        return t > threshold ? to : from
+        let m = dither.thresholds
+        guard let width = m.first?.count, width > 0 else { return from.mixed(with: to, t) }
+        let row = m[((p.y % m.count) + m.count) % m.count]
+        return t > row[((p.x % width) + width) % width] ? to : from
     }
 }
