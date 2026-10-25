@@ -17,13 +17,13 @@ struct SidePanel: View {
     @State private var editingEntry: PaletteEntry?
     @State private var importingPalette = false
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 8)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 8)
 
     var body: some View {
+        // Everything fits without scrolling; it only scrolls when a tileset is shown too.
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel("Preview")
                     // Updates when a stroke is committed, not on every stroke sample.
                     AnimatedPreview(document: document)
                         .frame(height: 180)
@@ -41,6 +41,7 @@ struct SidePanel: View {
             }
             .padding(16)
         }
+        .scrollBounceBehavior(.basedOnSize)
         // Background and divider run under the home indicator; the content stays in the safe area.
         .background {
             HStack(spacing: 0) {
@@ -91,7 +92,6 @@ struct SidePanel: View {
     /// the two colors is picked in the chips below it.
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionLabel("Color")
             QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
             HStack(spacing: 6) {
                 colorChip(secondary: false)
@@ -130,7 +130,7 @@ struct SidePanel: View {
                 Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).minimumScaleFactor(0.8)
             }
             .foregroundStyle(isOn ? Theme.accent : Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 54)
+            .frame(maxWidth: .infinity, minHeight: 48)
             .background(isOn ? Theme.accentSoft : Theme.chip, in: RoundedRectangle(cornerRadius: 10))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
@@ -223,13 +223,13 @@ struct SidePanel: View {
                 paletteGrid(palette)
                 ScrollView { paletteGrid(palette) }
             }
-            .frame(maxHeight: 200)
+            .frame(maxHeight: 122)
             if isEditingPalette { paletteEditBar }
         }
     }
 
     private func paletteGrid(_ palette: [PixelColor]) -> some View {
-        LazyVGrid(columns: columns, spacing: 5) {
+        LazyVGrid(columns: columns, spacing: 4) {
             ForEach(Array(palette.enumerated()), id: \.offset) { index, color in
                 swatch(color, index: index)
             }
@@ -291,15 +291,15 @@ struct SidePanel: View {
                 Checkerboard(cell: 4)
                 color.color
             }
-            .frame(height: 26)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(
+            .frame(height: 21)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(
                 selected ? Theme.accent : (isPrimary && !isEditingPalette ? Theme.text : .white.opacity(0.08)),
                 lineWidth: selected ? 2.5 : (isPrimary && !isEditingPalette ? 2 : 1)
             ))
             // Corner marks for the primary and secondary colors, as in Aseprite's color bar.
-            .overlay(alignment: .topLeading) { if isPrimary { CornerMark().fill(Theme.text).frame(width: 9, height: 9).padding(2) } }
-            .overlay(alignment: .bottomTrailing) { if isSecondary { CornerMark().rotation(.degrees(180)).fill(Theme.text).frame(width: 9, height: 9).padding(2) } }
+            .overlay(alignment: .topLeading) { if isPrimary { CornerMark().fill(Theme.text).frame(width: 7, height: 7).padding(2) } }
+            .overlay(alignment: .bottomTrailing) { if isSecondary { CornerMark().rotation(.degrees(180)).fill(Theme.text).frame(width: 7, height: 7).padding(2) } }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Color \(color.hex)"))
