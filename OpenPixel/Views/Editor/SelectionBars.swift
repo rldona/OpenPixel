@@ -119,6 +119,34 @@ struct TransformBar: View {
     }
 }
 
+/// The Scripts menu (Aseprite's File > Scripts): loose scripts, then the
+/// commands extensions add, under each extension's name.
+struct ScriptsMenuItems: View {
+    let document: SpriteDocument
+    let addScript: () -> Void
+
+    var body: some View {
+        ForEach(ScriptStore.shared.scripts) { script in
+            Button(script.name) {
+                do {
+                    document.runScript(named: script.name, source: try ScriptStore.shared.source(of: script))
+                } catch {
+                    document.scriptMessage = ScriptMessage(title: script.name, text: error.localizedDescription)
+                }
+            }
+        }
+        ForEach(ExtensionStore.shared.installed.filter { !($0.commands ?? []).isEmpty }) { package in
+            Section(package.displayName) {
+                ForEach(package.commands ?? []) { command in
+                    Button(command.title) { document.runCommand(command, of: package) }
+                }
+            }
+        }
+        Divider()
+        Button("Add script…", systemImage: "plus", action: addScript)
+    }
+}
+
 /// The editor's Edit menu: clipboard, selection and canvas commands.
 struct EditMenu: View {
     let document: SpriteDocument
@@ -193,25 +221,7 @@ struct EditMenu: View {
             Section {
                 // Aseprite's File > Scripts.
                 Menu {
-                    ForEach(ScriptStore.shared.scripts) { script in
-                        Button(script.name) {
-                            do {
-                                document.runScript(named: script.name, source: try ScriptStore.shared.source(of: script))
-                            } catch {
-                                document.scriptMessage = ScriptMessage(title: script.name, text: error.localizedDescription)
-                            }
-                        }
-                    }
-                    // Commands from extensions (plugin:newCommand), under each extension's name.
-                    ForEach(ExtensionStore.shared.installed.filter { !($0.commands ?? []).isEmpty }) { package in
-                        Section(package.displayName) {
-                            ForEach(package.commands ?? []) { command in
-                                Button(command.title) { document.runCommand(command, of: package) }
-                            }
-                        }
-                    }
-                    Divider()
-                    Button("Add script…", systemImage: "plus", action: addScript)
+                    ScriptsMenuItems(document: document, addScript: addScript)
                 } label: {
                     Label("Scripts", systemImage: "curlybraces")
                 }

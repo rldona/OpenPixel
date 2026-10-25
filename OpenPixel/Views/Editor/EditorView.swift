@@ -262,7 +262,7 @@ struct EditorView: View {
     /// active tool's options centered over the canvas, and the view buttons
     /// with Export over the side panel.
     private var toolRail: some View {
-        ToolRail(document: document, mirrored: mirrored)
+        ToolRail(document: document, mirrored: mirrored) { addingScript = true }
             .transition(.move(edge: mirrored ? .trailing : .leading).combined(with: .opacity))
     }
 
@@ -411,6 +411,7 @@ struct ToolRail: View {
     @Bindable var document: SpriteDocument
     /// On the right of the canvas, so its divider goes on the left.
     var mirrored = false
+    var addScript: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 6) {
@@ -419,6 +420,7 @@ struct ToolRail: View {
             }
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             symmetryButton
+            scriptsButton
             Spacer()
             // Undo and redo, at the bottom of the rail.
             IconButton(systemImage: "arrow.uturn.backward", label: "Undo", size: 48) { document.undo() }
@@ -450,6 +452,21 @@ struct ToolRail: View {
             .opacity(0)
             .accessibilityHidden(true)
         }
+    }
+
+    /// Runs a script or an extension's command (also in Edit > Scripts).
+    private var scriptsButton: some View {
+        Menu {
+            ScriptsMenuItems(document: document, addScript: addScript)
+        } label: {
+            Image(systemName: "curlybraces")
+                .font(.system(size: 19, weight: .medium))
+                .frame(width: 48, height: 48)
+                .foregroundStyle(Theme.text)
+                .contentShape(Rectangle())
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel(Text("Scripts"))
     }
 
     /// Tap turns symmetry on and off; touch and hold picks the axes.
