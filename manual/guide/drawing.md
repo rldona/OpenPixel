@@ -10,12 +10,15 @@ The tools live in the rail on the left. A small triangle in a button's corner me
 | Eraser | Eraser |
 | Bucket | Paint bucket, gradient |
 | Eyedropper | Eyedropper |
-| Shapes | Line, curve, rectangle, ellipse, contour, polygon |
-| Text | Text (see [Text and slices](./text-and-slices)) |
+| Shapes | Line, curve, rectangle, ellipse, contour, polygon, text (see [Text and slices](./text-and-slices)) |
 | Selection | Rectangular and elliptical marquee, lasso, magic wand |
 | Move | Move, slice |
 
-Below them are **symmetry**, the **scripts** menu ({ }) and, at the bottom, **undo** and **redo**.
+Below them are **symmetry** and the **scripts** menu ({ }). Then:
+
+- the **colors**: the primary over the secondary. Tap to swap them; touch and hold to edit the primary;
+- two **sliders**, brush **size** and **opacity**, like Procreate's: drag them up or down and the value shows beside them. Size is dimmed for tools without a brush or with a custom brush;
+- **undo** and **redo**, at the bottom.
 
 <div class="clear"></div>
 
@@ -82,7 +85,7 @@ The eyedropper (I) picks from the whole image or from the active layer only. You
 
 The symmetry button in the rail mirrors what you draw, as in [Aseprite](https://www.aseprite.org/docs/symmetry/): horizontal, vertical or both.
 
-- Tap it to turn symmetry on or off; touch and hold it to choose the axes or center them.
+- Tap it to turn symmetry on or off; touch and hold it to choose the axes or center them. While it's on, its corner says which axes: **H**, **V** or **HV**.
 - Drag an axis by its handle (below or to the right of the sprite) to move it in half-pixel steps, so it can run between two pixels or through the middle of one.
 
 ## Grid and tiled mode

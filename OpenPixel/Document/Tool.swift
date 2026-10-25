@@ -101,7 +101,7 @@ enum Tool: String, CaseIterable, Identifiable {
 /// Tools that share one slot in the tool rail: tap uses the group's current
 /// tool, touch and hold lists the others.
 enum ToolGroup: CaseIterable, Identifiable {
-    case pencil, eraser, bucket, eyedropper, shapes, text, select, move
+    case pencil, eraser, bucket, eyedropper, shapes, select, move
 
     var id: Self { self }
 
@@ -111,8 +111,8 @@ enum ToolGroup: CaseIterable, Identifiable {
         case .eraser: [.eraser]
         case .bucket: [.bucket, .gradient]
         case .eyedropper: [.eyedropper]
-        case .shapes: [.line, .curve, .rectangle, .ellipse, .contour, .polygon]
-        case .text: [.text]
+        // Text shares the shapes' slot: it's used less often than the rest.
+        case .shapes: [.line, .curve, .rectangle, .ellipse, .contour, .polygon, .text]
         case .select: [.selectRectangle, .selectEllipse, .lasso, .magicWand]
         case .move: [.move, .slice]
         }

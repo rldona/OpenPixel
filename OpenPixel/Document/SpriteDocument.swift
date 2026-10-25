@@ -782,6 +782,8 @@ final class SpriteDocument {
 
     /// The custom brush, when it's the one in use for the current tool.
     private var activeCustomBrush: PixelImage? { useCustomBrush && tool.usesBrush ? customBrush : nil }
+    /// The custom brush in use, if any (its size is its own: the size slider doesn't apply).
+    var activeCustomBrushImage: PixelImage? { activeCustomBrush }
 
     /// The current brush at `size`: where it paints around the pointer, and the
     /// color of each pixel when the brush has its own (a custom brush).

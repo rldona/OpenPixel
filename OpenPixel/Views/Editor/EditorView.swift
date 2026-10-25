@@ -445,26 +445,134 @@ private struct ZoomMenu: View {
     }
 }
 
+/// The primary color over the secondary, in the rail: tap swaps them, touch
+/// and hold edits the primary.
+private struct RailColors: View {
+    @Bindable var document: SpriteDocument
+    @State private var editing = false
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            swatch(document.secondary).offset(x: 12, y: 12)
+            swatch(document.primary)
+        }
+        .frame(width: 40, height: 40, alignment: .topLeading)
+        .contentShape(Rectangle())
+        .onTapGesture { document.swapColors() }
+        .onLongPressGesture { editing = true }
+        .popover(isPresented: $editing) {
+            ColorEditor(color: $document.primary, palette: document.structure.palette) { document.addToPalette($0) }
+                .presentationCompactAdaptation(.popover)
+        }
+        .accessibilityElement()
+        .accessibilityLabel(Text("Colors"))
+        .accessibilityValue(Text(verbatim: "\(document.primary.hex), \(document.secondary.hex)"))
+        .accessibilityHint(Text("Tap to swap them, touch and hold to edit the primary color"))
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private func swatch(_ color: PixelColor) -> some View {
+        ZStack {
+            Checkerboard(cell: 4)
+            color.color
+        }
+        .frame(width: 28, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.strongBorder))
+        .overlay(RoundedRectangle(cornerRadius: 7).inset(by: 1).strokeBorder(Theme.panel, lineWidth: 1))
+    }
+}
+
+/// A vertical slider for the rail (Procreate's brush size and opacity):
+/// drag anywhere on it; its value shows in a bubble beside it while dragging.
+private struct RailSlider: View {
+    let label: LocalizedStringKey
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let text: (Double) -> String
+    var mirrored = false
+    @State private var dragging = false
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        GeometryReader { geo in
+            let fraction = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
+            ZStack(alignment: .bottom) {
+                Capsule().fill(Theme.chip)
+                Capsule().fill(Theme.accent.opacity(dragging ? 0.9 : 0.6))
+                    .frame(height: max(geo.size.width, geo.size.height * fraction))
+            }
+            .overlay(alignment: mirrored ? .leading : .trailing) {
+                if dragging {
+                    Text(verbatim: text(value))
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .fixedSize()
+                        .foregroundStyle(Theme.onAccent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Theme.accent, in: Capsule())
+                        .offset(x: mirrored ? -geo.size.width - 64 : geo.size.width + 64)
+                        .position(x: geo.size.width / 2, y: geo.size.height * (1 - fraction))
+                        .allowsHitTesting(false)
+                }
+            }
+            .contentShape(Rectangle())
+            .gesture(DragGesture(minimumDistance: 0)
+                .onChanged { drag in
+                    dragging = true
+                    let f = 1 - min(1, max(0, drag.location.y / max(1, geo.size.height)))
+                    value = range.lowerBound + f * (range.upperBound - range.lowerBound)
+                }
+                .onEnded { _ in dragging = false })
+        }
+        .frame(width: 22)
+        .accessibilityElement()
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(verbatim: text(value)))
+        .accessibilityAdjustableAction { direction in
+            let step = (range.upperBound - range.lowerBound) / 16
+            value = min(range.upperBound, max(range.lowerBound, value + (direction == .increment ? step : -step)))
+        }
+    }
+}
+
 struct ToolRail: View {
     @Bindable var document: SpriteDocument
     /// On the right of the canvas, so its divider goes on the left.
     var mirrored = false
     var addScript: () -> Void = {}
+    /// Buttons a little under 48 pt, so the size and opacity sliders get room.
+    static let button: CGFloat = 44
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 2) {
             ForEach(ToolGroup.allCases) { group in
                 toolButton(for: group)
             }
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             symmetryButton
             scriptsButton
-            Spacer()
+            Spacer(minLength: 8)
+            RailColors(document: document)
+            // Brush size and opacity, dragged like Procreate's side sliders.
+            if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
+                HStack(spacing: 6) {
+                    RailSlider(label: "Brush size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
+                               range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, mirrored: mirrored)
+                        .opacity(document.tool.usesBrush && document.activeCustomBrushImage == nil ? 1 : 0.3)
+                        .disabled(!document.tool.usesBrush || document.activeCustomBrushImage != nil)
+                    RailSlider(label: "Opacity", value: Binding(get: { Double(document.toolOpacity) }, set: { document.toolOpacity = Int($0.rounded()) }),
+                               range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded())) %" }, mirrored: mirrored)
+                }
+                .frame(maxHeight: 150)
+                .padding(.top, 6)
+            }
+            Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             // Undo and redo, at the bottom of the rail.
-            IconButton(systemImage: "arrow.uturn.backward", label: "Undo", size: 48) { document.undo() }
+            IconButton(systemImage: "arrow.uturn.backward", label: "Undo", size: Self.button) { document.undo() }
                 .keyboardShortcut("z", modifiers: .command)
                 .opacity(document.canUndo || document.isTransforming ? 1 : 0.35)
-            IconButton(systemImage: "arrow.uturn.forward", label: "Redo", size: 48) { document.redo() }
+            IconButton(systemImage: "arrow.uturn.forward", label: "Redo", size: Self.button) { document.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
                 .opacity(document.canRedo ? 1 : 0.35)
         }
@@ -499,7 +607,7 @@ struct ToolRail: View {
         } label: {
             Image(systemName: "curlybraces")
                 .font(.system(size: 19, weight: .medium))
-                .frame(width: 48, height: 48)
+                .frame(width: Self.button, height: Self.button)
                 .foregroundStyle(Theme.text)
                 .contentShape(Rectangle())
         }
@@ -510,13 +618,15 @@ struct ToolRail: View {
     /// Tap turns symmetry on and off; touch and hold picks the axes.
     private var symmetryButton: some View {
         let s = document.symmetry
-        let icon = s.horizontal && s.vertical ? "square.split.2x2" : (s.vertical ? "square.split.1x2" : "square.split.2x1")
+        // Arrows mirrored across an axis; the corner says which axes are on.
+        let icon = s.vertical && !s.horizontal ? "arrow.up.and.line.horizontal.and.arrow.down" : "arrow.left.and.line.vertical.and.arrow.right"
+        let axes = s.horizontal && s.vertical ? "HV" : (s.vertical ? "V" : "H")
         return Menu {
             Button { document.symmetry.horizontal.toggle(); document.symmetry.isEnabled = true } label: {
-                Label("Horizontal symmetry", systemImage: s.horizontal ? "checkmark" : "square.split.2x1")
+                Label("Horizontal symmetry", systemImage: s.horizontal ? "checkmark" : "arrow.left.and.line.vertical.and.arrow.right")
             }
             Button { document.symmetry.vertical.toggle(); document.symmetry.isEnabled = true } label: {
-                Label("Vertical symmetry", systemImage: s.vertical ? "checkmark" : "square.split.1x2")
+                Label("Vertical symmetry", systemImage: s.vertical ? "checkmark" : "arrow.up.and.line.horizontal.and.arrow.down")
             }
             Divider()
             Button { document.centerSymmetryAxes() } label: { Label("Center the axes", systemImage: "align.horizontal.center") }
@@ -524,9 +634,17 @@ struct ToolRail: View {
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 19, weight: .medium))
-                .frame(width: 48, height: 48)
+                .frame(width: Self.button, height: Self.button)
                 .foregroundStyle(s.isOn ? Theme.onAccent : Theme.text)
                 .background(s.isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+                .overlay(alignment: .topLeading) {
+                    if s.isOn {
+                        Text(verbatim: axes)
+                            .font(.system(size: 8, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Theme.onAccent.opacity(0.9))
+                            .padding(4)
+                    }
+                }
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "arrowtriangle.down.fill")
                         .font(.system(size: 6))
@@ -568,7 +686,7 @@ struct ToolRail: View {
         let tool = document.currentTool(in: group)
         let isOn = ToolGroup.of(document.tool) == group
         if group.tools.count == 1 {
-            IconButton(systemImage: tool.systemImage, label: tool.title, isOn: isOn, size: 48) {
+            IconButton(systemImage: tool.systemImage, label: tool.title, isOn: isOn, size: Self.button) {
                 document.select(tool)
             }
         } else {
@@ -580,7 +698,7 @@ struct ToolRail: View {
             } label: {
                 Image(systemName: tool.systemImage)
                     .font(.system(size: 19, weight: .medium))
-                    .frame(width: 48, height: 48)
+                    .frame(width: Self.button, height: Self.button)
                     .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
                     .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
                     // Corner mark: this slot has more tools.

@@ -10,12 +10,15 @@ Las herramientas están en la barra de la izquierda. Un triangulito en la esquin
 | Goma | Goma |
 | Cubo | Cubo de pintura, degradado |
 | Cuentagotas | Cuentagotas |
-| Formas | Línea, curva, rectángulo, elipse, contorno, polígono |
-| Texto | Texto (ver [Texto y slices](./text-and-slices)) |
+| Formas | Línea, curva, rectángulo, elipse, contorno, polígono, texto (ver [Texto y slices](./text-and-slices)) |
 | Selección | Marco rectangular y elíptico, lazo, varita mágica |
 | Mover | Mover, slice |
 
-Debajo están la **simetría**, el menú de **scripts** ({ }) y, abajo del todo, **deshacer** y **rehacer**.
+Debajo están la **simetría** y el menú de **scripts** ({ }). Después:
+
+- los **colores**: el principal sobre el secundario. Toca para intercambiarlos; mantén pulsado para editar el principal;
+- dos **deslizadores**, **tamaño** del pincel y **opacidad**, como los de Procreate: arrástralos arriba o abajo y el valor aparece al lado. El de tamaño se atenúa con herramientas sin pincel o con un pincel propio;
+- **deshacer** y **rehacer**, abajo del todo.
 
 <div class="clear"></div>
 
@@ -82,7 +85,7 @@ El cuentagotas (I) toma el color de toda la imagen o solo de la capa activa. No 
 
 El botón de simetría de la barra refleja lo que dibujas, como en [Aseprite](https://www.aseprite.org/docs/symmetry/): en horizontal, en vertical o en las dos.
 
-- Tócalo para activar o desactivar la simetría; mantenlo pulsado para elegir los ejes o centrarlos.
+- Tócalo para activar o desactivar la simetría; mantenlo pulsado para elegir los ejes o centrarlos. Mientras está activa, su esquina dice qué ejes: **H**, **V** o **HV**.
 - Arrastra un eje por su asa (debajo o a la derecha del sprite) para moverlo de medio en medio píxel, de modo que pueda pasar entre dos píxeles o por el centro de uno.
 
 ## Cuadrícula y modo mosaico
