@@ -14,7 +14,10 @@ struct EditorView: View {
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
     @State private var focusMode = false
     /// Timeline height, set by dragging its top edge (Aseprite's splitter). Kept between sessions.
-    @AppStorage("timelineHeight") private var timelineHeight = 200.0
+    /// Four layer rows by default: controls (44), frame numbers (25) and 4 × 30,
+    /// less the home indicator's strip, which the timeline runs under.
+    /// A new key, so the new default reaches everyone.
+    @AppStorage("timelineHeight4") private var timelineHeight = 172.0
     @State private var timelineDragStart: Double?
     /// Pushed down past its smallest size, the timeline hides behind a small
     /// capsule with play and the frame number (as in Calco).
