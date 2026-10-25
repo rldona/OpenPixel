@@ -489,6 +489,23 @@ struct ToolRail: View {
         .accessibilityAddTraits(s.isOn ? .isSelected : [])
     }
 
+    /// The pencil's menu also makes and picks the custom brush (Edit > New brush).
+    @ViewBuilder
+    private var customBrushItems: some View {
+        Divider()
+        if document.customBrush != nil {
+            let isOn = document.useCustomBrush && document.tool.usesBrush
+            Button {
+                if !document.tool.usesBrush { document.select(.pencil) }
+                document.useCustomBrush = true
+            } label: {
+                Label("Custom brush", systemImage: isOn ? "checkmark" : "paintbrush.pointed")
+            }
+        }
+        Button("New brush from selection", systemImage: "paintbrush.pointed.fill") { document.newBrushFromSelection() }
+            .disabled(!document.hasSelection)
+    }
+
     /// One slot per group. Groups with several tools show the last one used;
     /// tap selects it, touch and hold lists the others.
     @ViewBuilder
@@ -504,6 +521,7 @@ struct ToolRail: View {
                 ForEach(group.tools) { option in
                     Button { document.select(option) } label: { Label(option.title, systemImage: option.systemImage) }
                 }
+                if group == .pencil { customBrushItems }
             } label: {
                 Image(systemName: tool.systemImage)
                     .font(.system(size: 19, weight: .medium))
