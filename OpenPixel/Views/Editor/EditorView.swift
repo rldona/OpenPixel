@@ -556,8 +556,9 @@ struct ToolRail: View {
                                range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded())) %" }, preview: .opacity, mirrored: mirrored)
                 }
                 .frame(maxHeight: 150)
-                .padding(.top, 6)
             }
+            // The same room above and below, so the sliders sit centred.
+            Spacer(minLength: 8)
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             // Undo and redo, at the bottom of the rail.
             IconButton(systemImage: "arrow.uturn.backward", label: "Undo", size: Self.button) { document.undo() }
