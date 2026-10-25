@@ -15,6 +15,8 @@ struct FrameTimeline: View {
     @State private var importingAsLayer = false
     @State private var renameText = ""
     @State private var editingTag: FrameTag?
+    /// A tag just added from New tag, until its sheet is saved.
+    @State private var unsavedTagID: UUID?
     /// Aseprite's "First frame as 0 (or any other number)".
     @AppStorage("timelineFirstFrame") private var firstFrame = 1
     private let clipboard = TimelineClipboard.shared
@@ -104,12 +106,19 @@ struct FrameTimeline: View {
         } message: {
             Text("In milliseconds: 1000 ms is 1 second.")
         }
-        .sheet(item: $editingTag) { tag in
+        // Cancelling a new tag (or swiping its sheet away) takes it back out, as in Aseprite.
+        .sheet(item: $editingTag, onDismiss: {
+            if let id = unsavedTagID, document.structure.tags.contains(where: { $0.id == id }) { document.undo() }
+            unsavedTagID = nil
+        }) { tag in
             TagEditor(
                 tag: tag,
                 frameCount: document.structure.frames.count,
                 firstFrame: firstFrame,
-                onSave: { document.updateTag($0) },
+                onSave: {
+                    unsavedTagID = nil
+                    document.updateTag($0)
+                },
                 onDelete: { document.deleteTag(tag.id) }
             )
         }
@@ -141,6 +150,12 @@ struct FrameTimeline: View {
                 proxy.scrollTo(id)
             }
         }
+    }
+
+    private func newTag() {
+        let tag = document.addTag()
+        unsavedTagID = tag.id
+        editingTag = tag
     }
 
     /// Steps one frame; touch and hold to jump to the first or last one.
@@ -267,7 +282,7 @@ struct FrameTimeline: View {
     private var rangeMoreMenu: some View {
         Menu {
             Button("Reverse frames", systemImage: "arrow.left.arrow.right") { document.reverseRangeFrames() }
-            Button("New tag", systemImage: "tag") { editingTag = document.addTag() }
+            Button("New tag", systemImage: "tag") { newTag() }
             Button("Set loop section", systemImage: "repeat") { document.setLoopSection() }
             Menu("Frame duration") {
                 ForEach(Self.durationPresets, id: \.self) { ms in
@@ -392,7 +407,7 @@ struct FrameTimeline: View {
             .buttonStyle(.plain)
             .padding(.leading, 4)
 
-            Button { editingTag = document.addTag() } label: {
+            Button { newTag() } label: {
                 pill("Tag", systemImage: "tag", isOn: false, compact: compact)
             }
             .buttonStyle(.plain)
@@ -1248,7 +1263,7 @@ struct FrameTimeline: View {
             }
             Button("New tag here", systemImage: "tag") {
                 document.goToFrame(index)
-                editingTag = document.addTag()
+                newTag()
             }
             Button("Select frames", systemImage: "checkmark.rectangle.stack") {
                 document.isSelectingRange = true
