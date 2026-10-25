@@ -45,6 +45,7 @@ struct TransformBar: View {
 
             toggle("Keep aspect", "lock", isOn: $document.keepAspect)
             toggle("Snap angle", "angle", isOn: $document.snapAngle)
+            toggle("Stretch when moving", "arrow.up.and.down.and.arrow.left.and.right", isOn: $document.stretchMove)
             Menu {
                 Picker("Rotation", selection: $document.rotationAlgorithm) {
                     Text("RotSprite").tag(RotationAlgorithm.rotSprite)

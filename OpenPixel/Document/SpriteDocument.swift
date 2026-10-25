@@ -244,6 +244,11 @@ final class SpriteDocument {
         }
     }
     var keepAspect = false
+    /// Moving the pixels stretches them instead of tearing them away: the gap
+    /// fills with their trailing edge (Aseprite's Ctrl+drag). Lasts one transform.
+    var stretchMove = false {
+        didSet { if stretchMove != oldValue, floating != nil { renderFloating() } }
+    }
     /// Snaps free rotation to 15° steps.
     var snapAngle = true
     /// The floating pixels' box, for the canvas handles.
@@ -2198,7 +2203,7 @@ extension SpriteDocument {
         guard let box = floating?.box else { return }
         for var item in rangeFloating {
             item.floating.box = box
-            let cel = Self.stamp(item.floating.render(spriteWidth: storage.width, spriteHeight: storage.height), onto: item.base)
+            let cel = Self.stamp(rendered(&item.floating), onto: item.base)
             let result: PixelImage? = cel.isEmpty ? nil : cel
             for key in [item.floating.celKey] + item.linked { storage.cels[key] = result }
         }
@@ -2206,17 +2211,23 @@ extension SpriteDocument {
         transformExtraCels = 0
     }
 
+    private func rendered(_ f: inout FloatingSelection) -> (image: PixelImage, origin: PixelPoint, mask: SelectionMask) {
+        stretchMove
+            ? f.renderStretched(spriteWidth: storage.width, spriteHeight: storage.height)
+            : f.render(spriteWidth: storage.width, spriteHeight: storage.height)
+    }
+
     /// Draws the floating pixels over the cel they were lifted from.
     private func renderFloating() {
         guard var f = floating, let base = floatingBase else { return }
-        let rendered = f.render(spriteWidth: storage.width, spriteHeight: storage.height)
+        let rendered = self.rendered(&f)
         floating = f
         storage.cels[f.celKey] = Self.stamp(rendered, onto: base)
         // The other layers of a multi-layer selection follow live in this frame;
         // other frames of a timeline range change when the transform is applied.
         for i in rangeFloating.indices where rangeFloating[i].floating.celKey.frame == f.celKey.frame {
             rangeFloating[i].floating.box = f.box
-            let other = rangeFloating[i].floating.render(spriteWidth: storage.width, spriteHeight: storage.height)
+            let other = self.rendered(&rangeFloating[i].floating)
             let cel = Self.stamp(other, onto: rangeFloating[i].base)
             for key in [rangeFloating[i].floating.celKey] + rangeFloating[i].linked { storage.cels[key] = cel }
         }
@@ -2244,6 +2255,7 @@ extension SpriteDocument {
         floatingDirty = nil
         transformDrag = nil
         isTransforming = false
+        stretchMove = false
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
         // Applying finishes the job: the selection goes away (Reselect brings it back).
         if let selection { lastSelection = selection }
@@ -2264,6 +2276,7 @@ extension SpriteDocument {
         floatingDirty = nil
         transformDrag = nil
         isTransforming = false
+        stretchMove = false
         storage = start.sprite
         selection = start.selection
         restoreToolAfterTransform()

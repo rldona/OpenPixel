@@ -26,6 +26,7 @@ struct KeyboardShortcutsView: View {
                 Shortcut(keys: (tool.shortcutModifiers.contains(.shift) ? "⇧" : "") + String(tool.shortcut.character).uppercased(), title: tool.title)
             } + [
                 Shortcut(keys: "⌥", title: "Hold while tapping to pick a color"),
+                Shortcut(keys: "⌃", title: "Hold while moving a selection to stretch it"),
                 Shortcut(keys: "[  ]", title: "Smaller or bigger brush"),
                 Shortcut(keys: "X", title: "Swap colors"),
             ]),

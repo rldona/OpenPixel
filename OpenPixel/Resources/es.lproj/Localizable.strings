@@ -226,6 +226,7 @@
 "Border %lld px" = "Borde de %lld px";
 "Keep aspect" = "Mantener proporción";
 "Snap angle" = "Ajustar ángulo";
+"Stretch when moving" = "Estirar al mover";
 "Rotation" = "Rotación";
 "Rotation algorithm" = "Algoritmo de rotación";
 "Fast" = "Rápida";
@@ -668,6 +669,7 @@
 "Tools" = "Herramientas";
 "View" = "Vista";
 "Hold while tapping to pick a color" = "Mantener al tocar para tomar un color";
+"Hold while moving a selection to stretch it" = "Mantener al mover una selección para estirarla";
 "Smaller or bigger brush" = "Pincel más pequeño o más grande";
 "Flip horizontal" = "Voltear en horizontal";
 "Flip vertical" = "Voltear en vertical";

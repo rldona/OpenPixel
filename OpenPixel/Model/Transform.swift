@@ -128,6 +128,8 @@ struct FloatingSelection: Sendable {
     var sourceMask: SelectionMask
     var box: TransformBox
     var algorithm: RotationAlgorithm = .rotSprite
+    /// Where the box was when the pixels were lifted, for stretch moves.
+    let startCenter: CGPoint
     private var upscaled: PixelImage?
     private var upscaledMask: SelectionMask?
 
@@ -136,6 +138,7 @@ struct FloatingSelection: Sendable {
         self.source = source
         self.sourceMask = sourceMask
         self.box = TransformBox(rect: PixelRect(minX: origin.x, minY: origin.y, maxX: origin.x + source.width - 1, maxY: origin.y + source.height - 1))
+        self.startCenter = box.center
     }
 
     var aspect: Double { Double(source.width) / Double(source.height) }
@@ -204,6 +207,38 @@ struct FloatingSelection: Sendable {
             }
         }
         return (out, PixelPoint(x: bounds.minX, y: bounds.minY), mask)
+    }
+
+    /// `render`, with the gap between where the pixels were lifted and where
+    /// they are now filled by their trailing edge, so the moved part stays
+    /// joined to the rest and stretches it (Aseprite's Ctrl+drag). The mask
+    /// grows to cover the stretch.
+    mutating func renderStretched(spriteWidth: Int, spriteHeight: Int) -> (image: PixelImage, origin: PixelPoint, mask: SelectionMask) {
+        let moved = render(spriteWidth: spriteWidth, spriteHeight: spriteHeight)
+        let dx = Int((box.center.x - startCenter.x).rounded()), dy = Int((box.center.y - startCenter.y).rounded())
+        let steps = max(abs(dx), abs(dy))
+        guard steps > 0, let rect = moved.mask.bounds else { return moved }
+        let back = PixelRect(minX: rect.minX - dx, minY: rect.minY - dy, maxX: rect.maxX - dx, maxY: rect.maxY - dy)
+        guard let swept = rect.union(back).clipped(width: spriteWidth, height: spriteHeight) else { return moved }
+        var out = PixelImage(width: swept.maxX - swept.minX + 1, height: swept.maxY - swept.minY + 1)
+        var mask = SelectionMask(width: spriteWidth, height: spriteHeight)
+        // A copy at every step from the start to just before the end, each over
+        // the last; then the pixels themselves, unchanged, on top.
+        for step in 0...steps {
+            let ox = Int((Double(dx * step) / Double(steps)).rounded()) - dx
+            let oy = Int((Double(dy * step) / Double(steps)).rounded()) - dy
+            let last = step == steps
+            for y in rect.minY...rect.maxY {
+                for x in rect.minX...rect.maxX where moved.mask[x, y] {
+                    let tx = x + ox, ty = y + oy
+                    guard tx >= swept.minX, ty >= swept.minY, tx <= swept.maxX, ty <= swept.maxY else { continue }
+                    let p = moved.image[x - moved.origin.x, y - moved.origin.y]
+                    mask[tx, ty] = true
+                    if last || p.a != 0 { out[tx - swept.minX, ty - swept.minY] = p }
+                }
+            }
+        }
+        return (out, PixelPoint(x: swept.minX, y: swept.minY), mask)
     }
 }
 

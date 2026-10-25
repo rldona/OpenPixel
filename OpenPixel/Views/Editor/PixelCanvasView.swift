@@ -974,6 +974,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         }
     }
 
+    /// Ctrl while moving floating pixels stretches them, as in Aseprite.
+    private func stretchIfControl(_ event: UIEvent?) {
+        if event?.modifierFlags.contains(.control) == true, document?.stretchMove == false { document?.stretchMove = true }
+    }
+
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         if let axis = axisTouch, touches.contains(axis.touch) {
             let p = toSprite(axis.touch.location(in: self))
@@ -989,11 +994,13 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             guard hypot(now.x - pending.start.x, now.y - pending.start.y) > 6 else { return }
             pendingSelectionTouch = nil
             transformTouch = pending.touch
+            stretchIfControl(event)
             onTransformBegan?(.move, toSprite(pending.start))
             onTransformMoved?(toSprite(now))
             return
         }
         if let touch = transformTouch, touches.contains(touch) {
+            stretchIfControl(event)
             onTransformMoved?(toSprite(touch.location(in: self)))
             return
         }

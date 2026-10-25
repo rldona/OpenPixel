@@ -55,6 +55,61 @@ final class MoveSelectionTests: XCTestCase {
         XCTAssertTrue(doc.dragMovesSelection(at: PixelPoint(x: 1, y: 1)), "undo restores the pixels and the selection")
     }
 
+    // MARK: Stretch (Ctrl+drag)
+
+    /// A column, x = 3, rows 2–6: red head on top, black body.
+    private func figure(_ doc: SpriteDocument) {
+        for y in 3...6 { dot(doc, 3, y) }
+        doc.primary = PixelColor(r: 255, g: 0, b: 0)
+        dot(doc, 3, 2)
+        doc.primary = .black
+    }
+
+    func testStretchMoveFillsTheGapWithTheTrailingEdge() {
+        let doc = makeDocument()
+        figure(doc)
+        select(doc, from: PixelPoint(x: 0, y: 0), to: PixelPoint(x: 7, y: 3))
+        doc.beginTransformDrag(.move, at: CGPoint(x: 3.5, y: 2.5))
+        doc.stretchMove = true
+        doc.continueTransformDrag(to: CGPoint(x: 3.5, y: 0.5))
+        doc.endTransformDrag()
+        doc.applyTransform()
+        XCTAssertEqual(pixel(doc, 3, 0), PixelColor(r: 255, g: 0, b: 0), "the head moved up")
+        for y in 1...6 { XCTAssertEqual(pixel(doc, 3, y), .black, "row \(y) stays joined") }
+        XCTAssertFalse(doc.stretchMove, "stretching lasts one transform")
+        doc.undo()
+        XCTAssertEqual(pixel(doc, 3, 2), PixelColor(r: 255, g: 0, b: 0))
+        XCTAssertEqual(pixel(doc, 3, 0), .clear, "one undo step")
+    }
+
+    func testPlainMoveLeavesTheGap() {
+        let doc = makeDocument()
+        figure(doc)
+        select(doc, from: PixelPoint(x: 0, y: 0), to: PixelPoint(x: 7, y: 3))
+        doc.beginTransformDrag(.move, at: CGPoint(x: 3.5, y: 2.5))
+        doc.continueTransformDrag(to: CGPoint(x: 3.5, y: 0.5))
+        doc.endTransformDrag()
+        doc.applyTransform()
+        XCTAssertEqual(pixel(doc, 3, 0), PixelColor(r: 255, g: 0, b: 0))
+        XCTAssertEqual(pixel(doc, 3, 2), .clear)
+        XCTAssertEqual(pixel(doc, 3, 3), .clear)
+    }
+
+    func testStretchGrowsTheSelectionOverTheStretch() {
+        let doc = makeDocument()
+        figure(doc)
+        select(doc, from: PixelPoint(x: 3, y: 2), to: PixelPoint(x: 3, y: 3))
+        doc.beginTransformDrag(.move, at: CGPoint(x: 3.5, y: 2.5))
+        doc.stretchMove = true
+        doc.continueTransformDrag(to: CGPoint(x: 6.5, y: 2.5))
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 3, minY: 2, maxX: 6, maxY: 3))
+        XCTAssertEqual(doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id)?[4, 2], PixelColor(r: 255, g: 0, b: 0),
+                       "sideways, the left edge stretches")
+        doc.stretchMove = false
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 6, minY: 2, maxX: 6, maxY: 3), "turning it off tears the pixels away again")
+        doc.cancelTransform()
+    }
+
     func testOtherModesAndToolsStillSelect() {
         let doc = makeDocument()
         dot(doc, 1, 1)
