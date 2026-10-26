@@ -62,7 +62,9 @@ struct EditorView: View {
                                 // timeline: its capsule is 11 pt above the timeline, 8 pt clear of it, so the
                                 // bars end 8 pt above the capsule.
                                 let barBottom: CGFloat = !focusMode && !timelineCollapsed ? 22 : 14
-                                if document.isTransforming {
+                                if document.canvasResize != nil {
+                                    CanvasResizeBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
+                                } else if document.isTransforming {
                                     TransformBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
                                 } else if document.hasSelection {
                                     SelectionActionBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
@@ -135,7 +137,6 @@ struct EditorView: View {
         .sheet(isPresented: $showingExport) { ExportView(document: document) }
         .sheet(isPresented: $showingShortcuts) { NavigationStack { KeyboardShortcutsView(showsDone: true) } }
         .sheet(isPresented: $document.isReplacingColor) { ReplaceColorSheet(document: document) }
-        .sheet(isPresented: $document.isResizingCanvas) { CanvasSizeSheet(document: document) }
         .sheet(isPresented: Binding(get: { document.textAnchor != nil }, set: { if !$0 { document.textAnchor = nil } })) {
             TextEntrySheet(document: document)
         }

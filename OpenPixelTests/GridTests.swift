@@ -206,3 +206,45 @@ final class CanvasSizeTests: XCTestCase {
         XCTAssertNil(doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id))
     }
 }
+
+@MainActor
+final class CanvasResizeDragTests: XCTestCase {
+    func testDraggingTheRightEdgeGrowsToTheRightOnApply() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 32, height: 32, background: nil, palette: []))
+        doc.primary = .black
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.endStroke()
+        doc.beginCanvasResize()
+        let start = doc.canvasResize!
+        doc.dragCanvasEdges(.right, from: start, by: (dx: 16.4, dy: 3))
+        XCTAssertEqual(doc.canvasResize, PixelRect(minX: 0, minY: 0, maxX: 47, maxY: 31), "only the right side moves")
+        XCTAssertEqual(doc.sprite.width, 32, "nothing changes before Apply")
+        doc.applyCanvasResize()
+        XCTAssertEqual(doc.sprite.width, 48)
+        XCTAssertNil(doc.canvasResize)
+        XCTAssertEqual(doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id)?[0, 0], .black)
+        doc.undo()
+        XCTAssertEqual(doc.sprite.width, 32)
+    }
+
+    func testTheLeftEdgeGrowsToTheLeftAndCellsSnap() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 32, height: 32, background: nil, palette: []))
+        doc.setGrid(GridSettings(width: 16, height: 16))
+        doc.canvasResizeInCells = true
+        defer { doc.canvasResizeInCells = false }
+        doc.beginCanvasResize()
+        doc.dragCanvasEdges(.left, from: doc.canvasResize!, by: (dx: -11, dy: 0))
+        XCTAssertEqual(doc.canvasResize?.minX, -16, "snapped to a whole cell")
+        doc.applyCanvasResize()
+        XCTAssertEqual(doc.sprite.width, 48)
+    }
+
+    func testCancelLeavesTheCanvas() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 32, height: 32, background: nil, palette: []))
+        doc.beginCanvasResize()
+        doc.dragCanvasEdges([.right, .bottom], from: doc.canvasResize!, by: (dx: 10, dy: 10))
+        doc.cancelCanvasResize()
+        XCTAssertEqual(doc.sprite.width, 32)
+        XCTAssertFalse(doc.canUndo)
+    }
+}

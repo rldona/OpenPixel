@@ -363,7 +363,15 @@ extension Sprite {
     @discardableResult
     mutating func resizeCanvas(width newWidth: Int, height newHeight: Int, anchor: (x: Int, y: Int)) -> (dx: Int, dy: Int) {
         let dx = (newWidth - width) * anchor.x / 2, dy = (newHeight - height) * anchor.y / 2
-        crop(to: PixelRect(minX: -dx, minY: -dy, maxX: newWidth - 1 - dx, maxY: newHeight - 1 - dy))
+        return resizeCanvas(to: PixelRect(minX: -dx, minY: -dy, maxX: newWidth - 1 - dx, maxY: newHeight - 1 - dy))
+    }
+
+    /// The canvas becomes `rect` (in the current canvas's coordinates; it can
+    /// reach past its edges to grow). Returns how far the drawing moved.
+    @discardableResult
+    mutating func resizeCanvas(to rect: PixelRect) -> (dx: Int, dy: Int) {
+        let dx = -rect.minX, dy = -rect.minY
+        crop(to: rect)
         for i in slices.indices {
             for k in slices[i].keys.indices { slices[i].keys[k].bounds = slices[i].keys[k].bounds.offsetBy(dx: dx, dy: dy) }
         }

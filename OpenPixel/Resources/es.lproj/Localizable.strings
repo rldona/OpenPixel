@@ -757,12 +757,5 @@
 
 /* Canvas size */
 "Canvas size…" = "Tamaño del lienzo…";
-"Canvas size" = "Tamaño del lienzo";
-"In grid cells" = "En celdas de la cuadrícula";
-"%lld cells" = "%lld celdas";
-"Anchor" = "Anclaje";
-"The drawing stays at the anchor; the canvas grows or shrinks on the other sides." = "El dibujo se queda en el anclaje; el lienzo crece o se encoge por los otros lados.";
-"Top left" = "Arriba a la izquierda";
-"Top right" = "Arriba a la derecha";
-"Bottom left" = "Abajo a la izquierda";
-"Bottom right" = "Abajo a la derecha";
+"In grid cells" = "En celdas";
+"%lld × %lld cells" = "%lld × %lld celdas";

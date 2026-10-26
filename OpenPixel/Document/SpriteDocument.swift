@@ -18,6 +18,13 @@ struct TransformInfo: Equatable {
 }
 
 /// What a drag on the transform box does.
+/// Which sides of the canvas a canvas-size drag moves.
+struct CanvasEdges: OptionSet, Sendable {
+    let rawValue: Int
+    static let left = CanvasEdges(rawValue: 1), right = CanvasEdges(rawValue: 2)
+    static let top = CanvasEdges(rawValue: 4), bottom = CanvasEdges(rawValue: 8)
+}
+
 enum TransformHandle: Equatable {
     case move, scale(Int), rotate, pivot
 }
@@ -207,8 +214,13 @@ final class SpriteDocument {
     var timelineRange: TimelineRange?
     /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
     var isReplacingColor = false
-    /// Edit > Canvas > Canvas size's sheet.
-    var isResizingCanvas = false
+    /// Edit > Canvas > Canvas size: the proposed canvas, in the current canvas's
+    /// coordinates, while its edges are being dragged on the canvas.
+    var canvasResize: PixelRect?
+    /// Its sides snap to grid lines.
+    var canvasResizeInCells = UserDefaults.standard.bool(forKey: "canvasResizeInCells") {
+        didSet { UserDefaults.standard.set(canvasResizeInCells, forKey: "canvasResizeInCells") }
+    }
     /// Open script dialogs, shown as floating windows over the editor.
     var scriptDialogs: [ScriptDialog] = []
     /// A script's error or `app.alert`, shown as an alert.
@@ -2568,15 +2580,67 @@ extension SpriteDocument {
         performCanvasChange { $0.pixelRatio = ratio }
     }
 
-    /// Edit > Canvas > Canvas size: grows or shrinks the canvas away from the
-    /// anchor, in one undo step. Symmetry axes move with the drawing.
+    /// Grows or shrinks the canvas away from the anchor, in one undo step.
     func resizeCanvas(width: Int, height: Int, anchor: (x: Int, y: Int)) {
-        let w = min(Self.maxCanvasSize, max(1, width)), h = min(Self.maxCanvasSize, max(1, height))
-        guard w != storage.width || h != storage.height else { return }
+        let dx = (width - storage.width) * anchor.x / 2, dy = (height - storage.height) * anchor.y / 2
+        resizeCanvas(to: PixelRect(minX: -dx, minY: -dy, maxX: width - 1 - dx, maxY: height - 1 - dy))
+    }
+
+    /// The canvas becomes `rect` (current coordinates, reaching past the edges
+    /// to grow), in one undo step. Symmetry axes move with the drawing.
+    func resizeCanvas(to rect: PixelRect) {
+        let w = rect.maxX - rect.minX + 1, h = rect.maxY - rect.minY + 1
+        guard w >= 1, h >= 1, w <= Self.maxCanvasSize, h <= Self.maxCanvasSize,
+              rect != PixelRect.full(width: storage.width, height: storage.height) else { return }
         var moved = (dx: 0, dy: 0)
-        performCanvasChange { moved = $0.resizeCanvas(width: w, height: h, anchor: anchor) }
+        performCanvasChange { moved = $0.resizeCanvas(to: rect) }
         if let x2 = symmetry.axisX2 { symmetry.axisX2 = x2 + 2 * moved.dx }
         if let y2 = symmetry.axisY2 { symmetry.axisY2 = y2 + 2 * moved.dy }
+    }
+
+    // MARK: Canvas size, on the canvas
+
+    /// Edit > Canvas > Canvas size: the canvas shows its edges with handles;
+    /// dragging one moves that side out or in. Nothing changes until Apply.
+    func beginCanvasResize() {
+        applyTransformIfNeeded()
+        stopPlayback()
+        deselect()
+        canvasResize = .full(width: storage.width, height: storage.height)
+        onOverlayChange?()
+    }
+
+    /// Drags the `edges` of the proposed canvas from where they were when the
+    /// drag started (`from`) by the pointer's travel. With "in cells", sides
+    /// land on grid lines.
+    func dragCanvasEdges(_ edges: CanvasEdges, from start: PixelRect, by delta: (dx: Double, dy: Double)) {
+        var r = start
+        func snapX(_ x: Int) -> Int { canvasResizeInCells ? storage.grid.offsetX + Int((Double(x - storage.grid.offsetX) / Double(storage.grid.width)).rounded()) * storage.grid.width : x }
+        func snapY(_ y: Int) -> Int { canvasResizeInCells ? storage.grid.offsetY + Int((Double(y - storage.grid.offsetY) / Double(storage.grid.height)).rounded()) * storage.grid.height : y }
+        let dx = Int(delta.dx.rounded()), dy = Int(delta.dy.rounded())
+        // Sides as grid lines: minX is a line, maxX + 1 is a line.
+        if edges.contains(.left) { r.minX = min(start.maxX, snapX(start.minX + dx)) }
+        if edges.contains(.right) { r.maxX = max(r.minX, snapX(start.maxX + 1 + dx) - 1) }
+        if edges.contains(.top) { r.minY = min(start.maxY, snapY(start.minY + dy)) }
+        if edges.contains(.bottom) { r.maxY = max(r.minY, snapY(start.maxY + 1 + dy) - 1) }
+        let limit = Self.maxCanvasSize
+        if r.maxX - r.minX + 1 > limit { if edges.contains(.left) { r.minX = r.maxX - limit + 1 } else { r.maxX = r.minX + limit - 1 } }
+        if r.maxY - r.minY + 1 > limit { if edges.contains(.top) { r.minY = r.maxY - limit + 1 } else { r.maxY = r.minY + limit - 1 } }
+        guard r != canvasResize else { return }
+        canvasResize = r
+        onOverlayChange?()
+    }
+
+    func applyCanvasResize() {
+        guard let rect = canvasResize else { return }
+        canvasResize = nil
+        resizeCanvas(to: rect)
+        onOverlayChange?()
+    }
+
+    func cancelCanvasResize() {
+        canvasResize = nil
+        onOverlayChange?()
     }
     static let maxCanvasSize = 1024
 

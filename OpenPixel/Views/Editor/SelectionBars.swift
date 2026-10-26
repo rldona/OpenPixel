@@ -31,6 +31,59 @@ struct SelectionActionBar: View {
     }
 }
 
+/// Floating bar shown while the canvas's edges are being dragged (Canvas size):
+/// the new size, whether sides snap to grid cells, Cancel and Apply.
+struct CanvasResizeBar: View {
+    @Bindable var document: SpriteDocument
+
+    var body: some View {
+        let r = document.canvasResize ?? .full(width: document.structure.width, height: document.structure.height)
+        let w = r.maxX - r.minX + 1, h = r.maxY - r.minY + 1
+        let grid = document.structure.grid
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Theme.muted)
+                .padding(.leading, 6)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(verbatim: "\(w) × \(h) px")
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                if document.canvasResizeInCells {
+                    Text("\(w / max(1, grid.width)) × \(h / max(1, grid.height)) cells")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.muted)
+                }
+            }
+            .fixedSize()
+            .padding(.horizontal, 4)
+            PillToggle(title: "In grid cells", isOn: $document.canvasResizeInCells)
+            Button { document.cancelCanvasResize() } label: {
+                Text("Cancel")
+                    .font(.system(size: 14, weight: .medium))
+                    .fixedSize()
+                    .foregroundStyle(Theme.text)
+                    .padding(.horizontal, 12)
+                    .frame(height: 36)
+                    .background(Theme.chip, in: RoundedRectangle(cornerRadius: 9))
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.escape, modifiers: [])
+            Button { document.applyCanvasResize() } label: {
+                Label("Apply", systemImage: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .fixedSize()
+                    .foregroundStyle(Theme.onAccent)
+                    .padding(.horizontal, 12)
+                    .frame(height: 36)
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 9))
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(.return, modifiers: [])
+        }
+        .floatingBarStyle()
+    }
+}
+
 /// Floating bar shown while pixels are being transformed.
 struct TransformBar: View {
     @Bindable var document: SpriteDocument
@@ -200,7 +253,7 @@ struct EditMenu: View {
                 Button("Rotate 90° counterclockwise", systemImage: "rotate.left") { document.rotate90(clockwise: false) }
             }
             Section("Canvas") {
-                Button("Canvas size…", systemImage: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left") { document.isResizingCanvas = true }
+                Button("Canvas size…", systemImage: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left") { document.beginCanvasResize() }
                 Button("Crop to selection", systemImage: "crop") { document.cropToSelection() }
                     .disabled(!document.hasSelection)
                 Button("Trim empty space", systemImage: "rectangle.compress.vertical") { document.trimCanvas() }

@@ -128,6 +128,13 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let antsFront = CAShapeLayer()
     private let boxLayer = CAShapeLayer()
     private let handlesLayer = CAShapeLayer()
+    /// Canvas size: the proposed canvas's outline, the area it adds or cuts, and its edge handles.
+    private let resizeShade = CAShapeLayer()
+    private let resizeOutline = CAShapeLayer()
+    private let resizeHandles = CAShapeLayer()
+    private var resizeTouch: (touch: UITouch, edges: CanvasEdges, start: CGPoint, rect: PixelRect)?
+    /// Canvas size was on at the last overlay update (to make room when it starts).
+    private var wasResizingCanvas = false
     /// Control points of a curve, corners of a polygon being built.
     private let guidesLayer = CAShapeLayer()
     /// Slices: outlines in their colors, with names.
@@ -226,6 +233,16 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
         slicesHost.actions = Self.noAnimations
         layer.addSublayer(slicesHost)
+        for l in [resizeShade, resizeOutline, resizeHandles] {
+            l.actions = Self.noAnimations
+            layer.addSublayer(l)
+        }
+        resizeShade.fillRule = .evenOdd
+        resizeOutline.fillColor = nil
+        resizeOutline.lineWidth = 2
+        resizeOutline.lineDashPattern = [6, 4]
+        resizeHandles.fillColor = UIColor.white.cgColor
+        resizeHandles.lineWidth = 1.5
         for l in [antsBack, antsFront, boxLayer, handlesLayer, guidesLayer] {
             l.actions = Self.noAnimations
             l.fillColor = nil
@@ -463,6 +480,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     func selectionChanged() {
         outline = document?.selection?.outline() ?? []
         updateSelectionOverlay()
+        updateCanvasResize()
     }
 
     private func toView(_ p: CGPoint) -> CGPoint {
@@ -496,6 +514,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
         updateGuides()
         updateSlices()
+        updateCanvasResize()
         boxLayer.frame = bounds
         handlesLayer.frame = bounds
         guard let box = document?.isTransforming == true ? document?.transformBox : nil else {
@@ -608,6 +627,69 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             path.addEllipse(in: CGRect(x: p.x - radius, y: p.y - radius, width: radius * 2, height: radius * 2))
         }
         guidesLayer.path = path
+    }
+
+    /// The proposed canvas while Canvas size is on: a dashed outline, the
+    /// area being cut tinted, and handles on its edges and corners.
+    private func updateCanvasResize() {
+        for l in [resizeShade, resizeOutline, resizeHandles] { l.frame = bounds }
+        let resizing = document?.canvasResize != nil
+        defer { wasResizingCanvas = resizing }
+        // Starting Canvas size: zoom out so there's room around the canvas to drag its edges.
+        if resizing && !wasResizingCanvas {
+            wasResizingCanvas = true
+            fitToScreen(fraction: 0.6)
+            return
+        }
+        guard let r = document?.canvasResize else {
+            resizeShade.path = nil
+            resizeOutline.path = nil
+            resizeHandles.path = nil
+            return
+        }
+        let accent = UIColor(Theme.accent).resolvedColor(with: traitCollection)
+        resizeOutline.strokeColor = accent.cgColor
+        resizeHandles.strokeColor = accent.cgColor
+        resizeShade.fillColor = accent.withAlphaComponent(0.12).cgColor
+        let proposed = resizeViewRect(r)
+        // Tinted: whatever is inside one rect and not the other (added or cut).
+        let shade = CGMutablePath()
+        shade.addRect(spriteRect)
+        shade.addRect(proposed)
+        resizeShade.path = shade
+        resizeOutline.path = CGPath(rect: proposed, transform: nil)
+        let handles = CGMutablePath()
+        for p in resizeHandlePoints(proposed).map(\.point) {
+            handles.addRoundedRect(in: CGRect(x: p.x - 7, y: p.y - 7, width: 14, height: 14), cornerWidth: 3, cornerHeight: 3)
+        }
+        resizeHandles.path = handles
+    }
+
+    private func resizeViewRect(_ r: PixelRect) -> CGRect {
+        let a = toView(CGPoint(x: r.minX, y: r.minY)), b = toView(CGPoint(x: r.maxX + 1, y: r.maxY + 1))
+        return CGRect(x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y)
+    }
+
+    private func resizeHandlePoints(_ v: CGRect) -> [(point: CGPoint, edges: CanvasEdges)] {
+        [(CGPoint(x: v.minX, y: v.minY), [.left, .top]), (CGPoint(x: v.midX, y: v.minY), [.top]), (CGPoint(x: v.maxX, y: v.minY), [.right, .top]),
+         (CGPoint(x: v.maxX, y: v.midY), [.right]), (CGPoint(x: v.maxX, y: v.maxY), [.right, .bottom]), (CGPoint(x: v.midX, y: v.maxY), [.bottom]),
+         (CGPoint(x: v.minX, y: v.maxY), [.left, .bottom]), (CGPoint(x: v.minX, y: v.midY), [.left])]
+    }
+
+    /// The sides a touch at `location` grabs: a handle, or anywhere near an edge.
+    private func resizeEdges(at location: CGPoint) -> CanvasEdges? {
+        guard let r = document?.canvasResize else { return nil }
+        let v = resizeViewRect(r)
+        if let hit = resizeHandlePoints(v).first(where: { hypot($0.point.x - location.x, $0.point.y - location.y) <= 26 }) { return hit.edges }
+        let slop: CGFloat = 18
+        var edges: CanvasEdges = []
+        let inY = location.y > v.minY - slop && location.y < v.maxY + slop
+        let inX = location.x > v.minX - slop && location.x < v.maxX + slop
+        if inY && abs(location.x - v.minX) <= slop { edges.insert(.left) }
+        if inY && abs(location.x - v.maxX) <= slop { edges.insert(.right) }
+        if inX && abs(location.y - v.minY) <= slop { edges.insert(.top) }
+        if inX && abs(location.y - v.maxY) <= slop { edges.insert(.bottom) }
+        return edges.isEmpty ? nil : edges
     }
 
     /// What a touch at `location` (view coordinates) would grab on the transform box.
@@ -750,8 +832,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     /// The sprite as big as it fits, edge to edge with the canvas area and
     /// centered in it (pinching still snaps to whole zoom levels).
-    func fitToScreen() {
-        let fit = min(bounds.width / (spriteSize.width * CGFloat(pixelRatio.width)), bounds.height / (spriteSize.height * CGFloat(pixelRatio.height)))
+    func fitToScreen(fraction: CGFloat = 1) {
+        let fit = fraction * min(bounds.width / (spriteSize.width * CGFloat(pixelRatio.width)), bounds.height / (spriteSize.height * CGFloat(pixelRatio.height)))
         scale = max(Self.minScale, min(Self.maxScale, fit))
         origin = CGPoint(
             x: ((bounds.width - spriteSize.width * scaleX) / 2).rounded(),
@@ -918,7 +1000,15 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if editingLocked || transformTouch != nil || axisTouch != nil { return }
+        if editingLocked || transformTouch != nil || axisTouch != nil || resizeTouch != nil { return }
+        // Canvas size: touches drag its edges and draw nothing.
+        if let document, let rect = document.canvasResize {
+            if let touch = touches.first(where: canDraw), let edges = resizeEdges(at: touch.location(in: self)) {
+                if touch.type == .pencil { pencilOnly = true }
+                resizeTouch = (touch, edges, touch.location(in: self), rect)
+            }
+            return
+        }
         // Any touch can drag a symmetry axis by its handle.
         if drawingTouch == nil, let touch = touches.first {
             let location = touch.location(in: self)
@@ -998,6 +1088,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             onTransformMoved?(toSprite(now))
             return
         }
+        if let drag = resizeTouch, touches.contains(drag.touch) {
+            let now = drag.touch.location(in: self)
+            document?.dragCanvasEdges(drag.edges, from: drag.rect, by: (Double((now.x - drag.start.x) / scaleX), Double((now.y - drag.start.y) / scaleY)))
+            return
+        }
         if let touch = transformTouch, touches.contains(touch) {
             stretchIfControl(event)
             onTransformMoved?(toSprite(touch.location(in: self)))
@@ -1024,6 +1119,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let drag = resizeTouch, touches.contains(drag.touch) {
+            resizeTouch = nil
+            return
+        }
         if let axis = axisTouch, touches.contains(axis.touch) {
             axisTouch = nil
             return
@@ -1051,6 +1150,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let drag = resizeTouch, touches.contains(drag.touch) {
+            resizeTouch = nil
+            return
+        }
         if let axis = axisTouch, touches.contains(axis.touch) {
             axisTouch = nil
             return
