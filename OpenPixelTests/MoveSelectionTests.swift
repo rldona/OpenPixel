@@ -199,3 +199,43 @@ final class MoveSelectionTests: XCTestCase {
         XCTAssertEqual(doc.transformExtraCels, 0)
     }
 }
+
+@MainActor
+final class SelectionOpacityTests: XCTestCase {
+    private func cel(_ doc: SpriteDocument) -> PixelImage? {
+        doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id)
+    }
+
+    func testTheSliderFadesOnlyTheSelectionAndUndoesInOneStep() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
+        doc.primary = PixelColor(r: 255, g: 0, b: 0)
+        doc.select(.pencil)
+        for x in 0..<4 { doc.beginStroke(at: PixelPoint(x: x, y: 0)); doc.endStroke() }
+        doc.select(.selectRectangle)
+        doc.selectionFitsContent = false
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.continueStroke(to: PixelPoint(x: 1, y: 1))
+        doc.endStroke()
+        XCTAssertEqual(doc.selectionOpacity, 1)
+
+        doc.beginSelectionOpacity()
+        doc.setSelectionOpacity(0.8)
+        doc.setSelectionOpacity(0.5)
+        doc.endSelectionOpacity()
+        XCTAssertEqual(cel(doc)?[0, 0].a, 128, "half of 255")
+        XCTAssertEqual(cel(doc)?[3, 0].a, 255, "outside the selection")
+        XCTAssertEqual(doc.selectionOpacity, 0.5, "the slider stays where it was left")
+
+        // A second drag works from the original pixels, not the faded ones.
+        doc.beginSelectionOpacity()
+        doc.setSelectionOpacity(1)
+        doc.endSelectionOpacity()
+        XCTAssertEqual(cel(doc)?[0, 0].a, 255)
+
+        doc.undo()
+        XCTAssertEqual(cel(doc)?[0, 0].a, 128, "each drag is one undo step")
+        doc.undo()
+        XCTAssertEqual(cel(doc)?[0, 0].a, 255)
+        XCTAssertEqual(doc.selectionOpacity, 1)
+    }
+}

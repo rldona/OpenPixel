@@ -17,6 +17,10 @@ La barra de opciones elige el modo: **reemplazar**, **añadir**, **restar** o **
 
 Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra flotante te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, invertir y deseleccionar.
 
+### Opacidad de la selección
+
+Con una herramienta de selección (o Mover) y algo seleccionado, el deslizador de la barra izquierda fija la **opacidad de los píxeles seleccionados**: bájalo para atenuarlos y súbelo para recuperarlos. Parte de los píxeles tal como estaban, así que puedes probar valores sin miedo, y cada arrastre es un paso de deshacer. Cambia todas las capas que abarca la selección.
+
 ### Selección inteligente
 
 - **Toca un elemento dibujado** con el marco o el lazo para seleccionar exactamente sus píxeles. Su capa pasa a ser la activa (la capa visible más alta bajo tu dedo). En modo añadir, sigue tocando para juntar varios elementos.

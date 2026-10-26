@@ -132,6 +132,7 @@
 "Previous frames" = "Frames anteriores";
 "Next frames" = "Frames siguientes";
 "Opacity" = "Opacidad";
+"Selection opacity" = "Opacidad de la selección";
 "Tint (red before, blue after)" = "Teñir (rojo antes, azul después)";
 "Only inside the tag" = "Solo dentro del tag";
 "Frame duration" = "Duración del frame";

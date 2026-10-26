@@ -17,6 +17,10 @@ The options bar picks the mode: **replace**, **add**, **subtract** or **intersec
 
 While something is selected, drawing, filling and erasing stay inside it, and a floating bar gives you the common actions: transform, duplicate and move, cut, copy, paste, delete, fill with the primary color, flip, rotate 90°, invert and deselect.
 
+### Selection opacity
+
+With a selection tool (or Move) and something selected, the rail's slider sets the **opacity of the selected pixels**: drag it down to fade them, back up to restore them. It works from the pixels as they were, so you can try values freely, and each drag is one undo step. It changes every layer the selection caught.
+
 ### Smart selection
 
 - **Tap a drawn element** with the marquee or lasso to select exactly its pixels. Its layer becomes active (the topmost visible layer under your finger). In add mode, keep tapping to collect several elements.

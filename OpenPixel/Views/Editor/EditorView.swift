@@ -462,6 +462,9 @@ private struct RailSlider: View {
     let text: (Double) -> String
     let preview: Preview
     var mirrored = false
+    /// Called when a drag starts and ends (one undo step per drag).
+    var onBegin: () -> Void = {}
+    var onEnd: () -> Void = {}
     @State private var dragging = false
 
     var body: some View {
@@ -490,11 +493,15 @@ private struct RailSlider: View {
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { drag in
+                    if !dragging { onBegin() }
                     dragging = true
                     let f = 1 - min(1, max(0, (drag.location.y - thumb / 2) / max(1, geo.size.height - thumb)))
                     value = range.lowerBound + f * (range.upperBound - range.lowerBound)
                 }
-                .onEnded { _ in dragging = false })
+                .onEnded { _ in
+                    dragging = false
+                    onEnd()
+                })
         }
         .frame(width: 24)
         .accessibilityElement()
@@ -551,8 +558,14 @@ struct ToolRail: View {
             symmetryButton
             scriptsButton
             Spacer(minLength: 8)
-            // Brush size and opacity, dragged like Procreate's side sliders.
-            if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
+            // With something selected, the selection's opacity; otherwise
+            // brush size and opacity, dragged like Procreate's side sliders.
+            if document.hasSelection && (document.tool.isSelection || document.tool == .move) && !document.isTransforming {
+                RailSlider(label: "Selection opacity", value: Binding(get: { document.selectionOpacity * 100 }, set: { document.setSelectionOpacity($0 / 100) }),
+                           range: 0...100, text: { "\(Int($0.rounded())) %" }, preview: .opacity, mirrored: mirrored,
+                           onBegin: { document.beginSelectionOpacity() }, onEnd: { document.endSelectionOpacity() })
+                    .frame(maxHeight: 150)
+            } else if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
                 HStack(spacing: 6) {
                     RailSlider(label: "Brush size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
                                range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, preview: .size, mirrored: mirrored)

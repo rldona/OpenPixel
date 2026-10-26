@@ -235,6 +235,9 @@ final class SpriteDocument {
     /// The tag band (row) the timeline focuses; playback stays inside its tags.
     var focusedTagBand: Int?
     @ObservationIgnored var rangeAnchor: (layer: UUID, frame: Int)?
+    /// The rail's selection opacity slider (see `selectionOpacity`).
+    @ObservationIgnored var selectionFade: SelectionFade?
+    @ObservationIgnored var selectionFadeStart: DocumentSnapshot?
 
     /// Called when the selection outline or the transform box changes.
     @ObservationIgnored var onOverlayChange: (() -> Void)?
@@ -2003,6 +2006,68 @@ extension SpriteDocument {
         let result = keys.filter { editable.contains($0.layer) }
         if result.isEmpty { notice = L10n.string("The layers are hidden or locked") }
         return result
+    }
+
+    // MARK: Selection opacity
+
+    /// The rail's selection opacity slider: the pixels before it was first
+    /// moved for this selection, and how much of their opacity is left. It
+    /// lasts while nothing else changes the sprite or the selection, so the
+    /// slider keeps showing where it was left.
+    struct SelectionFade {
+        var base: Sprite
+        var selection: SelectionMask?
+        var keys: [CelKey]
+        var factor: Double
+        var revision: Int
+    }
+
+    /// How much of the selected pixels' opacity the slider has left (1 = untouched).
+    var selectionOpacity: Double {
+        _ = revision
+        guard let fade = selectionFade, fade.selection == selection, fade.revision == revision else { return 1 }
+        return fade.factor
+    }
+
+    /// Starts a drag of the slider.
+    func beginSelectionOpacity() {
+        guard selection != nil, !isTransforming else { return }
+        if selectionFade.map({ $0.selection != selection || $0.revision != revision }) ?? true {
+            let keys = selectionEditKeys
+            guard !keys.isEmpty else { return }
+            selectionFade = SelectionFade(base: storage, selection: selection, keys: keys, factor: 1, revision: revision)
+        }
+        selectionFadeStart = DocumentSnapshot(sprite: storage, selection: selection)
+    }
+
+    /// Sets the selected pixels' opacity to `factor` of what it was, live.
+    func setSelectionOpacity(_ factor: Double) {
+        guard var fade = selectionFade, selectionFadeStart != nil, let mask = fade.selection else { return }
+        let f = min(1, max(0, factor))
+        var s = fade.base
+        for key in fade.keys {
+            guard var cel = s.cels[key] else { continue }
+            for i in cel.pixels.indices where mask.bits[i] && cel.pixels[i].a != 0 {
+                cel.pixels[i].a = UInt8((Double(cel.pixels[i].a) * f).rounded())
+            }
+            s.cels[key] = cel.isEmpty ? nil : cel
+            s.syncLinks(from: key)
+        }
+        storage = s
+        revision &+= 1
+        fade.factor = f
+        fade.revision = revision
+        selectionFade = fade
+    }
+
+    /// Ends the drag: one undo step for it.
+    func endSelectionOpacity() {
+        guard let start = selectionFadeStart else { return }
+        selectionFadeStart = nil
+        guard start.sprite != storage else { return }
+        registerUndo(start)
+        changed()
+        selectionFade?.revision = revision
     }
 
     /// Clears the selected pixels in every selected layer.
