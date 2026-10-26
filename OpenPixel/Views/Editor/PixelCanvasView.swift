@@ -373,8 +373,15 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         // The sprite's drop shadow would fall on the copies around it.
         shadowLayer.isHidden = tiledMode != .none
         tilesHost.frame = bounds
+        // Edges on whole screen pixels, shared by neighbours: at a zoom that isn't
+        // a whole number a copy would otherwise start a fraction of a pixel away
+        // from the next and the background would show through as a thin line.
+        let px = max(1, traitCollection.displayScale)
+        func snap(_ v: CGFloat) -> CGFloat { (v * px).rounded() / px }
         for (tile, o) in zip(tilesHost.sublayers ?? [], offsets) {
-            tile.frame = rect.offsetBy(dx: CGFloat(o.0) * rect.width, dy: CGFloat(o.1) * rect.height)
+            let x0 = snap(rect.minX + CGFloat(o.0) * rect.width), x1 = snap(rect.minX + CGFloat(o.0 + 1) * rect.width)
+            let y0 = snap(rect.minY + CGFloat(o.1) * rect.height), y1 = snap(rect.minY + CGFloat(o.1 + 1) * rect.height)
+            tile.frame = CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
             tile.sublayers?.first?.contents = checkerLayer.contents
             tile.sublayers?.first?.frame = checkerLayer.frame
             tile.sublayers?.last?.frame = tile.bounds
@@ -457,13 +464,23 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         CGRect(origin: origin, size: CGSize(width: spriteSize.width * scaleX, height: spriteSize.height * scaleY))
     }
 
+    /// The sprite's rect with its edges on whole screen pixels, where its layers go,
+    /// so it meets the tiled copies around it without a gap.
+    private var snappedSpriteRect: CGRect {
+        let px = max(1, traitCollection.displayScale)
+        func snap(_ v: CGFloat) -> CGFloat { (v * px).rounded() / px }
+        let r = spriteRect
+        let x0 = snap(r.minX), y0 = snap(r.minY)
+        return CGRect(x: x0, y: y0, width: snap(r.maxX) - x0, height: snap(r.maxY) - y0)
+    }
+
     /// Moves and resizes the layers after a pan, zoom or rotation. Nothing is redrawn.
     /// Called with the zoom whenever the geometry changes.
     var onZoomChange: ((CGFloat) -> Void)?
 
     private func updateGeometry() {
         onZoomChange?(scale)
-        let rect = spriteRect
+        let rect = snappedSpriteRect
         spriteLayer.frame = rect
         shadowLayer.frame = rect
         shadowLayer.shadowPath = UIBezierPath(rect: CGRect(origin: .zero, size: rect.size)).cgPath
