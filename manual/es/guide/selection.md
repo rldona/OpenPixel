@@ -17,7 +17,12 @@ La barra de opciones elige el modo: **reemplazar**, **añadir**, **restar** o **
 
 Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra flotante te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, **organizar**, invertir y deseleccionar.
 
-**Organizar** (el botón de capas) trae lo seleccionado al frente, un paso adelante, un paso atrás o lo envía al fondo. Cada parte de un dibujo vive en su propia capa, así que esto sube o baja esa capa en la pila, en todos los frames. También está en la barra de transformación, donde forma parte de la transformación: **Cancelar** devuelve el orden.
+**Organizar** (el botón de capas) trae lo seleccionado al frente, un paso adelante, un paso atrás o lo envía al fondo. Cada parte de un dibujo vive en su propia capa, así que hay dos formas:
+
+- **Solo este frame**: cambia solo el frame actual (o los frames elegidos en el timeline). El cel recibe un **z-index**, como en las propiedades del cel de Aseprite: se dibuja tantas capas más arriba o más abajo sin mover su capa. Un brazo puede estar detrás del cuerpo en el frame 1 y delante de todo en el frame 4.
+- **En todos los frames**: la capa sube o baja en la pila.
+
+También está en la barra de transformación, donde forma parte de la transformación: **Cancelar** devuelve el orden.
 
 ### Opacidad de la selección
 

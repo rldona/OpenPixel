@@ -1462,21 +1462,41 @@ final class SpriteDocument {
         return [activeLayerID]
     }
 
-    /// Whether Arrange can move the selected element up (towards the front) or down.
-    func canArrange(forward: Bool) -> Bool {
-        arrangeTargets.contains { canMoveLayer($0, by: forward ? 1 : -1) }
+    /// The frames Arrange works on in "this frame" mode: the timeline range's, or the active one.
+    private var arrangeFrames: [UUID] {
+        let indices = timelineRange.map { Array($0.frames) } ?? [activeFrameIndex]
+        return indices.compactMap { sprite.frames.indices.contains($0) ? sprite.frames[$0].id : nil }
+    }
+
+    /// Whether Arrange can move the selected element up (towards the front) or
+    /// down, in this frame only or in every frame (its layer).
+    func canArrange(forward: Bool, everyFrame: Bool) -> Bool {
+        let targets = arrangeTargets
+        if everyFrame { return targets.contains { canMoveLayer($0, by: forward ? 1 : -1) } }
+        let others = Set(targets)
+        return arrangeFrames.contains { frame in
+            targets.contains { sprite.canArrangeCel(CelKey(layer: $0, frame: frame), up: forward, others: others.subtracting([$0])) }
+        }
     }
 
     /// Bring to front, bring forward, send backward or send to back: what's
     /// selected goes above or below the other layers. Each part lives on its
-    /// own layer, so this moves its layer in the stack, for every frame.
+    /// own layer: in every frame this moves the layer in the stack; in this
+    /// frame only it gives the cel a z-index, as Aseprite's Cel Properties do.
     /// While transforming it stays part of the transform's undo step.
-    func arrange(_ arrangement: LayerArrangement) {
-        let up = arrangement == .front || arrangement == .forward
-        let steps = arrangement == .forward || arrangement == .backward ? 1 : sprite.layers.count
+    func arrange(_ arrangement: LayerArrangement, everyFrame: Bool) {
+        let up = arrangement.isUp
+        let steps = arrangement.isOneStep ? 1 : sprite.layers.count
         // The one in front moves first going up, the one behind going down, so they keep their order.
         let ids = up ? arrangeTargets.reversed() : arrangeTargets
+        let frames = arrangeFrames
         func move(_ s: inout Sprite) {
+            if !everyFrame {
+                for frame in frames {
+                    for id in ids { s.arrangeCel(CelKey(layer: id, frame: frame), arrangement, others: Set(ids).subtracting([id])) }
+                }
+                return
+            }
             for id in ids {
                 for _ in 0..<steps {
                     guard let layer = s.layers.first(where: { $0.id == id }), !layer.isBackground else { break }
@@ -1502,6 +1522,14 @@ final class SpriteDocument {
         } else {
             perform(move)
         }
+    }
+
+    /// Cel Properties > Z-Index: how many layers up (or down) the cel is drawn in its frame.
+    func setCelZIndex(_ z: Int, layer: UUID, frameIndex: Int) {
+        guard sprite.frames.indices.contains(frameIndex) else { return }
+        let key = CelKey(layer: layer, frame: sprite.frames[frameIndex].id)
+        guard sprite.cels[key] != nil else { return }
+        perform { $0.celZIndex[key] = z == 0 ? nil : z }
     }
 
     // MARK: Groups
@@ -2078,7 +2106,7 @@ extension SpriteDocument {
     /// frame, and all its pixels there. The background layer is skipped: it covers everything.
     private func element(at p: PixelPoint) -> (layer: UUID, mask: SelectionMask)? {
         let frame = activeFrame.id
-        for layer in storage.layers.reversed() where storage.shows(layer) && !layer.isBackground && !storage.locks(layer) {
+        for layer in storage.drawOrder(frame: frame).reversed() where storage.shows(layer) && !layer.isBackground && !storage.locks(layer) {
             guard let cel = storage.cel(layer: layer.id, frame: frame), cel.contains(p), cel[p].a != 0 else { continue }
             return (layer.id, SelectionMask.opaquePixels(of: cel))
         }
@@ -2825,11 +2853,6 @@ extension SpriteDocument {
 
 // MARK: - Timeline ranges
 
-/// Where Arrange puts the selected element among the layers.
-enum LayerArrangement {
-    case front, forward, backward, back
-}
-
 /// A block of cels selected in the timeline: some layers × a run of frames.
 /// Like Aseprite, it remembers whether whole frames or whole layers were picked.
 struct TimelineRange: Equatable {
@@ -3486,6 +3509,7 @@ private struct StructureKey: Equatable {
     let palette: [PixelColor]
     let links: [CelKey: UUID]
     let celOpacity: [CelKey: Double]
+    let celZIndex: [CelKey: Int]
     let grid: GridSettings
     let slices: [Slice]
     let tilemaps: [CelKey: TileMap]
@@ -3495,7 +3519,7 @@ private struct StructureKey: Equatable {
     init(_ s: Sprite) {
         width = s.width; height = s.height
         layers = s.layers; frames = s.frames; tags = s.tags; palette = s.palette
-        links = s.links; celOpacity = s.celOpacity; grid = s.grid; slices = s.slices
+        links = s.links; celOpacity = s.celOpacity; celZIndex = s.celZIndex; grid = s.grid; slices = s.slices
         tilemaps = s.tilemaps
         filled = Set(s.cels.keys)
     }

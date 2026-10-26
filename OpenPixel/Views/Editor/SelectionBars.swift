@@ -175,21 +175,15 @@ struct TransformBar: View {
     }
 }
 
-/// Arrange: moves the selected element in front of or behind the other layers.
+/// Arrange: moves the selected element in front of or behind the other layers,
+/// in this frame only (the cel's z-index) or in every frame (its layer).
 struct ArrangeMenu: View {
     let document: SpriteDocument
 
     var body: some View {
-        let forward = document.canArrange(forward: true), backward = document.canArrange(forward: false)
         Menu {
-            Button("Bring to front", systemImage: "square.3.layers.3d.top.filled") { document.arrange(.front) }
-                .disabled(!forward)
-            Button("Bring forward", systemImage: "square.2.layers.3d.top.filled") { document.arrange(.forward) }
-                .disabled(!forward)
-            Button("Send backward", systemImage: "square.2.layers.3d.bottom.filled") { document.arrange(.backward) }
-                .disabled(!backward)
-            Button("Send to back", systemImage: "square.3.layers.3d.bottom.filled") { document.arrange(.back) }
-                .disabled(!backward)
+            Section("This frame") { items(everyFrame: false) }
+            Section("Every frame") { items(everyFrame: true) }
         } label: {
             Image(systemName: "square.3.layers.3d")
                 .font(.system(size: 16, weight: .medium))
@@ -199,6 +193,20 @@ struct ArrangeMenu: View {
         }
         .menuIndicator(.hidden)
         .accessibilityLabel(Text("Arrange"))
+    }
+
+    @ViewBuilder
+    private func items(everyFrame: Bool) -> some View {
+        let forward = document.canArrange(forward: true, everyFrame: everyFrame)
+        let backward = document.canArrange(forward: false, everyFrame: everyFrame)
+        Button("Bring to front", systemImage: "square.3.layers.3d.top.filled") { document.arrange(.front, everyFrame: everyFrame) }
+            .disabled(!forward)
+        Button("Bring forward", systemImage: "square.2.layers.3d.top.filled") { document.arrange(.forward, everyFrame: everyFrame) }
+            .disabled(!forward)
+        Button("Send backward", systemImage: "square.2.layers.3d.bottom.filled") { document.arrange(.backward, everyFrame: everyFrame) }
+            .disabled(!backward)
+        Button("Send to back", systemImage: "square.3.layers.3d.bottom.filled") { document.arrange(.back, everyFrame: everyFrame) }
+            .disabled(!backward)
     }
 }
 

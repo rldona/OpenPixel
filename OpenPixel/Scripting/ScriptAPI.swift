@@ -412,6 +412,9 @@ extension ScriptEngine {
             case "opacity":
                 let opacity = try number(L, 3, "Cel.opacity") / 255
                 try change { $0.celOpacity[celKey] = opacity >= 1 ? nil : max(0, opacity) }
+            case "zIndex":
+                let z = Int(try number(L, 3, "Cel.zIndex"))
+                try change { $0.celZIndex[celKey] = z == 0 ? nil : z }
             default: throw Failure.unsupported("Cel.\(key)")
             }
         case .frame(let id):
@@ -587,6 +590,7 @@ extension ScriptEngine {
         try change { s in
             s.cels[key] = nil
             s.celOpacity[key] = nil
+            s.celZIndex[key] = nil
             s.normalizeLinks()
         }
         celShapes[key] = nil
@@ -674,6 +678,7 @@ extension ScriptEngine {
                 pushRectangle(L, 0, 0, sprite.width, sprite.height)
             }
         case "opacity": lua_pushinteger(L, lua_Integer(((sprite.celOpacity[celKey] ?? 1) * 255).rounded()))
+        case "zIndex": lua_pushinteger(L, lua_Integer(sprite.celZIndex[celKey] ?? 0))
         default: throw Failure.unsupported("Cel.\(key)")
         }
         return 1

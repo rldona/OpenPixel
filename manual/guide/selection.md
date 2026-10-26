@@ -17,7 +17,12 @@ The options bar picks the mode: **replace**, **add**, **subtract** or **intersec
 
 While something is selected, drawing, filling and erasing stay inside it, and a floating bar gives you the common actions: transform, duplicate and move, cut, copy, paste, delete, fill with the primary color, flip, rotate 90°, **arrange**, invert and deselect.
 
-**Arrange** (the layers button) brings what's selected to the front, one step forward, one step back or to the back. Each part of a drawing lives on its own layer, so this moves that layer up or down the stack, in every frame. It's also in the transform bar, where it stays part of the transform: **Cancel** puts the order back.
+**Arrange** (the layers button) brings what's selected to the front, one step forward, one step back or to the back. Each part of a drawing lives on its own layer, so there are two ways:
+
+- **This frame**: only the current frame (or the frames picked in the timeline) changes. The cel gets a **z-index**, as in Aseprite's Cel Properties: it's drawn that many layers higher or lower without moving its layer. An arm can be behind the body in frame 1 and in front of everything in frame 4.
+- **Every frame**: the layer moves up or down the stack.
+
+It's also in the transform bar, where it stays part of the transform: **Cancel** puts the order back.
 
 ### Selection opacity
 

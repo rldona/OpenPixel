@@ -52,6 +52,7 @@ Los **cels enlazados** comparten una sola imagen: al editar uno cambian todos. E
 - Marca una capa como **continua** (sus ●● pasan a ▬) y los frames nuevos enlazan su cel en vez de copiarlo.
 - Arrastra un cel dibujado por su círculo a otro frame o capa para moverlo allí. Sustituye lo que hubiera en ese cel.
 - Enlaza o desenlaza cels desde el menú de un cel o desde una selección.
+- El menú de un cel también fija su **z-index**: subir o bajar una capa, o restablecerlo. Los cels que se dibujan más arriba o más abajo que su capa muestran una pequeña marca **+N** o **−N**.
 
 El menú de un cel fija también su **opacidad** (compartida por los cels enlazados).
 

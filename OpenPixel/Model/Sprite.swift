@@ -117,6 +117,10 @@ struct Sprite: Equatable, Sendable {
     var links: [CelKey: UUID] = [:]
     /// Per-cel opacity on top of the layer's (Aseprite's Cel Properties). Missing keys are 1.
     var celOpacity: [CelKey: Double] = [:]
+    /// Per-cel z-index (Aseprite's Cel Properties): how many layers up (or down)
+    /// the cel is drawn in its frame, without moving its layer. Missing keys are 0.
+    /// Not shared by linked cels, so one image can sit at different depths.
+    var celZIndex: [CelKey: Int] = [:]
     /// The grid for snapping, the bucket and tilemaps (Aseprite keeps it per sprite).
     var grid = GridSettings()
     var slices: [Slice] = []
@@ -136,6 +140,22 @@ struct Sprite: Equatable, Sendable {
 
     func cel(layer: UUID, frame: UUID) -> PixelImage? {
         cels[CelKey(layer: layer, frame: frame)]
+    }
+
+    /// The layers of a frame bottom to top as they're drawn: each cel at its
+    /// layer's place plus its z-index. On a tie the cel with the higher z-index
+    /// goes on top, as in Aseprite, so +N lands above the N layers over it.
+    func drawOrder(frame: UUID) -> [Layer] {
+        guard !celZIndex.isEmpty else { return layers }
+        let z = layers.map { celZIndex[CelKey(layer: $0.id, frame: frame)] ?? 0 }
+        guard z.contains(where: { $0 != 0 }) else { return layers }
+        let order = layers.indices.sorted { a, b in
+            let oa = a + z[a], ob = b + z[b]
+            if oa != ob { return oa < ob }
+            if z[a] != z[b] { return z[a] < z[b] }
+            return a < b
+        }
+        return order.map { layers[$0] }
     }
 
     /// Flattens the visible layers of a frame.
@@ -158,7 +178,7 @@ struct Sprite: Equatable, Sendable {
             let frameID = frames[frameIndex].id
             let groupOpacity = hasGroups ? effectiveOpacities() : [:]
             // Reference layers aren't part of the image: the canvas shows them on its own.
-            for layer in layers where layer.isVisible && layer.opacity > 0 && !layer.isReference && !layer.isGroup {
+            for layer in drawOrder(frame: frameID) where layer.isVisible && layer.opacity > 0 && !layer.isReference && !layer.isGroup {
                 let key = CelKey(layer: layer.id, frame: frameID)
                 guard let image = cels[key] else { continue }
                 // Inside a hidden group (0) or a translucent one.
@@ -300,10 +320,11 @@ struct Sprite: Equatable, Sendable {
         normalizeLinks()
     }
 
-    /// Drops links and cel opacities of deleted layers, frames or cels, and
-    /// link groups left with one cel.
+    /// Drops links, cel opacities and z-indexes of deleted layers, frames or
+    /// cels, and link groups left with one cel.
     mutating func normalizeLinks() {
         if !celOpacity.isEmpty { celOpacity = celOpacity.filter { cels[$0.key] != nil && $0.value < 1 } }
+        if !celZIndex.isEmpty { celZIndex = celZIndex.filter { cels[$0.key] != nil && $0.value != 0 } }
         guard !links.isEmpty else { return }
         let layerIDs = Set(layers.map(\.id)), frameIDs = Set(frames.map(\.id))
         links = links.filter { layerIDs.contains($0.key.layer) && frameIDs.contains($0.key.frame) }
@@ -338,7 +359,13 @@ extension Sprite: Codable {
         var opacity: Double
     }
 
-    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags, links, celOpacity, grid, slices, tilemaps, pixelRatio }
+    private struct CelZIndex: Codable {
+        var layer: UUID
+        var frame: UUID
+        var zIndex: Int
+    }
+
+    private enum CodingKeys: String, CodingKey { case width, height, colorMode, layers, frames, cels, palette, tags, links, celOpacity, celZIndex, grid, slices, tilemaps, pixelRatio }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -353,6 +380,8 @@ extension Sprite: Codable {
         links = Dictionary(linkList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.group) }, uniquingKeysWith: { a, _ in a })
         let opacityList = try c.decodeIfPresent([CelOpacity].self, forKey: .celOpacity) ?? []
         celOpacity = Dictionary(opacityList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.opacity) }, uniquingKeysWith: { a, _ in a })
+        let zList = try c.decodeIfPresent([CelZIndex].self, forKey: .celZIndex) ?? []
+        celZIndex = Dictionary(zList.map { (CelKey(layer: $0.layer, frame: $0.frame), $0.zIndex) }, uniquingKeysWith: { a, _ in a })
         grid = try c.decodeIfPresent(GridSettings.self, forKey: .grid) ?? GridSettings()
         slices = try c.decodeIfPresent([Slice].self, forKey: .slices) ?? []
         pixelRatio = try c.decodeIfPresent(PixelRatio.self, forKey: .pixelRatio) ?? .square
@@ -383,6 +412,11 @@ extension Sprite: Codable {
         let opacityList = celOpacity.map { CelOpacity(layer: $0.key.layer, frame: $0.key.frame, opacity: $0.value) }
             .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
         try c.encode(opacityList, forKey: .celOpacity)
+        if !celZIndex.isEmpty {
+            let zList = celZIndex.map { CelZIndex(layer: $0.key.layer, frame: $0.key.frame, zIndex: $0.value) }
+                .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
+            try c.encode(zList, forKey: .celZIndex)
+        }
         let list = cels.map { Cel(layer: $0.key.layer, frame: $0.key.frame, image: $0.value) }
             .sorted { ($0.layer.uuidString, $0.frame.uuidString) < ($1.layer.uuidString, $1.frame.uuidString) }
         try c.encode(list, forKey: .cels)

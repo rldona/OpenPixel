@@ -35,6 +35,7 @@ enum AsepriteFile {
         var x: Int
         var y: Int
         var opacity: Int
+        var zIndex = 0
         var content: CelContent
         /// A reference layer's position and size in sprite pixels (the Cel Extra chunk).
         var preciseBounds: CGRect?
@@ -133,7 +134,8 @@ enum AsepriteFile {
                     let x = Int(try r.i16()), y = Int(try r.i16())
                     let opacity = Int(try r.u8())
                     let celType = try r.u16()
-                    try r.skip(7)
+                    let zIndex = Int(try r.i16())
+                    try r.skip(5)
                     let content: CelContent
                     switch celType {
                     case 0:
@@ -167,7 +169,7 @@ enum AsepriteFile {
                         r.position = end
                         continue
                     }
-                    cels.append(FileCel(layer: layerIndex, frame: frameIndex, x: x, y: y, opacity: opacity, content: content))
+                    cels.append(FileCel(layer: layerIndex, frame: frameIndex, x: x, y: y, opacity: opacity, zIndex: zIndex, content: content))
                     target = .none
                 case 0x2006:
                     let extraFlags = try r.u32()
@@ -359,6 +361,7 @@ enum AsepriteFile {
                 sprite.tilemaps[key] = map
             }
             if cel.opacity < 255, sprite.cels[key] != nil { sprite.celOpacity[key] = Double(cel.opacity) / 255 }
+            if cel.zIndex != 0, sprite.cels[key] != nil { sprite.celZIndex[key] = cel.zIndex }
         }
 
         // Children first, then their group above them.
@@ -597,7 +600,7 @@ enum AsepriteFile {
             c.i16(y)
             c.u8(Int(((sprite.celOpacity[key] ?? 1) * 255).rounded()))
             c.u16(type)
-            c.i16(0)
+            c.i16(sprite.celZIndex[key] ?? 0)
             c.zeros(5)
         }
 

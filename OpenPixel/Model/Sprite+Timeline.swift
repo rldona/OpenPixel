@@ -4,21 +4,23 @@ import Foundation
 /// layers, as in Aseprite's drag and drop.
 /// https://www.aseprite.org/docs/move-cels/ · https://www.aseprite.org/docs/copy-cels/
 extension Sprite {
-    /// What a cel holds besides its key: the image, its opacity and its link group.
+    /// What a cel holds besides its key: the image, its opacity and z-index.
     struct CelContent: Equatable, Sendable {
         var image: PixelImage?
         var opacity: Double?
+        var zIndex: Int?
 
-        static let empty = CelContent(image: nil, opacity: nil)
+        static let empty = CelContent(image: nil, opacity: nil, zIndex: nil)
     }
 
     func content(_ key: CelKey) -> CelContent {
-        CelContent(image: cels[key], opacity: celOpacity[key])
+        CelContent(image: cels[key], opacity: celOpacity[key], zIndex: celZIndex[key])
     }
 
     mutating func setContent(_ content: CelContent, _ key: CelKey) {
         cels[key] = content.image
         celOpacity[key] = content.image == nil ? nil : content.opacity
+        celZIndex[key] = content.image == nil ? nil : content.zIndex
     }
 
     /// Appends empty frames until there are at least `count`.
@@ -218,6 +220,7 @@ extension Sprite {
         cels = flat
         links = [:]
         celOpacity = [:]
+        celZIndex = [:]
         return layer.id
     }
 }

@@ -1296,6 +1296,7 @@ struct FrameTimeline: View {
         let key = CelKey(layer: layer.id, frame: frame.id)
         let filled = document.structure.cels[key] != nil
         let opacity = document.structure.celOpacity[key] ?? 1
+        let zIndex = document.structure.celZIndex[key] ?? 0
         let isActive = layer.id == document.activeLayerID && frameIndex == document.activeFrameIndex
         let isActiveFrame = frameIndex == document.activeFrameIndex
         let inRange = document.timelineRange.map { $0.layers.contains(layer.id) && $0.frames.contains(frameIndex) } ?? false
@@ -1339,6 +1340,18 @@ struct FrameTimeline: View {
                 }
             }
             .frame(width: celWidth - 4, height: rowHeight - 6)
+            .overlay(alignment: .topTrailing) {
+                // Drawn higher or lower than its layer in this frame.
+                if zIndex != 0 && filled {
+                    Text(verbatim: zIndex > 0 ? "+\(zIndex)" : "\u{2212}\(-zIndex)")
+                        .font(.system(size: 8, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Theme.accentText)
+                        .padding(.horizontal, 2)
+                        .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 3))
+                        .offset(x: 1, y: -1)
+                        .accessibilityHidden(true)
+                }
+            }
             .overlay {
                 // Cels picked earlier stay outlined while they're still the selection.
                 if inRange && !document.isSelectingRange {
@@ -1362,6 +1375,17 @@ struct FrameTimeline: View {
             }
             if document.structure.isLinked(key) {
                 Button("Unlink cel", systemImage: "personalhotspot.slash") { document.unlinkCel(layer: layer.id, frameIndex: frameIndex) }
+            }
+            if filled {
+                // Aseprite's Cel Properties > Z-Index: drawn above or below other layers in this frame only.
+                Menu {
+                    Button("Up one layer", systemImage: "arrow.up") { document.setCelZIndex(zIndex + 1, layer: layer.id, frameIndex: frameIndex) }
+                    Button("Down one layer", systemImage: "arrow.down") { document.setCelZIndex(zIndex - 1, layer: layer.id, frameIndex: frameIndex) }
+                    Button("Reset", systemImage: "arrow.uturn.backward") { document.setCelZIndex(0, layer: layer.id, frameIndex: frameIndex) }
+                        .disabled(zIndex == 0)
+                } label: {
+                    Label { Text("Z-index: \(zIndex)") } icon: { Image(systemName: "square.3.layers.3d") }
+                }
             }
             Button("Select cels", systemImage: "checkmark.rectangle.stack") {
                 document.isSelectingRange = true

@@ -783,3 +783,8 @@
 "Bring forward" = "Traer adelante";
 "Send backward" = "Enviar atrás";
 "Send to back" = "Enviar al fondo";
+"This frame" = "Solo este frame";
+"Every frame" = "En todos los frames";
+"Up one layer" = "Subir una capa";
+"Down one layer" = "Bajar una capa";
+"Z-index: %lld" = "Z-index: %lld";
