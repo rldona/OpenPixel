@@ -2882,6 +2882,19 @@ extension SpriteDocument {
         }
     }
 
+    /// Drags one cel by its dot to another frame or layer, as in Aseprite: it
+    /// replaces what's there, and dropping it past the last frame adds frames.
+    func moveCel(from: (layer: UUID, frame: Int), to: (layer: UUID, frame: Int)) {
+        let ids = sprite.layers.map(\.id)
+        guard let a = ids.firstIndex(of: from.layer), let b = ids.firstIndex(of: to.layer),
+              (a, from.frame) != (b, to.frame) else { return }
+        if timelineRange != nil { endRangeSelection() }
+        var applied = (dLayers: 0, dFrames: 0)
+        perform { applied = $0.moveCels(layerIndices: [a], frameRange: from.frame...from.frame, dLayers: b - a, dFrames: to.frame - from.frame, copy: false) }
+        guard applied != (0, 0) else { return }
+        selectCel(layer: sprite.layers[a + applied.dLayers].id, frameIndex: from.frame + applied.dFrames)
+    }
+
     // MARK: Copy and paste
 
     /// Copies the selected cels, frames or layers to the timeline clipboard.

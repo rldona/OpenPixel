@@ -50,6 +50,7 @@ Mientras está activado, los frames que muestra se marcan bajo sus números: en 
 Los **cels enlazados** comparten una sola imagen: al editar uno cambian todos. En el timeline se dibujan como una sola píldora alargada.
 
 - Marca una capa como **continua** (sus ●● pasan a ▬) y los frames nuevos enlazan su cel en vez de copiarlo.
+- Arrastra un cel dibujado por su círculo a otro frame o capa para moverlo allí. Sustituye lo que hubiera en ese cel.
 - Enlaza o desenlaza cels desde el menú de un cel o desde una selección.
 
 El menú de un cel fija también su **opacidad** (compartida por los cels enlazados).

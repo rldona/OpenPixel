@@ -50,6 +50,7 @@ While it's on, the frames it shows are marked under their numbers: red before, b
 **Linked cels** share one image: editing one changes all of them. They're drawn as one long pill in the timeline.
 
 - Mark a layer as **continuous** (its ●● turns into ▬) and new frames link its cel instead of copying it.
+- Drag a drawn cel by its dot to another frame or layer to move it there. It replaces what was in that cel.
 - Link or unlink cels from a cel's menu or a range selection.
 
 A cel's menu also sets its **opacity** (shared by linked cels).

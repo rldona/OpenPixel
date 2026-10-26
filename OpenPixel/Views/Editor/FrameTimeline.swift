@@ -1175,7 +1175,11 @@ struct FrameTimeline: View {
     /// Drops a dragged block on (`layer`, `frame`); a nil layer keeps the block's layers (drops on frame numbers).
     private func dropRange(_ items: [String], layer: UUID?, frame: Int) -> Bool {
         guard let grabbed = items.first.flatMap(RangePayload.init) else { return false }
-        document.dropRange(from: (grabbed.layer, grabbed.frame), to: (layer ?? grabbed.layer, frame))
+        if grabbed.isCel {
+            document.moveCel(from: (grabbed.layer, grabbed.frame), to: (layer ?? grabbed.layer, frame))
+        } else {
+            document.dropRange(from: (grabbed.layer, grabbed.frame), to: (layer ?? grabbed.layer, frame))
+        }
         return true
     }
 
@@ -1378,6 +1382,11 @@ struct FrameTimeline: View {
                         Text(verbatim: "\(r.frames.count) × \(r.layers.count)")
                     } ?? Text(verbatim: ""))
                 }
+            } else if filled && !document.isSelectingRange {
+                // A drawn cel can be dragged by its dot to another frame or layer.
+                cel.draggable(RangePayload(layer: layer.id, frame: frameIndex, isCel: true).string) {
+                    dragPreview(Text(verbatim: "1 × 1"))
+                }
             } else {
                 cel
             }
@@ -1400,19 +1409,23 @@ struct FrameTimeline: View {
 private struct RangePayload {
     var layer: UUID
     var frame: Int
+    /// A single cel dragged by its dot, not a selected block.
+    var isCel = false
 
-    init(layer: UUID, frame: Int) {
+    init(layer: UUID, frame: Int, isCel: Bool = false) {
         self.layer = layer
         self.frame = frame
+        self.isCel = isCel
     }
 
     init?(_ string: String) {
         let parts = string.split(separator: ":")
-        guard parts.count == 3, parts[0] == "range", let layer = UUID(uuidString: String(parts[1])), let frame = Int(parts[2]) else { return nil }
-        self.init(layer: layer, frame: frame)
+        guard parts.count == 3, parts[0] == "range" || parts[0] == "cel",
+              let layer = UUID(uuidString: String(parts[1])), let frame = Int(parts[2]) else { return nil }
+        self.init(layer: layer, frame: frame, isCel: parts[0] == "cel")
     }
 
-    var string: String { "range:\(layer.uuidString):\(frame)" }
+    var string: String { "\(isCel ? "cel" : "range"):\(layer.uuidString):\(frame)" }
 }
 
 /// Edits a tag's name, color, frame range, direction and repeat count.

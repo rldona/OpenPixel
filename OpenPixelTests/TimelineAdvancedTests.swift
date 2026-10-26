@@ -74,6 +74,22 @@ final class TimelineAdvancedTests: XCTestCase {
 
     // MARK: Move and copy cels
 
+    func testDragOneCelToAnotherFrameAndLayer() {
+        let doc = makeDocument()
+        let ids = doc.sprite.layers.map(\.id)
+        doc.moveCel(from: (ids[top], 1), to: (ids[0], 3))
+        XCTAssertNil(marker(doc, frame: 1, layer: top), "the cel leaves its place")
+        XCTAssertEqual(marker(doc, frame: 3, layer: 0), 1)
+        XCTAssertEqual(marker(doc, frame: 3, layer: top), 3, "other cels stay")
+        XCTAssertEqual(doc.activeLayerID, ids[0])
+        XCTAssertEqual(doc.activeFrameIndex, 3)
+        doc.undo()
+        XCTAssertEqual(marker(doc, frame: 1, layer: top), 1)
+        doc.moveCel(from: (ids[top], 3), to: (ids[top], 5))
+        XCTAssertEqual(doc.sprite.frames.count, 6, "past the end adds frames")
+        XCTAssertEqual(marker(doc, frame: 5, layer: top), 3)
+    }
+
     func testMoveCelsPastTheEndAddsFrames() {
         let doc = makeDocument()
         let topID = doc.sprite.layers[top].id
