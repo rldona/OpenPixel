@@ -2146,17 +2146,22 @@ extension SpriteDocument {
         let mask = selection, color = primary, active = activeCelKey
         let (w, h) = (storage.width, storage.height)
         perform { s in
-            // Pixels drawn in any of the layers: those stay with their own layer.
-            var drawn = [Bool](repeating: false, count: w * h)
+            // Pixels drawn in any of the layers of a frame: those stay with their own layer.
+            var drawn: [UUID: [Bool]] = [:]
             if keys.count > 1 {
-                for key in keys { if let cel = s.cels[key] { for i in cel.pixels.indices where cel.pixels[i].a != 0 { drawn[i] = true } } }
+                for key in keys {
+                    var bits = drawn[key.frame] ?? [Bool](repeating: false, count: w * h)
+                    if let cel = s.cels[key] { for i in cel.pixels.indices where cel.pixels[i].a != 0 { bits[i] = true } }
+                    drawn[key.frame] = bits
+                }
             }
             for key in keys {
                 var cel = s.cels[key] ?? PixelImage(width: w, height: h)
                 let isActive = keys.count == 1 || key == active
+                let drawn = drawn[key.frame] ?? []
                 for i in cel.pixels.indices where mask?.bits[i] ?? true {
                     let own = cel.pixels[i].a != 0
-                    guard own || (isActive && !drawn[i]) else { continue }
+                    guard own || (isActive && !(drawn.indices.contains(i) && drawn[i])) else { continue }
                     cel.pixels[i] = color
                 }
                 s.cels[key] = cel.isEmpty ? nil : cel

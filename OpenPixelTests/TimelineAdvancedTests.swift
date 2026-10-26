@@ -49,6 +49,28 @@ final class TimelineAdvancedTests: XCTestCase {
         XCTAssertEqual(doc.timelineRange?.frames, 0...1)
     }
 
+    func testPickedCelsStayTheScopeOfAFillAfterDone() {
+        let doc = makeDocument()
+        let ids = doc.sprite.layers.map(\.id)
+        // The bottom layer gets a pixel at (3, 3) in frame 2.
+        doc.selectCel(layer: ids[0], frameIndex: 2)
+        doc.beginStroke(at: PixelPoint(x: 3, y: 3))
+        doc.endStroke()
+        doc.isSelectingRange = true
+        doc.extendRange(layer: ids[1], frameIndex: 1)
+        doc.extendRange(layer: ids[0], frameIndex: 2)
+        doc.isSelectingRange = false
+        doc.selectCel(layer: ids[1], frameIndex: 1)
+        doc.selectAll()
+        doc.primary = .white
+        doc.fillSelection()
+        let s = doc.sprite
+        XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[2].id)?[2, 0], .white, "another frame's cel is recolored")
+        XCTAssertEqual(s.cel(layer: ids[0], frame: s.frames[2].id)?[3, 3], .white, "another layer's cel is recolored")
+        XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[1].id)?[0, 3], .white, "the active cel takes the empty part")
+        XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[0].id)?[0, 0], .black, "cels outside the block stay")
+    }
+
     // MARK: Move and copy cels
 
     func testMoveCelsPastTheEndAddsFrames() {

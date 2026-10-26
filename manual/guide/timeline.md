@@ -62,3 +62,4 @@ Tap **Select**, then cels, frame numbers or layer names to select a block. With 
 - **Move and copy blocks** of cels, frames or layers by dragging them. A switch next to **Done** chooses between moving and copying. Blocks dropped past the last frame add frames.
 - **Copy and paste between sprites**: copy a block, then paste cels, frames or layers from the menu of a cel, a frame number or a layer in any sprite.
 - [Transforms](./selection#transforming-several-cels) change every selected cel.
+- **Done** keeps the cels selected (outlined) so fills, deletes and transforms on the canvas reach all of them. Tap any cel to clear them.

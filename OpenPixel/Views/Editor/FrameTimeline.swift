@@ -262,7 +262,9 @@ struct FrameTimeline: View {
             dragModePicker
                 .padding(.leading, 4)
 
-            Button { document.endRangeSelection() } label: {
+            // The picked cels stay selected, so edits on the canvas (fill, delete,
+            // transforms) keep reaching all of them, as in Aseprite. Tapping a cel clears them.
+            Button { document.isSelectingRange = false } label: {
                 Text("Done")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.onAccent)
@@ -1302,6 +1304,7 @@ struct FrameTimeline: View {
             if document.isSelectingRange {
                 document.extendRange(layer: layer.id, frameIndex: frameIndex)
             } else {
+                if document.timelineRange != nil { document.endRangeSelection() }
                 document.selectCel(layer: layer.id, frameIndex: frameIndex)
             }
         } label: {
@@ -1332,6 +1335,12 @@ struct FrameTimeline: View {
                 }
             }
             .frame(width: celWidth - 4, height: rowHeight - 6)
+            .overlay {
+                // Cels picked earlier stay outlined while they're still the selection.
+                if inRange && !document.isSelectingRange {
+                    RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.accent, lineWidth: 2)
+                }
+            }
             .frame(width: celWidth)
             .contentShape(Rectangle())
         }
