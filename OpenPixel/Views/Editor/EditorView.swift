@@ -457,8 +457,6 @@ private struct ZoomMenu: View {
 private struct RailSlider: View {
     enum Preview { case size, opacity }
     let label: LocalizedStringKey
-    /// The short name in the card ("Size", "Opacity"), so it fits one line.
-    let title: LocalizedStringKey
     @Binding var value: Double
     let range: ClosedRange<Double>
     let text: (Double) -> String
@@ -487,7 +485,7 @@ private struct RailSlider: View {
                     // Beside the rail, whichever slider it is.
                     let x = geo.frame(in: .named("rail"))
                     card
-                        .offset(x: mirrored ? -(x.minX + 8 + 150) : EditorView.railWidth - x.minX + 8)
+                        .offset(x: mirrored ? -(x.minX + 8 + 120) : EditorView.railWidth - x.minX + 8)
                         .frame(width: geo.size.width, alignment: .leading)
                         .allowsHitTesting(false)
                 }
@@ -515,30 +513,19 @@ private struct RailSlider: View {
         }
     }
 
-    /// The name and value, and a dot as big (or as opaque) as the brush will paint.
+    /// Just a dot as big (or as opaque) as the brush will paint: the picture says it.
     private var card: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // "Opacity: 48%", one line.
-            (Text(title).font(.system(size: 15, weight: .semibold))
-                + Text(verbatim: ": ").font(.system(size: 15, weight: .semibold))
-                + Text(verbatim: text(value)).font(.system(size: 15, weight: .regular, design: .monospaced)))
-                .foregroundStyle(Theme.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            ZStack {
-                switch preview {
-                case .size:
-                    let side = 6 + (value - range.lowerBound) / (range.upperBound - range.lowerBound) * 70
-                    Rectangle().fill(Theme.text).frame(width: side, height: side)
-                case .opacity:
-                    Circle().fill(Theme.text.opacity(value / range.upperBound)).frame(width: 60, height: 60)
-                }
+        ZStack {
+            switch preview {
+            case .size:
+                let side = 6 + (value - range.lowerBound) / (range.upperBound - range.lowerBound) * 74
+                Rectangle().fill(Theme.text).frame(width: side, height: side)
+            case .opacity:
+                Circle().fill(Theme.text.opacity(value / range.upperBound)).frame(width: 64, height: 64)
             }
-            .frame(width: 120, height: 80)
         }
-        .padding(14)
-        .frame(width: 150, alignment: .leading)
+        .frame(width: 96, height: 96)
+        .padding(12)
         .background(Theme.panel, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
@@ -565,17 +552,17 @@ struct ToolRail: View {
             // With something selected, the selection's opacity; otherwise
             // brush size and opacity, dragged like Procreate's side sliders.
             if document.hasSelection && (document.tool.isSelection || document.tool == .move) && !document.isTransforming {
-                RailSlider(label: "Selection opacity", title: "Opacity", value: Binding(get: { document.selectionOpacity * 100 }, set: { document.setSelectionOpacity($0 / 100) }),
+                RailSlider(label: "Selection opacity", value: Binding(get: { document.selectionOpacity * 100 }, set: { document.setSelectionOpacity($0 / 100) }),
                            range: 0...100, text: { "\(Int($0.rounded()))%" }, preview: .opacity, mirrored: mirrored,
                            onBegin: { document.beginSelectionOpacity() }, onEnd: { document.endSelectionOpacity() })
                     .frame(maxHeight: 150)
             } else if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
                 HStack(spacing: 6) {
-                    RailSlider(label: "Brush size", title: "Size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
+                    RailSlider(label: "Brush size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
                                range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, preview: .size, mirrored: mirrored)
                         .opacity(document.tool.usesBrush && document.activeCustomBrushImage == nil ? 1 : 0.3)
                         .disabled(!document.tool.usesBrush || document.activeCustomBrushImage != nil)
-                    RailSlider(label: "Opacity", title: "Opacity", value: Binding(get: { Double(document.toolOpacity) }, set: { document.toolOpacity = Int($0.rounded()) }),
+                    RailSlider(label: "Opacity", value: Binding(get: { Double(document.toolOpacity) }, set: { document.toolOpacity = Int($0.rounded()) }),
                                range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded()))%" }, preview: .opacity, mirrored: mirrored)
                 }
                 .frame(maxHeight: 150)
