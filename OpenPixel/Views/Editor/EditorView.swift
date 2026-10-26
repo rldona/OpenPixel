@@ -561,6 +561,7 @@ struct ToolRail: View {
             }
             Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             symmetryButton
+            outlineButton
             scriptsButton
             Spacer(minLength: 8)
             // With something selected, the selection's opacity; otherwise
@@ -617,6 +618,24 @@ struct ToolRail: View {
             .opacity(0)
             .accessibilityHidden(true)
         }
+    }
+
+    /// Opens the Outline window (also in the ⋯ menu), and closes it without applying.
+    private var outlineButton: some View {
+        let isOn = document.isOutlining
+        return Button {
+            if isOn { document.endOutline(apply: nil, everyCel: false) } else { document.beginOutline() }
+        } label: {
+            Image(systemName: "smallcircle.filled.circle")
+                .font(.system(size: 19, weight: .medium))
+                .frame(width: Self.button, height: Self.button)
+                .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
+                .background(isOn ? Theme.accent : Color.clear, in: RoundedRectangle(cornerRadius: 11))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Outline"))
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     /// Runs a script or an extension's command (also in Edit > Scripts).

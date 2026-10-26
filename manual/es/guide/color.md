@@ -49,13 +49,13 @@ El **+** que hay tras el último color añade el color principal, así que puede
 
 ## Acciones de color
 
-Los iconos de abajo, más el contorno del menú ⋯:
+Los iconos de abajo, más el contorno:
 
 | Botón | Qué hace |
 |---|---|
 | **Reemplazar color…** (⇧R) | Sustituye un color por otro, con una tolerancia, en el cel actual o en todos, y solo dentro de la selección si la hay. |
 | **Tono/Saturación** | Una ventana flotante para cambiar el tono, la saturación, la luminosidad (o el valor) y el alfa, o los canales R, G, B y A, en el cel actual o en todos, con vista previa. **Aplicar** lo deja, **Cancelar** lo deshace. Mientras está abierta se puede mover y ampliar el lienzo, pero no pintar. |
-| **Contorno…** (en el menú ⋯) | Dibuja una línea de 1 px en el color principal o el secundario alrededor de lo dibujado (**Exterior**) o sobre su propio borde (**Interior**). La forma decide qué vecinos cuentan: **círculo** para esquinas redondeadas, **cuadrado** para esquinas en ángulo, **horizontal** o **vertical**, o elígelos uno a uno en la cuadrícula de 3×3. **Fondo** elige qué cuenta como vacío y **Mosaico** da la vuelta por los bordes. Se aplica a la selección si la hay, al cel actual o a los cels elegidos en el timeline, o a todos, con vista previa. |
+| **Contorno…** (el botón ◉ de la barra de herramientas, o el menú ⋯) | Dibuja una línea de 1 px en el color principal o el secundario alrededor de lo dibujado (**Exterior**) o sobre su propio borde (**Interior**). La forma decide qué vecinos cuentan: **círculo** para esquinas redondeadas, **cuadrado** para esquinas en ángulo, **horizontal** o **vertical**, o elígelos uno a uno en la cuadrícula de 3×3. **Fondo** elige qué cuenta como vacío y **Mosaico** da la vuelta por los bordes. Se aplica a la selección si la hay, al cel actual o a los cels elegidos en el timeline, o a todos, con vista previa. |
 | **Sombreado de color** | Una ventana flotante con una rampa de sombras del color principal; **Luminosidad, saturación y tono** muestra tres rampas más. Toca un tono para pintar con él; mantenlo pulsado para usarlo como secundario o añadirlo a la paleta. |
 
 Solo hay una de las dos ventanas abierta a la vez: al abrir una se cierra la otra.
