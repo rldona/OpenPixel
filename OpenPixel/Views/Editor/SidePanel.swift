@@ -259,11 +259,38 @@ struct SidePanel: View {
     }
 
     private func paletteGrid(_ palette: [PixelColor]) -> some View {
-        LazyVGrid(columns: columns, spacing: 4) {
-            ForEach(Array(palette.enumerated()), id: \.offset) { index, color in
-                swatch(color, index: index)
+        VStack(alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: columns, spacing: 4) {
+                ForEach(Array(palette.enumerated()), id: \.offset) { index, color in
+                    swatch(color, index: index)
+                }
+                if !isEditingPalette && palette.count < PaletteFile.maxColors { addSwatch }
+            }
+            if palette.isEmpty {
+                Text("Pick a color and tap + to add it to the palette.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    /// The last tile: adds the primary color, to build a palette by hand.
+    private var addSwatch: some View {
+        let inPalette = document.paletteIndex(of: document.primary) != nil
+        return Button { document.addToPalette(document.primary) } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(inPalette ? Theme.muted.opacity(0.5) : Theme.text)
+                .frame(maxWidth: .infinity)
+                .frame(height: 27)
+                .background(Theme.field, in: RoundedRectangle(cornerRadius: 6))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(inPalette)
+        .accessibilityLabel(Text("Add the primary color to the palette"))
     }
 
     private var paletteMenu: some View {
@@ -283,6 +310,7 @@ struct SidePanel: View {
                 }
             }
             Button("Palette from sprite", systemImage: "eyedropper.halffull") { document.paletteFromSprite() }
+            Button("New empty palette", systemImage: "square.dashed") { document.clearPalette() }
             Divider()
             Button("Import palette…", systemImage: "square.and.arrow.down") { importingPalette = true }
             Menu("Export palette") {
@@ -340,7 +368,6 @@ struct SidePanel: View {
             Button("Edit color…", systemImage: "slider.horizontal.3") { editingEntry = PaletteEntry(index: index, color: color) }
             Divider()
             Button("Remove from palette", systemImage: "trash", role: .destructive) { document.removeFromPalette(at: index) }
-                .disabled(document.structure.palette.count <= 1)
         }
         return Group {
             if isEditingPalette {

@@ -67,7 +67,7 @@ struct NewSpriteView: View {
 
                         VStack(alignment: .leading, spacing: 10) {
                             SectionLabel("Starting palette")
-                            ForEach(Palette.all) { p in
+                            ForEach(Palette.all + [.empty]) { p in
                                 Button { palette = p } label: {
                                     HStack(spacing: 12) {
                                         Text(LocalizedStringKey(p.name)).frame(width: 140, alignment: .leading).lineLimit(1)
@@ -76,7 +76,14 @@ struct NewSpriteView: View {
                                                 Rectangle().fill(c.color)
                                             }
                                         }
+                                        .frame(maxWidth: .infinity)
                                         .frame(height: 18)
+                                        .overlay {
+                                            // No colors yet: you'll add them yourself.
+                                            if p.colors.isEmpty {
+                                                RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                                            }
+                                        }
                                         .clipShape(RoundedRectangle(cornerRadius: 4))
                                     }
                                     .padding(12)

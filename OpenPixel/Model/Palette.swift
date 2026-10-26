@@ -51,6 +51,9 @@ struct Palette: Identifiable, Hashable {
         return String(format: "#%02X%02X%02X", v, v, v)
     })
 
+    /// No colors: build your own with the palette's + (the primary color goes in).
+    static let empty = Palette(name: "Empty", colors: [])
+
     static let presets: [Palette] = [.db32, .pico8, .sweetie16, .endesga32, .db16, .gameBoy, .grays]
 
     // MARK: Default palette

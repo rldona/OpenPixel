@@ -1568,13 +1568,19 @@ final class SpriteDocument {
     // MARK: - Palette
 
     func addToPalette(_ color: PixelColor) {
-        guard !sprite.palette.contains(color) else { return }
+        guard !sprite.palette.contains(color), sprite.palette.count < PaletteFile.maxColors else { return }
         perform { $0.palette.append(color) }
     }
 
     func removeFromPalette(at index: Int) {
         guard sprite.palette.indices.contains(index) else { return }
         perform { $0.palette.remove(at: index) }
+    }
+
+    /// Palette > New empty palette: no colors, to build one with +. Pixels don't change.
+    func clearPalette() {
+        guard !sprite.palette.isEmpty else { return }
+        perform { $0.palette = [] }
     }
 
     /// Replaces the whole palette (a preset, a file, the sprite's colors). Pixels don't change.
@@ -1589,10 +1595,7 @@ final class SpriteDocument {
     }
 
     func removePaletteColors(_ range: ClosedRange<Int>) {
-        guard sprite.palette.indices.contains(range.upperBound), range.count < sprite.palette.count else {
-            notice = L10n.string("A palette needs at least one color")
-            return
-        }
+        guard sprite.palette.indices.contains(range.upperBound) else { return }
         perform { $0.palette.removeSubrange(range) }
     }
 

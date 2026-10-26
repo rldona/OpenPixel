@@ -146,16 +146,39 @@ final class PaletteDocumentTests: XCTestCase {
         XCTAssertEqual(doc.sprite.palette, Palette.pico8.colors)
     }
 
-    func testPaletteEditsAreUndoableAndKeepOneColor() {
+    func testPaletteEditsAreUndoable() {
         let doc = makeDocument()
         doc.removePaletteColors(0...15)
+        XCTAssertTrue(doc.sprite.palette.isEmpty, "every color can go, to start over")
+        doc.undo()
         XCTAssertEqual(doc.sprite.palette.count, 16)
-        XCTAssertNotNil(doc.notice)
         doc.duplicatePaletteColors(0...1)
         XCTAssertEqual(Array(doc.sprite.palette.prefix(4)), [Palette.pico8.colors[0], Palette.pico8.colors[1], Palette.pico8.colors[0], Palette.pico8.colors[1]])
         doc.setPaletteColor(blue, at: 0)
         XCTAssertEqual(doc.paletteIndex(of: blue), 0)
         doc.undo()
+        doc.undo()
+        XCTAssertEqual(doc.sprite.palette, Palette.pico8.colors)
+    }
+
+    func testAnEmptyPaletteIsBuiltWithPlus() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 4, height: 4, background: nil, palette: Palette.empty.colors))
+        XCTAssertTrue(doc.sprite.palette.isEmpty)
+        doc.addToPalette(red)
+        doc.addToPalette(red)
+        doc.addToPalette(blue)
+        XCTAssertEqual(doc.sprite.palette, [red, blue], "no duplicates")
+        // The shading ink doesn't need a palette to exist.
+        doc.select(.pencil)
+        doc.ink = .shading
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.endStroke()
+    }
+
+    func testNewEmptyPaletteIsOneUndoStep() {
+        let doc = makeDocument()
+        doc.clearPalette()
+        XCTAssertTrue(doc.sprite.palette.isEmpty)
         doc.undo()
         XCTAssertEqual(doc.sprite.palette, Palette.pico8.colors)
     }

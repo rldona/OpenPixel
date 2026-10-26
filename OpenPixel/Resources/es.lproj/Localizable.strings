@@ -356,7 +356,10 @@
 "Palette color %lld" = "Color de paleta %lld";
 "New sprites will start with this palette" = "Los sprites nuevos empezarán con esta paleta";
 "Couldn't read a palette from that file" = "No se pudo leer una paleta de ese archivo";
-"A palette needs at least one color" = "Una paleta necesita al menos un color";
+"Empty" = "Vacía";
+"New empty palette" = "Nueva paleta vacía";
+"Pick a color and tap + to add it to the palette." = "Elige un color y toca + para añadirlo a la paleta.";
+"Add the primary color to the palette" = "Añadir el color principal a la paleta";
 "The sprite has no colors yet" = "El sprite aún no tiene colores";
 "The layer is locked" = "La capa está bloqueada";
 "My default" = "Mi paleta por defecto";
