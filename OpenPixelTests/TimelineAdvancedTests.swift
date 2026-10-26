@@ -30,6 +30,25 @@ final class TimelineAdvancedTests: XCTestCase {
 
     private var top: Int { 1 }
 
+    // MARK: Pick cels
+
+    func testCelsPickedAcrossLayersAllEndUpInTheBlock() {
+        let doc = makeDocument()
+        doc.addLayer()
+        let ids = doc.sprite.layers.map(\.id)
+        // Bottom layer, up through the others, and back down to the bottom.
+        doc.extendRange(layer: ids[0], frameIndex: 0)
+        doc.extendRange(layer: ids[1], frameIndex: 1)
+        doc.extendRange(layer: ids[2], frameIndex: 2)
+        doc.extendRange(layer: ids[0], frameIndex: 3)
+        XCTAssertEqual(doc.timelineRange?.layers, Set(ids))
+        XCTAssertEqual(doc.timelineRange?.frames, 0...3)
+        // A tap inside trims the block back to the anchor.
+        doc.extendRange(layer: ids[1], frameIndex: 1)
+        XCTAssertEqual(doc.timelineRange?.layers, Set(ids[0...1]))
+        XCTAssertEqual(doc.timelineRange?.frames, 0...1)
+    }
+
     // MARK: Move and copy cels
 
     func testMoveCelsPastTheEndAddsFrames() {

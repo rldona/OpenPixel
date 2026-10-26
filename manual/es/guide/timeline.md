@@ -58,6 +58,7 @@ El menú de un cel fija también su **opacidad** (compartida por los cels enlaza
 
 Toca **Seleccionar** y luego cels, números de frame o nombres de capa para seleccionar un bloque. Con él puedes **enlazar**, **desenlazar**, **limpiar**, **duplicar**, **invertir** o **eliminar**, crear un **tag** sobre sus frames, fijar la **duración** de varios frames a la vez y hacer un **bucle** con esa sección.
 
+- **Elegir cels uno a uno**: cada cel que tocas fuera del bloque lo amplía para incluirlo, aunque esté en otra capa. Toca un cel dentro del bloque para recortarlo.
 - **Mover y copiar bloques** de cels, frames o capas arrastrándolos. Un interruptor junto a **Listo** elige entre mover y copiar. Los bloques que sueltas más allá del último frame añaden frames.
 - **Copiar y pegar entre sprites**: copia un bloque y pega cels, frames o capas desde el menú de un cel, de un número de frame o de una capa en cualquier sprite.
 - Las [transformaciones](./selection#transformar-varios-cels) cambian todos los cels seleccionados.

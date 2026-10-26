@@ -2694,21 +2694,27 @@ struct TimelineRange: Equatable {
 }
 
 extension SpriteDocument {
-    /// Tap on a cel while selecting: the first tap anchors, the next ones
-    /// extend the block from the anchor to the tapped cel.
+    /// Tap on a cel while selecting: the first tap anchors, the next ones grow
+    /// the block until it takes in the tapped cel, so cels picked one by one
+    /// across layers all end up selected. A tap inside the block trims it back
+    /// to the block from the anchor to that cel.
     func extendRange(layer: UUID, frameIndex: Int) {
-        guard let anchor = rangeAnchor, timelineRange != nil else {
+        guard let anchor = rangeAnchor, let range = timelineRange else {
             rangeAnchor = (layer, frameIndex)
             timelineRange = TimelineRange(layers: [layer], frames: frameIndex...frameIndex)
             return
         }
         let ids = sprite.layers.map(\.id)
         guard let a = ids.firstIndex(of: anchor.layer), let b = ids.firstIndex(of: layer) else { return }
-        timelineRange = TimelineRange(
-            kind: .cels,
-            layers: Set(ids[min(a, b)...max(a, b)]),
-            frames: min(anchor.frame, frameIndex)...max(anchor.frame, frameIndex)
-        )
+        var rows = min(a, b)...max(a, b)
+        var frames = min(anchor.frame, frameIndex)...max(anchor.frame, frameIndex)
+        let inside = range.kind == .cels && range.layers.contains(layer) && range.frames.contains(frameIndex)
+        if !inside, range.kind == .cels {
+            let held = range.layers.compactMap { ids.firstIndex(of: $0) }
+            rows = min(rows.lowerBound, held.min() ?? a)...max(rows.upperBound, held.max() ?? a)
+            frames = min(frames.lowerBound, range.frames.lowerBound)...max(frames.upperBound, range.frames.upperBound)
+        }
+        timelineRange = TimelineRange(kind: .cels, layers: Set(ids[rows]), frames: frames)
     }
 
     /// Tap on a frame number while selecting: whole columns, every layer.
