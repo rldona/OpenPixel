@@ -516,12 +516,17 @@ private struct RailSlider: View {
     /// The name and value, and a dot as big (or as opaque) as the brush will paint.
     private var card: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Text(label).font(.system(size: 15, weight: .semibold))
+            // The name wraps (long ones like "Selection opacity" don't fit one line),
+            // the value goes under it, so the card never grows past its width.
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(verbatim: text(value)).font(.system(size: 15, weight: .regular, design: .monospaced))
             }
             .foregroundStyle(Theme.text)
-            .fixedSize()
+            .frame(maxWidth: .infinity, alignment: .leading)
             ZStack {
                 switch preview {
                 case .size:
