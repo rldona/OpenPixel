@@ -766,9 +766,10 @@ private struct CanvasHost: View {
             references: referenceOverlays(sprite),
             spriteSize: CGSize(width: sprite.width, height: sprite.height),
             showGrid: document.showGrid,
-            // A tilemap shows its tiles' grid; otherwise the sprite grid when it's on.
-            tileGrid: document.activeLayer?.tileset.map { GridSettings(width: $0.tileWidth, height: $0.tileHeight) }
-                ?? (document.showTileGrid ? sprite.grid : nil),
+            // The grid, when it's on: a tilemap's tiles, or the sprite grid.
+            tileGrid: document.showTileGrid
+                ? (document.activeLayer?.tileset.map { GridSettings(width: $0.tileWidth, height: $0.tileHeight) } ?? sprite.grid)
+                : nil,
             symmetry: document.symmetry,
             tiledMode: document.tiledMode,
             pixelRatio: sprite.pixelRatio,

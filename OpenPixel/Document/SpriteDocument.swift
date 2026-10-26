@@ -2593,7 +2593,8 @@ extension SpriteDocument {
         guard w >= 1, h >= 1, w <= Self.maxCanvasSize, h <= Self.maxCanvasSize,
               rect != PixelRect.full(width: storage.width, height: storage.height) else { return }
         var moved = (dx: 0, dy: 0)
-        performCanvasChange { moved = $0.resizeCanvas(to: rect) }
+        let tiled = tiledMode
+        performCanvasChange { moved = $0.resizeCanvas(to: rect, tiled: tiled) }
         if let x2 = symmetry.axisX2 { symmetry.axisX2 = x2 + 2 * moved.dx }
         if let y2 = symmetry.axisY2 { symmetry.axisY2 = y2 + 2 * moved.dy }
     }

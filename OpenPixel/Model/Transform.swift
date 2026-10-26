@@ -369,9 +369,49 @@ extension Sprite {
     /// The canvas becomes `rect` (in the current canvas's coordinates; it can
     /// reach past its edges to grow). Returns how far the drawing moved.
     @discardableResult
-    mutating func resizeCanvas(to rect: PixelRect) -> (dx: Int, dy: Int) {
+    mutating func resizeCanvas(to rect: PixelRect, tiled: TiledMode = .none) -> (dx: Int, dy: Int) {
         let dx = -rect.minX, dy = -rect.minY
-        crop(to: rect)
+        if tiled != .none {
+            // Tiled mode: the new area repeats the drawing, as Aseprite does.
+            let w = width, h = height, nw = rect.maxX - rect.minX + 1, nh = rect.maxY - rect.minY + 1
+            func source(_ v: Int, _ size: Int, wraps: Bool) -> Int? {
+                wraps ? ((v % size) + size) % size : (v >= 0 && v < size ? v : nil)
+            }
+            cels = cels.compactMapValues { image in
+                var out = PixelImage(width: nw, height: nh)
+                for y in 0..<nh {
+                    guard let sy = source(y + rect.minY, h, wraps: tiled.wrapsY) else { continue }
+                    for x in 0..<nw {
+                        guard let sx = source(x + rect.minX, w, wraps: tiled.wrapsX) else { continue }
+                        out[x, y] = image[sx, sy]
+                    }
+                }
+                return out.isEmpty ? nil : out
+            }
+            for (key, map) in tilemaps {
+                guard let tileset = layers.first(where: { $0.id == key.layer })?.tileset,
+                      w % tileset.tileWidth == 0, h % tileset.tileHeight == 0,
+                      rect.minX % tileset.tileWidth == 0, rect.minY % tileset.tileHeight == 0,
+                      nw % tileset.tileWidth == 0, nh % tileset.tileHeight == 0 else {
+                    tilemaps[key] = nil
+                    continue
+                }
+                let c0 = rect.minX / tileset.tileWidth, r0 = rect.minY / tileset.tileHeight
+                var out = TileMap(columns: nw / tileset.tileWidth, rows: nh / tileset.tileHeight)
+                for row in 0..<out.rows {
+                    guard let sr = source(row + r0, map.rows, wraps: tiled.wrapsY) else { continue }
+                    for column in 0..<out.columns {
+                        guard let sc = source(column + c0, map.columns, wraps: tiled.wrapsX) else { continue }
+                        out[column, row] = map[sc, sr]
+                    }
+                }
+                tilemaps[key] = out
+            }
+            width = nw
+            height = nh
+        } else {
+            crop(to: rect)
+        }
         for i in slices.indices {
             for k in slices[i].keys.indices { slices[i].keys[k].bounds = slices[i].keys[k].bounds.offsetBy(dx: dx, dy: dy) }
         }

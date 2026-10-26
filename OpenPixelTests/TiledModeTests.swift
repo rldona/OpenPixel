@@ -96,3 +96,20 @@ final class RepeatCanvasTests: XCTestCase {
         XCTAssertEqual(cel(doc)?[8, 0], .black)
     }
 }
+
+@MainActor
+final class TiledCanvasResizeTests: XCTestCase {
+    func testGrowingInTiledModeRepeatsTheDrawing() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
+        doc.primary = .black
+        doc.beginStroke(at: PixelPoint(x: 1, y: 2))
+        doc.endStroke()
+        doc.tiledMode = .horizontal
+        doc.resizeCanvas(to: PixelRect(minX: -8, minY: 0, maxX: 15, maxY: 11))
+        let cel = doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id)
+        XCTAssertEqual(doc.sprite.width, 24)
+        for x in [1, 9, 17] { XCTAssertEqual(cel?[x, 2], .black, "copy at \(x)") }
+        XCTAssertEqual(cel?[9, 10], .clear, "the vertical axis isn't tiled: new rows are empty")
+        XCTAssertEqual(doc.tiledMode, .horizontal, "tiled mode stays on")
+    }
+}
