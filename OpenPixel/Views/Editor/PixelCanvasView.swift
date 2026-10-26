@@ -146,6 +146,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     private static let minScale: CGFloat = 1
     private static let maxScale: CGFloat = 128
+    /// Room kept free around the sprite when fitting it; more below, for the
+    /// floating selection and transform bars.
+    private static let fitMargin: CGFloat = 32
+    private static let topInset: CGFloat = 32
+    private static let bottomInset: CGFloat = 72
     private var isDark: Bool { traitCollection.userInterfaceStyle == .dark }
     private var checkerLight: PixelColor { look.checkerLight ?? (isDark ? PixelColor(r: 69, g: 69, b: 69) : PixelColor(r: 236, g: 236, b: 236)) }
     private var checkerDark: PixelColor { look.checkerDark ?? (isDark ? PixelColor(r: 54, g: 54, b: 54) : PixelColor(r: 212, g: 212, b: 212)) }
@@ -849,14 +854,15 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         lastBoundsSize = bounds.size
     }
 
-    /// The sprite as big as it fits, edge to edge with the canvas area and
-    /// centered in it (pinching still snaps to whole zoom levels).
+    /// The sprite as big as it fits at a whole zoom level, centered with some
+    /// room around it.
     func fitToScreen(fraction: CGFloat = 1) {
-        let fit = fraction * min(bounds.width / (spriteSize.width * CGFloat(pixelRatio.width)), bounds.height / (spriteSize.height * CGFloat(pixelRatio.height)))
-        scale = max(Self.minScale, min(Self.maxScale, fit))
+        let available = CGSize(width: bounds.width - Self.fitMargin * 2, height: bounds.height - Self.topInset - Self.bottomInset)
+        let fit = fraction * min(available.width / (spriteSize.width * CGFloat(pixelRatio.width)), available.height / (spriteSize.height * CGFloat(pixelRatio.height)))
+        scale = max(Self.minScale, min(Self.maxScale, fit >= 1 ? fit.rounded(.down) : fit))
         origin = CGPoint(
             x: ((bounds.width - spriteSize.width * scaleX) / 2).rounded(),
-            y: ((bounds.height - spriteSize.height * scaleY) / 2).rounded()
+            y: (Self.topInset + (available.height - spriteSize.height * scaleY) / 2).rounded()
         )
         needsFit = false
         updateGeometry()
@@ -869,9 +875,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     /// Aseprite's Center: the sprite in the middle of the view, at the same zoom.
     func centerSprite() {
+        let available = bounds.height - Self.topInset - Self.bottomInset
         origin = CGPoint(
             x: ((bounds.width - spriteSize.width * scaleX) / 2).rounded(),
-            y: ((bounds.height - spriteSize.height * scaleY) / 2).rounded()
+            y: (Self.topInset + (available - spriteSize.height * scaleY) / 2).rounded()
         )
         updateGeometry()
     }
