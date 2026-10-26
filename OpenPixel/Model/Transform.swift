@@ -356,6 +356,22 @@ extension Sprite {
         }
     }
 
+    /// Aseprite's Canvas Size: a new width and height, growing or shrinking
+    /// away from `anchor` (column and row, 0 to 2: left/top, centre, right/bottom).
+    /// Cels, slices and the grid keep their place on the drawing. Returns how far
+    /// the drawing moved.
+    @discardableResult
+    mutating func resizeCanvas(width newWidth: Int, height newHeight: Int, anchor: (x: Int, y: Int)) -> (dx: Int, dy: Int) {
+        let dx = (newWidth - width) * anchor.x / 2, dy = (newHeight - height) * anchor.y / 2
+        crop(to: PixelRect(minX: -dx, minY: -dy, maxX: newWidth - 1 - dx, maxY: newHeight - 1 - dy))
+        for i in slices.indices {
+            for k in slices[i].keys.indices { slices[i].keys[k].bounds = slices[i].keys[k].bounds.offsetBy(dx: dx, dy: dy) }
+        }
+        grid.offsetX = ((grid.offsetX + dx) % grid.width + grid.width) % grid.width
+        grid.offsetY = ((grid.offsetY + dy) % grid.height + grid.height) % grid.height
+        return (dx, dy)
+    }
+
     mutating func rotateCanvas(clockwise: Bool) {
         swap(&width, &height)
         cels = cels.mapValues { $0.rotated90(clockwise: clockwise) }

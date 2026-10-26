@@ -207,6 +207,8 @@ final class SpriteDocument {
     var timelineRange: TimelineRange?
     /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
     var isReplacingColor = false
+    /// Edit > Canvas > Canvas size's sheet.
+    var isResizingCanvas = false
     /// Open script dialogs, shown as floating windows over the editor.
     var scriptDialogs: [ScriptDialog] = []
     /// A script's error or `app.alert`, shown as an alert.
@@ -2565,6 +2567,18 @@ extension SpriteDocument {
         guard ratio != storage.pixelRatio else { return }
         performCanvasChange { $0.pixelRatio = ratio }
     }
+
+    /// Edit > Canvas > Canvas size: grows or shrinks the canvas away from the
+    /// anchor, in one undo step. Symmetry axes move with the drawing.
+    func resizeCanvas(width: Int, height: Int, anchor: (x: Int, y: Int)) {
+        let w = min(Self.maxCanvasSize, max(1, width)), h = min(Self.maxCanvasSize, max(1, height))
+        guard w != storage.width || h != storage.height else { return }
+        var moved = (dx: 0, dy: 0)
+        performCanvasChange { moved = $0.resizeCanvas(width: w, height: h, anchor: anchor) }
+        if let x2 = symmetry.axisX2 { symmetry.axisX2 = x2 + 2 * moved.dx }
+        if let y2 = symmetry.axisY2 { symmetry.axisY2 = y2 + 2 * moved.dy }
+    }
+    static let maxCanvasSize = 1024
 
     /// Crops the canvas to the selection's bounds.
     func cropToSelection() {

@@ -200,6 +200,7 @@ struct EditMenu: View {
                 Button("Rotate 90° counterclockwise", systemImage: "rotate.left") { document.rotate90(clockwise: false) }
             }
             Section("Canvas") {
+                Button("Canvas size…", systemImage: "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left") { document.isResizingCanvas = true }
                 Button("Crop to selection", systemImage: "crop") { document.cropToSelection() }
                     .disabled(!document.hasSelection)
                 Button("Trim empty space", systemImage: "rectangle.compress.vertical") { document.trimCanvas() }

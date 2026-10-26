@@ -19,7 +19,7 @@ struct GridSettingsView: View {
                 PillToggle(title: "Show the grid", isOn: $document.showTileGrid)
                 PillToggle(title: "Snap to grid", isOn: $document.snapToGrid)
             }
-            Text("Marquees snap to whole cells and moves go cell by cell. The paint bucket can stop at the grid lines, and tilemaps use this size.")
+            Text("With snap on, every tool sticks to the grid: brushes paint on its corners, shapes and marquees take whole cells, and moves go cell by cell. The paint bucket can stop at the grid lines, and tilemaps use this size.")
                 .font(.system(size: 12))
                 .foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)

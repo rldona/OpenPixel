@@ -135,6 +135,7 @@ struct EditorView: View {
         .sheet(isPresented: $showingExport) { ExportView(document: document) }
         .sheet(isPresented: $showingShortcuts) { NavigationStack { KeyboardShortcutsView(showsDone: true) } }
         .sheet(isPresented: $document.isReplacingColor) { ReplaceColorSheet(document: document) }
+        .sheet(isPresented: $document.isResizingCanvas) { CanvasSizeSheet(document: document) }
         .sheet(isPresented: Binding(get: { document.textAnchor != nil }, set: { if !$0 { document.textAnchor = nil } })) {
             TextEntrySheet(document: document)
         }

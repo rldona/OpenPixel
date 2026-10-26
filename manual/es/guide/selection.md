@@ -56,4 +56,4 @@ Cuando hay varios cels, capas o frames seleccionados en el [timeline](./timeline
 
 ## Comandos del lienzo
 
-En el menú Editar: **recortar a la selección**, **recortar espacio vacío**, **rotar** y **voltear** el lienzo entero, y el **pixel ratio** (para sprites con píxeles anchos o altos).
+En el menú Editar: **tamaño del lienzo** (un ancho y un alto nuevos, en píxeles o en celdas de la cuadrícula, que crecen o encogen desde el anclaje que elijas en una cuadrícula de 3×3: anclado a la izquierda crece hacia la derecha; los dibujos, tilemaps, slices y ejes de simetría mantienen su sitio, y es un solo paso de deshacer), **recortar a la selección**, **recortar espacio vacío**, **rotar** y **voltear** el lienzo entero, y el **pixel ratio** (para sprites con píxeles anchos o altos).

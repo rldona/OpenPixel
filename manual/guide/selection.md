@@ -56,4 +56,4 @@ When several cels, layers or frames are selected in the [timeline](./timeline#se
 
 ## Canvas commands
 
-From the Edit menu: **crop to selection**, **trim** empty space, **rotate** and **flip** the whole canvas, and set the **pixel ratio** (for sprites drawn with wide or tall pixels).
+From the Edit menu: **canvas size** (a new width and height, in pixels or in grid cells, growing or shrinking away from an anchor you pick in a 3×3 grid: anchored left it grows to the right; drawings, tilemaps, slices and symmetry axes keep their place, and it's one undo step), **crop to selection**, **trim** empty space, **rotate** and **flip** the whole canvas, and set the **pixel ratio** (for sprites drawn with wide or tall pixels).

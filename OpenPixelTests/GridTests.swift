@@ -155,3 +155,54 @@ final class SnapToGridSliceTests: XCTestCase {
         XCTAssertEqual(bounds, PixelRect(minX: 0, minY: 0, maxX: 15, maxY: 7))
     }
 }
+
+@MainActor
+final class CanvasSizeTests: XCTestCase {
+    private func makeDocument() -> SpriteDocument {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 16, height: 16, background: nil, palette: []))
+        doc.primary = .black
+        doc.select(.pencil)
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.endStroke()
+        return doc
+    }
+
+    private func pixel(_ doc: SpriteDocument, _ x: Int, _ y: Int) -> PixelColor {
+        doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id)?[x, y] ?? .clear
+    }
+
+    func testAnchoredLeftGrowsToTheRight() {
+        let doc = makeDocument()
+        doc.resizeCanvas(width: 48, height: 16, anchor: (0, 1))
+        XCTAssertEqual(doc.sprite.width, 48)
+        XCTAssertEqual(pixel(doc, 0, 0), .black, "the drawing stays on the left")
+        doc.undo()
+        XCTAssertEqual(doc.sprite.width, 16, "one undo step")
+    }
+
+    func testAnchoredRightGrowsToTheLeft() {
+        let doc = makeDocument()
+        doc.resizeCanvas(width: 48, height: 16, anchor: (2, 1))
+        XCTAssertEqual(pixel(doc, 32, 0), .black, "the drawing moves 32 px right")
+        XCTAssertEqual(pixel(doc, 0, 0), .clear)
+    }
+
+    func testCenteredGrowsBothWaysAndSlicesFollow() {
+        let doc = makeDocument()
+        doc.select(.slice)
+        doc.beginStroke(at: PixelPoint(x: 2, y: 2))
+        doc.continueStroke(to: PixelPoint(x: 5, y: 5))
+        doc.endStroke()
+        doc.resizeCanvas(width: 32, height: 32, anchor: (1, 1))
+        XCTAssertEqual(pixel(doc, 8, 8), .black)
+        XCTAssertEqual(doc.sprite.slices.first?.keys.first?.bounds, PixelRect(minX: 10, minY: 10, maxX: 13, maxY: 13))
+    }
+
+    func testShrinkingCrops() {
+        let doc = makeDocument()
+        doc.resizeCanvas(width: 8, height: 8, anchor: (2, 2))
+        XCTAssertEqual(doc.sprite.width, 8)
+        XCTAssertEqual(pixel(doc, 0, 0), .clear, "the corner pixel was cut off")
+        XCTAssertNil(doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id))
+    }
+}
