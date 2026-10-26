@@ -11,10 +11,12 @@ struct ColorShadingPanel: View {
     /// The base follows the primary color until a ramp color is picked, so the
     /// ramps stay put while choosing from them.
     @State private var base: PixelColor?
+    /// Shade alone by default; the other ramps on request (remembered).
+    @AppStorage("colorShadingShowsAll") private var showsAll = false
 
     var body: some View {
         let base = base ?? document.primary
-        FloatingWindow(Text("Color shading"), id: "colorShading", area: area, trailingInset: trailingInset, approximateHeight: 300) {
+        FloatingWindow(Text("Color shading"), id: "colorShading", area: area, trailingInset: trailingInset, approximateHeight: showsAll ? 300 : 120) {
             HStack(spacing: 2) {
                 if self.base != nil {
                     headerButton("arrow.triangle.2.circlepath", label: "Follow color") { self.base = nil }
@@ -24,9 +26,24 @@ struct ColorShadingPanel: View {
         } content: {
             VStack(alignment: .leading, spacing: 8) {
                 row("Shade", ColorShading.shades(base), base: base)
-                row("Lightness", ColorShading.lights(base), base: base)
-                row("Saturation", ColorShading.saturations(base), base: base)
-                row("Hue", ColorShading.hues(base), base: base)
+                if showsAll {
+                    row("Lightness", ColorShading.lights(base), base: base)
+                    row("Saturation", ColorShading.saturations(base), base: base)
+                    row("Hue", ColorShading.hues(base), base: base)
+                }
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { showsAll.toggle() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(showsAll ? "Fewer" : "Lightness, saturation and hue")
+                        Image(systemName: showsAll ? "chevron.up" : "chevron.down").font(.system(size: 10, weight: .semibold))
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.accentText)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
     }

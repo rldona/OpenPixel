@@ -55,6 +55,6 @@ The three icons at the bottom:
 |---|---|
 | **Replace color…** (⇧R) | Replaces one color with another, with a tolerance, in the current cel or every cel, and only inside the selection if there is one. |
 | **Hue/Saturation** | A floating window to shift hue, saturation, lightness (or value) and alpha, or the R, G, B and A channels, in the current cel or every cel, previewed live. **Apply** keeps it, **Cancel** goes back. The canvas can still be moved and zoomed while it's open, but not painted. |
-| **Color shading** | A floating window with ramps of the primary color, lighter and darker. Tap a shade to paint with it; touch and hold it to use it as the secondary color or add it to the palette. |
+| **Color shading** | A floating window with a ramp of shades of the primary color; **Lightness, saturation and hue** shows three more ramps. Tap a shade to paint with it; touch and hold it to use it as the secondary color or add it to the palette. |
 
 Only one of the two windows is open at a time: opening one closes the other.

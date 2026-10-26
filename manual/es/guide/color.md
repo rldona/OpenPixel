@@ -55,6 +55,6 @@ Los tres iconos de abajo:
 |---|---|
 | **Reemplazar color…** (⇧R) | Sustituye un color por otro, con una tolerancia, en el cel actual o en todos, y solo dentro de la selección si la hay. |
 | **Tono/Saturación** | Una ventana flotante para cambiar el tono, la saturación, la luminosidad (o el valor) y el alfa, o los canales R, G, B y A, en el cel actual o en todos, con vista previa. **Aplicar** lo deja, **Cancelar** lo deshace. Mientras está abierta se puede mover y ampliar el lienzo, pero no pintar. |
-| **Sombreado de color** | Una ventana flotante con rampas del color principal, más claras y más oscuras. Toca un tono para pintar con él; mantenlo pulsado para usarlo como secundario o añadirlo a la paleta. |
+| **Sombreado de color** | Una ventana flotante con una rampa de sombras del color principal; **Luminosidad, saturación y tono** muestra tres rampas más. Toca un tono para pintar con él; mantenlo pulsado para usarlo como secundario o añadirlo a la paleta. |
 
 Solo hay una de las dos ventanas abierta a la vez: al abrir una se cierra la otra.
