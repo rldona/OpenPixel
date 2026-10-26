@@ -370,8 +370,10 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
             }
         }
         let rect = spriteRect
-        // The sprite's drop shadow would fall on the copies around it.
+        // The sprite's drop shadow would fall on the copies around it, and its
+        // border, drawn over the edge pixels, would show as a light line at the seams.
         shadowLayer.isHidden = tiledMode != .none
+        spriteLayer.borderWidth = tiledMode == .none ? 1 : 0
         tilesHost.frame = bounds
         // Edges on whole screen pixels, shared by neighbours: at a zoom that isn't
         // a whole number a copy would otherwise start a fraction of a pixel away
