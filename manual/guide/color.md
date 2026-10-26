@@ -49,12 +49,13 @@ The **+** after the last color adds the primary color, so you can build a palett
 
 ## Color actions
 
-The three icons at the bottom:
+The icons at the bottom, plus the outline from the ⋯ menu:
 
 | Button | What it does |
 |---|---|
 | **Replace color…** (⇧R) | Replaces one color with another, with a tolerance, in the current cel or every cel, and only inside the selection if there is one. |
 | **Hue/Saturation** | A floating window to shift hue, saturation, lightness (or value) and alpha, or the R, G, B and A channels, in the current cel or every cel, previewed live. **Apply** keeps it, **Cancel** goes back. The canvas can still be moved and zoomed while it's open, but not painted. |
+| **Outline…** (in the ⋯ menu) | Draws a 1 px line in the primary or secondary color around what's drawn (**Outside**) or over its own edge (**Inside**). The shape sets which neighbours count: **circle** for round corners, **square** for sharp ones, **horizontal** or **vertical**, or pick them one by one in the 3×3 grid. **Background** chooses what counts as empty, and **Tiled** wraps around the edges. It works on the selection if there is one, on the current cel or the cels picked in the timeline, or on every cel, previewed live. |
 | **Color shading** | A floating window with a ramp of shades of the primary color; **Lightness, saturation and hue** shows three more ramps. Tap a shade to paint with it; touch and hold it to use it as the secondary color or add it to the palette. |
 
 Only one of the two windows is open at a time: opening one closes the other.

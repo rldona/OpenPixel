@@ -107,6 +107,8 @@ struct EditorView: View {
                         }
                         if document.isAdjustingHueSaturation {
                             HueSaturationPanel(document: document, area: geometry.size, trailingInset: inset)
+                        } else if document.isOutlining {
+                            OutlinePanel(document: document, area: geometry.size, trailingInset: inset)
                         } else if document.isShowingColorShading {
                             ColorShadingPanel(document: document, area: geometry.size, trailingInset: inset)
                         }
@@ -775,7 +777,7 @@ private struct CanvasHost: View {
             pixelRatio: sprite.pixelRatio,
             // The canvas shows the Hue/Saturation preview: it can still be moved and
             // zoomed, but drawing waits until the adjustment is applied or cancelled.
-            editingLocked: document.isAdjustingHueSaturation,
+            editingLocked: document.isAdjusting,
             look: CanvasLook(
                 checkerSize: checkerSize,
                 checkerLight: StoredColor.color(checkerLight),

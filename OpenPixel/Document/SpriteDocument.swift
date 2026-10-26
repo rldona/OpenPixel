@@ -392,6 +392,7 @@ final class SpriteDocument {
     /// While transforming, undo cancels the transform.
     func undo() {
         if isAdjustingHueSaturation { return endHueSaturation(apply: nil, everyCel: false) }
+        if isOutlining { return endOutline(apply: nil, everyCel: false) }
         if isTransforming { return cancelTransform() }
         if isBuildingShape { return cancelPendingShape() }
         cancelStroke()
@@ -1723,6 +1724,7 @@ final class SpriteDocument {
         guard adjustmentBase == nil else { return }
         applyTransformIfNeeded()
         stopPlayback()
+        endOutline(apply: nil, everyCel: false)
         adjustmentBase = DocumentSnapshot(sprite: storage, selection: selection)
         isShowingColorShading = false
     }
@@ -1733,6 +1735,7 @@ final class SpriteDocument {
             isShowingColorShading = false
         } else {
             endHueSaturation(apply: nil, everyCel: false)
+            endOutline(apply: nil, everyCel: false)
             isShowingColorShading = true
         }
     }
@@ -1790,6 +1793,86 @@ final class SpriteDocument {
             }
             s.cels[key] = cel.isEmpty ? nil : cel
             if !everyCel { s.syncLinks(from: key) }
+        }
+        return keys.count
+    }
+
+    // MARK: - Outline
+
+    /// The sprite as it was when the Outline window opened; the preview draws on a copy of it.
+    private var outlineBase: DocumentSnapshot?
+    var isOutlining: Bool { outlineBase != nil }
+    /// Whether an effect window is open: drawing waits until it's applied or cancelled.
+    var isAdjusting: Bool { isAdjustingHueSaturation || isOutlining }
+
+    /// Edit > FX > Outline: opens the window.
+    func beginOutline() {
+        guard outlineBase == nil else { return }
+        endHueSaturation(apply: nil, everyCel: false)
+        applyTransformIfNeeded()
+        stopPlayback()
+        outlineBase = DocumentSnapshot(sprite: storage, selection: selection)
+        isShowingColorShading = false
+    }
+
+    /// Shows the outline on the canvas without committing it.
+    func previewOutline(_ effect: OutlineEffect, everyCel: Bool) {
+        guard let base = outlineBase else { return }
+        var outlined = base.sprite
+        applyOutline(effect, everyCel: everyCel, to: &outlined)
+        guard outlined != storage else { return }
+        storage = outlined
+        revision &+= 1
+    }
+
+    /// Draws the outline as one undoable step, or puts the pixels back.
+    func endOutline(apply effect: OutlineEffect?, everyCel: Bool) {
+        guard let base = outlineBase else { return }
+        outlineBase = nil
+        storage = base.sprite
+        guard let effect else {
+            revision &+= 1
+            return
+        }
+        var outlined = base.sprite
+        if applyOutline(effect, everyCel: everyCel, to: &outlined) == 0 {
+            notice = L10n.string("The layer is locked")
+        }
+        guard outlined != base.sprite else {
+            revision &+= 1
+            return
+        }
+        registerUndo(base)
+        storage = outlined
+        changed()
+    }
+
+    /// The active cel, the cels picked in the timeline, or every cel, inside the
+    /// selection if there is one; locked layers are left alone. Returns how many
+    /// cels it could change.
+    @discardableResult
+    private func applyOutline(_ effect: OutlineEffect, everyCel: Bool, to s: inout Sprite) -> Int {
+        let editable = Set(s.layers.filter { !s.locks($0) && !$0.isReference && !$0.isTilemap }.map(\.id))
+        let keys: [CelKey]
+        if everyCel {
+            keys = s.layers.filter { editable.contains($0.id) }.flatMap { layer in s.frames.map { CelKey(layer: layer.id, frame: $0.id) } }
+        } else if let range = timelineRange {
+            keys = rangeKeys(range).flatMap { $0 }.filter { editable.contains($0.layer) }
+        } else {
+            keys = editable.contains(activeLayerID) ? [activeCelKey] : []
+        }
+        let mask = selection
+        // Linked cels share one image: outline it once, or it would grow a ring per cel.
+        var doneGroups = Set<UUID>()
+        for key in keys {
+            if let group = s.links[key] {
+                guard doneGroups.insert(group).inserted else { continue }
+            }
+            let cel = s.cels[key] ?? PixelImage(width: s.width, height: s.height)
+            let outlined = effect.apply(to: cel, mask: mask)
+            guard outlined != cel else { continue }
+            s.cels[key] = outlined.isEmpty ? nil : outlined
+            s.syncLinks(from: key)
         }
         return keys.count
     }

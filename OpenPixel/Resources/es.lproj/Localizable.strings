@@ -761,3 +761,18 @@
 "%lld × %lld cells" = "%lld × %lld celdas";
 "Make the repetition permanent" = "Fijar la repetición";
 "That would be bigger than %d × %d px" = "Quedaría más grande de %1$d × %2$d px";
+
+/* Outline */
+"Outline…" = "Contorno…";
+"Outside" = "Exterior";
+"Inside" = "Interior";
+"Circle" = "Círculo";
+"Square" = "Cuadrado";
+"Horizontal" = "Horizontal";
+"Vertical" = "Vertical";
+"Outline color" = "Color del contorno";
+"Primary" = "Principal";
+"Secondary" = "Secundario";
+"Tiled" = "Mosaico";
+"Selected cels" = "Cels seleccionados";
+"Neighbour %lld" = "Vecino %lld";

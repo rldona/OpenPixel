@@ -218,6 +218,7 @@ struct EditMenu: View {
                 Button("Fill with primary color", systemImage: "paintbrush.pointed.fill") { document.fillSelection() }
                 Button("Replace color…", systemImage: "drop.halffull") { document.isReplacingColor = true }
                 Button("Hue/Saturation…", systemImage: "slider.horizontal.3") { document.beginHueSaturation() }
+                Button("Outline…", systemImage: "circle.dashed") { document.beginOutline() }
                 Button("New brush from selection", systemImage: "paintbrush.pointed") { document.newBrushFromSelection() }
                     .disabled(!document.hasSelection)
                 Button("New layer from selection", systemImage: "square.on.square") { document.newLayerFromSelection(cut: false) }
