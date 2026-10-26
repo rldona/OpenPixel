@@ -22,6 +22,14 @@ struct GridSettings: Codable, Equatable, Sendable {
         cell(containing: a).union(cell(containing: b))
     }
 
+    /// The grid corner (a cell's top-left) closest to `p`.
+    func closestVertex(to p: PixelPoint) -> PixelPoint {
+        PixelPoint(
+            x: offsetX + Int((Double(p.x - offsetX) / Double(width)).rounded()) * width,
+            y: offsetY + Int((Double(p.y - offsetY) / Double(height)).rounded()) * height
+        )
+    }
+
     /// A move of `d` pixels rounded to whole cells.
     func snap(dx: Double, dy: Double) -> (Double, Double) {
         ((dx / Double(width)).rounded() * Double(width), (dy / Double(height)).rounded() * Double(height))

@@ -70,3 +70,88 @@ final class GridDocumentTests: XCTestCase {
         XCTAssertNil(cel.map { $0[8, 8] }.flatMap { $0 == .black ? $0 : nil }, "the next cell is left alone")
     }
 }
+
+/// Snap to grid with the drawing tools, as in Aseprite: points go to the
+/// closest grid corner, offset so the brush's top-left pixel lands on it.
+@MainActor
+final class SnapToGridToolTests: XCTestCase {
+    private func makeDocument(_ tool: Tool) -> SpriteDocument {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 32, height: 32, background: nil, palette: []))
+        doc.setGrid(GridSettings(width: 8, height: 8))
+        doc.snapToGrid = true
+        doc.primary = .black
+        doc.select(tool)
+        return doc
+    }
+
+    private func painted(_ doc: SpriteDocument) -> Set<PixelPoint> {
+        guard let cel = doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id) else { return [] }
+        var points = Set<PixelPoint>()
+        for y in 0..<cel.height { for x in 0..<cel.width where cel[x, y].a != 0 { points.insert(PixelPoint(x: x, y: y)) } }
+        return points
+    }
+
+    func testThePencilPaintsOnGridCorners() {
+        let doc = makeDocument(.pencil)
+        doc.beginStroke(at: PixelPoint(x: 3, y: 2))
+        doc.endStroke()
+        XCTAssertEqual(painted(doc), [PixelPoint(x: 0, y: 0)], "(3, 2) goes to the closest corner")
+        doc.beginStroke(at: PixelPoint(x: 13, y: 5))
+        doc.endStroke()
+        XCTAssertTrue(painted(doc).contains(PixelPoint(x: 16, y: 8)))
+    }
+
+    func testABrushAsBigAsACellFillsWholeCells() {
+        let doc = makeDocument(.pencil)
+        doc.setBrushSize(8)
+        doc.beginStroke(at: PixelPoint(x: 10, y: 11))
+        doc.endStroke()
+        let expected = Set((8..<16).flatMap { y in (8..<16).map { PixelPoint(x: $0, y: y) } })
+        XCTAssertEqual(painted(doc), expected, "exactly the cell from (8, 8) to (15, 15)")
+    }
+
+    func testRectanglesCoverWholeCells() {
+        let doc = makeDocument(.rectangle)
+        doc.shapeFilled = true
+        doc.beginStroke(at: PixelPoint(x: 1, y: 1))
+        doc.continueStroke(to: PixelPoint(x: 15, y: 9))
+        doc.endStroke()
+        let points = painted(doc)
+        XCTAssertEqual(points.map(\.x).min(), 0)
+        XCTAssertEqual(points.map(\.x).max(), 15)
+        XCTAssertEqual(points.map(\.y).min(), 0)
+        XCTAssertEqual(points.map(\.y).max(), 7)
+    }
+
+    func testLinesGoFromCornerToCorner() {
+        let doc = makeDocument(.line)
+        doc.beginStroke(at: PixelPoint(x: 1, y: 1))
+        doc.continueStroke(to: PixelPoint(x: 17, y: 2))
+        doc.endStroke()
+        let points = painted(doc)
+        XCTAssertEqual(points, Set((0...16).map { PixelPoint(x: $0, y: 0) }))
+    }
+
+    func testWithoutSnapNothingMoves() {
+        let doc = makeDocument(.pencil)
+        doc.snapToGrid = false
+        doc.beginStroke(at: PixelPoint(x: 3, y: 2))
+        doc.endStroke()
+        XCTAssertEqual(painted(doc), [PixelPoint(x: 3, y: 2)])
+    }
+}
+
+@MainActor
+final class SnapToGridSliceTests: XCTestCase {
+    func testNewSlicesTakeWholeCells() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 32, height: 32, background: nil, palette: []))
+        doc.setGrid(GridSettings(width: 8, height: 8))
+        doc.snapToGrid = true
+        doc.select(.slice)
+        doc.beginStroke(at: PixelPoint(x: 3, y: 3))
+        doc.continueStroke(to: PixelPoint(x: 12, y: 5))
+        doc.endStroke()
+        let bounds = doc.sprite.slices.first?.keys.first?.bounds
+        XCTAssertEqual(bounds, PixelRect(minX: 0, minY: 0, maxX: 15, maxY: 7))
+    }
+}

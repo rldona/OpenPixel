@@ -482,6 +482,7 @@ final class SpriteDocument {
 
     /// `pressure` is the Apple Pencil's force, 0...1 (1 for fingers).
     func beginStroke(at point: PixelPoint, pressure: Double = 1) {
+        let point = snapped(point)
         // In tiled mode a stroke can start on a copy around the sprite; tools
         // that act on one spot need it inside, freehand strokes wrap as they paint.
         let p = tool.usesBrush || tool == .spray ? point : tiledMode.wrap(point, width: storage.width, height: storage.height)
@@ -553,6 +554,33 @@ final class SpriteDocument {
         }
     }
 
+    /// Aseprite's Snap to Grid for drawing tools: the point goes to the closest
+    /// grid corner, offset so the brush's top-left pixel lands on it (a brush
+    /// as big as a cell fills whole cells). Selections, moves and slices snap
+    /// in their own way; the bucket has Stop at grid.
+    private func snapped(_ p: PixelPoint) -> PixelPoint {
+        guard snapToGrid, !(activeLayer?.isTilemap == true && tileDrawMode == .tiles) else { return p }
+        let tools: Set<Tool> = [.pencil, .eraser, .spray, .line, .curve, .polygon, .contour, .rectangle, .ellipse, .gradient, .text]
+        guard tools.contains(tool) else { return p }
+        var cx = 0, cy = 0
+        if let brush = activeCustomBrush {
+            cx = (brush.width - 1) / 2
+            cy = (brush.height - 1) / 2
+        } else if tool.usesBrush {
+            cx = (effectiveBrushSize - 1) / 2
+            cy = cx
+        }
+        let v = storage.grid.closestVertex(to: PixelPoint(x: p.x - cx, y: p.y - cy))
+        return PixelPoint(x: v.x + cx, y: v.y + cy)
+    }
+
+    /// With snapping, a rectangle or ellipse drawn from corner to corner covers
+    /// whole cells: its far corner is the pixel just before the grid corner.
+    private func snappedShapeEnd(_ p: PixelPoint) -> PixelPoint {
+        guard snapToGrid, tool == .rectangle || tool == .ellipse, let o = shapeOrigin else { return p }
+        return PixelPoint(x: p.x > o.x ? p.x - 1 : p.x, y: p.y > o.y ? p.y - 1 : p.y)
+    }
+
     func continueStroke(to p: PixelPoint, pressure: Double = 1) {
         continueStroke(through: [p], pressures: [pressure])
     }
@@ -561,6 +589,7 @@ final class SpriteDocument {
     /// samples of one touch event), redrawing the canvas only once.
     func continueStroke(through points: [PixelPoint], pressures: [Double]? = nil) {
         if selectionDrag != nil { return updateSelection(through: points) }
+        let points = points.map(snapped)
         if sliceDrag != nil, let p = points.last { return continueSliceDrag(to: p) }
         if tileStroke {
             for p in points { placeTile(at: p) }
@@ -572,7 +601,7 @@ final class SpriteDocument {
             return
         }
         if tool.isShape {
-            drawShape(to: target)
+            drawShape(to: snappedShapeEnd(target))
             return
         }
         guard var last = lastPoint else { return }
@@ -1071,10 +1100,15 @@ final class SpriteDocument {
     private func continueSliceDrag(to p: PixelPoint) {
         guard let drag = sliceDrag else { return }
         var b = drag.bounds
-        let dx = p.x - drag.start.x, dy = p.y - drag.start.y
+        // Snap to grid: new slices take whole cells, moves and resizes go cell by cell.
+        let raw = (Double(p.x - drag.start.x), Double(p.y - drag.start.y))
+        let (sdx, sdy) = snapToGrid ? storage.grid.snap(dx: raw.0, dy: raw.1) : raw
+        let dx = Int(sdx), dy = Int(sdy)
         switch drag.edges {
         case .drawing:
-            b = PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
+            b = snapToGrid
+                ? storage.grid.cells(from: drag.start, to: p)
+                : PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
         case .all:
             b = b.offsetBy(dx: dx, dy: dy)
         default:
