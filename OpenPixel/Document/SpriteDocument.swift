@@ -2139,11 +2139,13 @@ extension SpriteDocument {
 
     /// Fills the selection (or the whole cel) with the primary color. With
     /// several layers, each one recolors its own pixels and the empty part
-    /// goes to the active layer, so the layers stay apart.
+    /// goes to the active layer, so the layers stay apart. Cels picked in the
+    /// timeline only recolor what they have, so every frame changes alike.
     func fillSelection() {
         let keys = selectionEditKeys
         guard !keys.isEmpty else { return }
-        let mask = selection, color = primary, active = activeCelKey
+        let mask = selection, color = primary
+        let active: CelKey? = timelineRange != nil && keys.count > 1 ? nil : activeCelKey
         let (w, h) = (storage.width, storage.height)
         perform { s in
             // Pixels drawn in any of the layers of a frame: those stay with their own layer.

@@ -67,7 +67,8 @@ final class TimelineAdvancedTests: XCTestCase {
         let s = doc.sprite
         XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[2].id)?[2, 0], .white, "another frame's cel is recolored")
         XCTAssertEqual(s.cel(layer: ids[0], frame: s.frames[2].id)?[3, 3], .white, "another layer's cel is recolored")
-        XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[1].id)?[0, 3], .white, "the active cel takes the empty part")
+        XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[1].id)?[1, 0], .white, "the active cel is recolored")
+        XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[1].id)?[0, 3], .clear, "no frame fills the empty part")
         XCTAssertEqual(s.cel(layer: ids[1], frame: s.frames[0].id)?[0, 0], .black, "cels outside the block stay")
     }
 
