@@ -1453,6 +1453,57 @@ final class SpriteDocument {
         }
     }
 
+    // MARK: Arrange
+
+    /// The layers Arrange moves: those the transform or the selection is on, or the active one.
+    private var arrangeTargets: [UUID] {
+        if let layer = floating?.celKey.layer { return [layer] }
+        if let layers = selectionLayers { return sprite.layers.map(\.id).filter { layers.contains($0) } }
+        return [activeLayerID]
+    }
+
+    /// Whether Arrange can move the selected element up (towards the front) or down.
+    func canArrange(forward: Bool) -> Bool {
+        arrangeTargets.contains { canMoveLayer($0, by: forward ? 1 : -1) }
+    }
+
+    /// Bring to front, bring forward, send backward or send to back: what's
+    /// selected goes above or below the other layers. Each part lives on its
+    /// own layer, so this moves its layer in the stack, for every frame.
+    /// While transforming it stays part of the transform's undo step.
+    func arrange(_ arrangement: LayerArrangement) {
+        let up = arrangement == .front || arrangement == .forward
+        let steps = arrangement == .forward || arrangement == .backward ? 1 : sprite.layers.count
+        // The one in front moves first going up, the one behind going down, so they keep their order.
+        let ids = up ? arrangeTargets.reversed() : arrangeTargets
+        func move(_ s: inout Sprite) {
+            for id in ids {
+                for _ in 0..<steps {
+                    guard let layer = s.layers.first(where: { $0.id == id }), !layer.isBackground else { break }
+                    let siblings = s.layers.filter { $0.parent == layer.parent }
+                    guard let index = siblings.firstIndex(where: { $0.id == id }),
+                          siblings.indices.contains(index + (up ? 1 : -1)) else { break }
+                    let other = siblings[index + (up ? 1 : -1)]
+                    guard !other.isBackground, !ids.contains(other.id),
+                          let a = s.layers.firstIndex(where: { $0.id == id }),
+                          let b = s.layers.firstIndex(where: { $0.id == other.id }) else { break }
+                    s.layers.swapAt(a, b)
+                    s.normalizeGroups()
+                    s.keepBackgroundAtBottom()
+                }
+            }
+        }
+        if isTransforming {
+            var s = storage
+            move(&s)
+            guard s != storage else { return }
+            storage = s
+            changed()
+        } else {
+            perform(move)
+        }
+    }
+
     // MARK: Groups
 
     /// Layer > New > Group: a group around the active layer.
@@ -2773,6 +2824,11 @@ extension SpriteDocument {
 }
 
 // MARK: - Timeline ranges
+
+/// Where Arrange puts the selected element among the layers.
+enum LayerArrangement {
+    case front, forward, backward, back
+}
 
 /// A block of cels selected in the timeline: some layers × a run of frames.
 /// Like Aseprite, it remembers whether whole frames or whole layers were picked.

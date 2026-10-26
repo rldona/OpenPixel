@@ -15,7 +15,9 @@ La barra de opciones elige el modo: **reemplazar**, **añadir**, **restar** o **
 
 ![Una selección con su barra de acciones](/crops/es/selection.jpg)
 
-Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra flotante te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, invertir y deseleccionar.
+Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra flotante te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, **organizar**, invertir y deseleccionar.
+
+**Organizar** (el botón de capas) trae lo seleccionado al frente, un paso adelante, un paso atrás o lo envía al fondo. Cada parte de un dibujo vive en su propia capa, así que esto sube o baja esa capa en la pila, en todos los frames. También está en la barra de transformación, donde forma parte de la transformación: **Cancelar** devuelve el orden.
 
 ### Opacidad de la selección
 
@@ -42,7 +44,7 @@ Mientras los píxeles flotan, el lienzo muestra asas:
 
 - arrastra las **esquinas y los lados** para escalar (pasa del lado contrario para voltear);
 - arrastra el **asa redonda** de arriba para girar alrededor del **pivote** (el punto del centro, que se puede arrastrar);
-- la barra de transformación voltea, gira 90°, **mantiene la proporción**, **ajusta el ángulo** de 15 en 15° y elige giro **RotSprite** (pixel art más limpio) o **rápido**.
+- la barra de transformación voltea, gira 90°, **organiza**, **mantiene la proporción**, **ajusta el ángulo** de 15 en 15° y elige giro **RotSprite** (pixel art más limpio) o **rápido**.
 
 **Aplicar** (o tocar fuera, o ↩) suelta los píxeles; **Cancelar** (⎋) lo devuelve todo a su sitio. La transformación entera es un solo paso de deshacer. Con teclado, las flechas mueven los píxeles de 1 en 1 px.
 

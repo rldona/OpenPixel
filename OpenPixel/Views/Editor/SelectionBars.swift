@@ -19,6 +19,7 @@ struct SelectionActionBar: View {
             barButton("Flip horizontally", "arrow.left.and.right.righttriangle.left.righttriangle.right") { document.flip(horizontal: true) }
             barButton("Flip vertically", "arrow.up.and.down.righttriangle.up.righttriangle.down") { document.flip(horizontal: false) }
             barButton("Rotate 90° clockwise", "rotate.right") { document.rotate90(clockwise: true) }
+            ArrangeMenu(document: document)
             divider
             barButton("Invert selection", "square.on.square.intersection.dashed") { document.invertSelection() }
             barButton("Deselect", "xmark") { document.deselect() }
@@ -94,6 +95,7 @@ struct TransformBar: View {
             barButton("Flip vertically", "arrow.up.and.down.righttriangle.up.righttriangle.down") { document.flip(horizontal: false) }
             barButton("Rotate 90° counterclockwise", "rotate.left") { document.rotate90(clockwise: false) }
             barButton("Rotate 90° clockwise", "rotate.right") { document.rotate90(clockwise: true) }
+            ArrangeMenu(document: document)
             Rectangle().fill(Theme.border).frame(width: 1, height: 22).padding(.horizontal, 4)
 
             toggle("Keep aspect", "lock", isOn: $document.keepAspect)
@@ -170,6 +172,33 @@ struct TransformBar: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text(title))
         .accessibilityAddTraits(isOn.wrappedValue ? .isSelected : [])
+    }
+}
+
+/// Arrange: moves the selected element in front of or behind the other layers.
+struct ArrangeMenu: View {
+    let document: SpriteDocument
+
+    var body: some View {
+        let forward = document.canArrange(forward: true), backward = document.canArrange(forward: false)
+        Menu {
+            Button("Bring to front", systemImage: "square.3.layers.3d.top.filled") { document.arrange(.front) }
+                .disabled(!forward)
+            Button("Bring forward", systemImage: "square.2.layers.3d.top.filled") { document.arrange(.forward) }
+                .disabled(!forward)
+            Button("Send backward", systemImage: "square.2.layers.3d.bottom.filled") { document.arrange(.backward) }
+                .disabled(!backward)
+            Button("Send to back", systemImage: "square.3.layers.3d.bottom.filled") { document.arrange(.back) }
+                .disabled(!backward)
+        } label: {
+            Image(systemName: "square.3.layers.3d")
+                .font(.system(size: 16, weight: .medium))
+                .frame(width: 42, height: 40)
+                .foregroundStyle(Theme.text)
+                .contentShape(Rectangle())
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel(Text("Arrange"))
     }
 }
 

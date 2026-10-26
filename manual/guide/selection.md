@@ -15,7 +15,9 @@ The options bar picks the mode: **replace**, **add**, **subtract** or **intersec
 
 ![A selection with its action bar](/crops/en/selection.jpg)
 
-While something is selected, drawing, filling and erasing stay inside it, and a floating bar gives you the common actions: transform, duplicate and move, cut, copy, paste, delete, fill with the primary color, flip, rotate 90°, invert and deselect.
+While something is selected, drawing, filling and erasing stay inside it, and a floating bar gives you the common actions: transform, duplicate and move, cut, copy, paste, delete, fill with the primary color, flip, rotate 90°, **arrange**, invert and deselect.
+
+**Arrange** (the layers button) brings what's selected to the front, one step forward, one step back or to the back. Each part of a drawing lives on its own layer, so this moves that layer up or down the stack, in every frame. It's also in the transform bar, where it stays part of the transform: **Cancel** puts the order back.
 
 ### Selection opacity
 
@@ -42,7 +44,7 @@ While pixels are floating, the canvas shows handles:
 
 - drag the **corners and edges** to scale (drag past the opposite edge to flip);
 - drag the **round handle** above to rotate around the **pivot** (the dot in the middle, which you can drag);
-- the transform bar flips, rotates 90°, **keeps the aspect**, **snaps the angle** to 15° and chooses **RotSprite** (cleaner pixel art) or **fast** rotation.
+- the transform bar flips, rotates 90°, **arranges**, **keeps the aspect**, **snaps the angle** to 15° and chooses **RotSprite** (cleaner pixel art) or **fast** rotation.
 
 **Apply** (or tap outside, or ↩) drops the pixels; **Cancel** (⎋) puts everything back. The whole transform is one undo step. With a keyboard, the arrows nudge the pixels 1 px.
 
