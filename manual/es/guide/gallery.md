@@ -22,7 +22,7 @@ Toca **Nuevo sprite** (arriba a la derecha) o la tarjeta discontinua.
 
 - **Tamaño**: 16, 32, 64, 128 o 256 px, o el ancho y el alto que quieras hasta 1024 px.
 - **Fondo**: transparente, blanco o negro.
-- **Paleta inicial**: DawnBringer 32, PICO-8, Sweetie 16, Endesga 32 y más. Se puede cambiar después.
+- **Paleta inicial**: DawnBringer 32, PICO-8, Sweetie 16, Endesga 32 y más, o **Vacía** para crear la tuya. Se puede cambiar después.
 
 La vista previa de la derecha muestra lo que vas a obtener. Toca **Crear** para abrir el editor.
 

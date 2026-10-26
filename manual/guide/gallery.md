@@ -22,7 +22,7 @@ Tap **New sprite** (top right) or the dashed card.
 
 - **Size**: 16, 32, 64, 128 or 256 px, or set width and height up to 1024 px.
 - **Background**: transparent, white or black.
-- **Starting palette**: DawnBringer 32, PICO-8, Sweetie 16, Endesga 32 and more. You can change it later.
+- **Starting palette**: DawnBringer 32, PICO-8, Sweetie 16, Endesga 32 and more, or **Empty** to build your own. You can change it later.
 
 The preview on the right shows what you'll get. Tap **Create** to open the editor.
 

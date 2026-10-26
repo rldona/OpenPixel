@@ -42,6 +42,8 @@ Al tocar la muestra del chip activo se abre el editor completo: un espectro, des
 
 Toca un color para que pase a ser el principal. Los colores principal y secundario están marcados en la paleta.
 
+El **+** que hay tras el último color añade el color principal, así que puedes montar una paleta a mano: eliges un color en el cuadrado, tocas +, y así sucesivamente. Para empezar de cero, elige **Vacía** como paleta inicial de un sprite nuevo, o **Nueva paleta vacía** en el menú **…**.
+
 - **Editar** activa la edición de la paleta: selecciona una serie de colores para editar uno, hacer un **degradado** entre los extremos, **invertir**, **ordenar** (por tono, saturación, brillo o luminancia), **duplicar**, **eliminar** o arrastrar para reordenar. Todo se puede deshacer.
 - El menú **…** carga una paleta predefinida (DawnBringer 32, PICO-8, Sweetie 16, Endesga 32, DawnBringer 16, Game Boy, grises…), hace una paleta con los colores del sprite, importa una (`.gpl`, `.hex`, `.pal`, `.txt`, `.png`, `.gif`), la exporta (`.gpl`, `.hex`) o fija la paleta por defecto para los sprites nuevos. Ahí aparecen también las paletas de las [extensiones](./scripts) instaladas.
 

@@ -42,6 +42,8 @@ Tapping the active chip's swatch opens the full editor: a spectrum, **RGB** and 
 
 Tap a color to make it the primary. The primary and secondary colors are marked on the palette.
 
+The **+** after the last color adds the primary color, so you can build a palette by hand: pick a color in the square, tap +, and so on. To start from nothing, choose **Empty** as the starting palette of a new sprite, or **New empty palette** in the **…** menu.
+
 - **Edit colors** turns on palette editing: select a run of colors to edit one, make a **gradient** between the ends, **reverse**, **sort** (by hue, saturation, brightness or luminance), **duplicate**, **delete**, or drag to reorder. Everything can be undone.
 - The **…** menu loads a preset (DawnBringer 32, PICO-8, Sweetie 16, Endesga 32, DawnBringer 16, Game Boy, grays…), makes a palette from the sprite's colors, imports one (`.gpl`, `.hex`, `.pal`, `.txt`, `.png`, `.gif`), exports it (`.gpl`, `.hex`) or sets the default palette for new sprites. Palettes from installed [extensions](./scripts) are listed there too.
 
