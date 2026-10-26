@@ -381,6 +381,16 @@ struct EditorView: View {
                 Label("Tiled mode", systemImage: "square.grid.3x3.square")
             }
             .pickerStyle(.menu)
+            if document.tiledMode != .none {
+                // The copies tiled mode shows, made part of the drawing.
+                Menu {
+                    ForEach([2, 3, 4], id: \.self) { n in
+                        Button { document.repeatCanvas(copies: n) } label: { Text(verbatim: "× \(n)") }
+                    }
+                } label: {
+                    Label("Make the repetition permanent", systemImage: "square.on.square.dashed")
+                }
+            }
             Button("Grid settings…", systemImage: "slider.horizontal.3") { showingGridSettings = true }
         } label: {
             topBarIcon("grid", isOn: isOn)

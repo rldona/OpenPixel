@@ -51,3 +51,48 @@ final class TiledModeDocumentTests: XCTestCase {
         XCTAssertEqual(pixel(doc, 4, 4), .black)
     }
 }
+
+@MainActor
+final class RepeatCanvasTests: XCTestCase {
+    private func cel(_ doc: SpriteDocument, _ layer: Int = 0) -> PixelImage? {
+        doc.sprite.cel(layer: doc.sprite.layers[layer].id, frame: doc.sprite.frames[0].id)
+    }
+
+    func testHorizontalTilingBecomesCopiesAcross() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
+        doc.primary = .black
+        doc.beginStroke(at: PixelPoint(x: 1, y: 2))
+        doc.endStroke()
+        doc.tiledMode = .horizontal
+        doc.repeatCanvas(copies: 3)
+        XCTAssertEqual(doc.sprite.width, 24)
+        XCTAssertEqual(doc.sprite.height, 8, "only the tiled axis grows")
+        for x in [1, 9, 17] { XCTAssertEqual(cel(doc)?[x, 2], .black, "copy at \(x)") }
+        XCTAssertEqual(doc.tiledMode, .none, "the repetition is in the drawing now")
+        doc.undo()
+        XCTAssertEqual(doc.sprite.width, 8, "one undo step")
+    }
+
+    func testBothAxes() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
+        doc.tiledMode = .both
+        doc.repeatCanvas(copies: 2)
+        XCTAssertEqual(doc.sprite.width, 8)
+        XCTAssertEqual(doc.sprite.height, 8)
+    }
+
+    func testATilemapRepeatsItsCellsWithTheSameTiles() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 4, background: nil, palette: []))
+        doc.setGrid(GridSettings(width: 4, height: 4))
+        doc.primary = .black
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.endStroke()
+        doc.convertToTilemap(doc.sprite.layers[0].id)
+        let tiles = doc.sprite.layers[0].tileset?.tiles.count
+        doc.tiledMode = .horizontal
+        doc.repeatCanvas(copies: 2)
+        XCTAssertEqual(doc.sprite.width, 16)
+        XCTAssertEqual(doc.sprite.layers[0].tileset?.tiles.count, tiles, "no new tiles")
+        XCTAssertEqual(cel(doc)?[8, 0], .black)
+    }
+}

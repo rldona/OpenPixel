@@ -2598,6 +2598,18 @@ extension SpriteDocument {
         if let y2 = symmetry.axisY2 { symmetry.axisY2 = y2 + 2 * moved.dy }
     }
 
+    /// Tiled mode > Make the repetition permanent: the canvas becomes `copies`
+    /// of itself along the tiled axes, in one undo step, and tiled mode goes off.
+    func repeatCanvas(copies: Int) {
+        let x = tiledMode.wrapsX ? copies : 1, y = tiledMode.wrapsY ? copies : 1
+        guard x > 1 || y > 1, storage.width * x <= Self.maxCanvasSize, storage.height * y <= Self.maxCanvasSize else {
+            notice = L10n.string("That would be bigger than %d × %d px", Self.maxCanvasSize, Self.maxCanvasSize)
+            return
+        }
+        performCanvasChange { $0.repeatCanvas(x: x, y: y) }
+        tiledMode = .none
+    }
+
     // MARK: Canvas size, on the canvas
 
     /// Edit > Canvas > Canvas size: the canvas shows its edges with handles;

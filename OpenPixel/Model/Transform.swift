@@ -380,6 +380,36 @@ extension Sprite {
         return (dx, dy)
     }
 
+    /// Makes tiled mode's repetition part of the drawing: the canvas becomes
+    /// `x` × `y` copies of itself, with every cel repeated. Tilemaps repeat
+    /// their cells (same tiles) when the sprite is a whole number of tiles.
+    mutating func repeatCanvas(x: Int, y: Int) {
+        let x = max(1, x), y = max(1, y)
+        guard x > 1 || y > 1 else { return }
+        let w = width, h = height
+        cels = cels.mapValues { image in
+            var out = PixelImage(width: w * x, height: h * y)
+            for ty in 0..<y { for tx in 0..<x {
+                for py in 0..<h { for px in 0..<w { out[tx * w + px, ty * h + py] = image[px, py] } }
+            } }
+            return out
+        }
+        for (key, map) in tilemaps {
+            guard let tileset = layers.first(where: { $0.id == key.layer })?.tileset,
+                  w % tileset.tileWidth == 0, h % tileset.tileHeight == 0 else {
+                tilemaps[key] = nil
+                continue
+            }
+            var out = TileMap(columns: map.columns * x, rows: map.rows * y)
+            for row in 0..<out.rows { for column in 0..<out.columns {
+                out[column, row] = map[column % map.columns, row % map.rows]
+            } }
+            tilemaps[key] = out
+        }
+        width = w * x
+        height = h * y
+    }
+
     mutating func rotateCanvas(clockwise: Bool) {
         swap(&width, &height)
         cels = cels.mapValues { $0.rotated90(clockwise: clockwise) }

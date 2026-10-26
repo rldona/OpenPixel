@@ -759,3 +759,5 @@
 "Canvas size…" = "Tamaño del lienzo…";
 "In grid cells" = "En celdas";
 "%lld × %lld cells" = "%lld × %lld celdas";
+"Make the repetition permanent" = "Fijar la repetición";
+"That would be bigger than %d × %d px" = "Quedaría más grande de %1$d × %2$d px";
