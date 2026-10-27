@@ -226,7 +226,11 @@ struct EditorView: View {
                 document.notice = L10n.string("Couldn't read a palette from that file")
                 return
             }
+            // Imported palettes stay in Load preset for every sprite.
+            let paletteName = PaletteFile.name(in: data) ?? name
+            Palette.save(colors, name: paletteName)
             document.setPalette(colors)
+            document.notice = L10n.string("“%@” is now in Load preset", paletteName)
         case .imageLayer: document.importLayer(imageData: data, name: name)
         case .referenceLayer: document.addReferenceLayer(imageData: data, name: name)
         case .script: break

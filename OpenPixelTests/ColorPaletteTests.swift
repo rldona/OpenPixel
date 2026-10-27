@@ -183,3 +183,27 @@ final class PaletteDocumentTests: XCTestCase {
         XCTAssertEqual(doc.sprite.palette, Palette.pico8.colors)
     }
 }
+
+final class SavedPaletteTests: XCTestCase {
+    override func setUp() { UserDefaults.standard.removeObject(forKey: "savedPalettes") }
+    override func tearDown() { UserDefaults.standard.removeObject(forKey: "savedPalettes") }
+
+    func testSavedPalettesKeepTheirOrderAndReplaceByName() {
+        Palette.save(Palette.pico8.colors, name: "Mine")
+        Palette.save(Palette.gameBoy.colors, name: "Green")
+        Palette.save(Palette.grays.colors, name: " Mine ")
+        XCTAssertEqual(Palette.saved.map(\.name), ["Mine", "Green"])
+        XCTAssertEqual(Palette.saved.first?.colors, Palette.grays.colors)
+        Palette.deleteSaved(named: "Mine")
+        XCTAssertEqual(Palette.saved.map(\.name), ["Green"])
+    }
+
+    func testAGimpPaletteNamesItself() {
+        let lospec = Data("GIMP Palette\n#Palette Name: Resurrect 64\n#Colors: 1\n46\t34\t47\t2e222f\n".utf8)
+        XCTAssertEqual(PaletteFile.name(in: lospec), "Resurrect 64")
+        XCTAssertEqual(PaletteFile.colors(from: lospec, fileExtension: "gpl"), [PixelColor(hex: "2e222f")!])
+        let gimp = Data("GIMP Palette\nName: Ours\nColumns: 8\n#\n0 0 0\n".utf8)
+        XCTAssertEqual(PaletteFile.name(in: gimp), "Ours")
+        XCTAssertNil(PaletteFile.name(in: Data("ffffff\n".utf8)))
+    }
+}

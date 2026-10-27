@@ -46,6 +46,8 @@ The **+** after the last color adds the primary color, so you can build a palett
 
 - **Edit colors** turns on palette editing: select a run of colors to edit one, make a **gradient** between the ends, **reverse**, **sort** (by hue, saturation, brightness or luminance), **duplicate**, **delete**, or drag to reorder. Everything can be undone.
 - The **…** menu loads a preset (DawnBringer 32, PICO-8, Sweetie 16, Endesga 32, DawnBringer 16, Game Boy, grays…), makes a palette from the sprite's colors, imports one (`.gpl`, `.hex`, `.pal`, `.txt`, `.png`, `.gif`), exports it (`.gpl`, `.hex`) or sets the default palette for new sprites. Palettes from installed [extensions](./scripts) are listed there too.
+- **Your palettes**: an imported palette is kept under **My palettes** in **Load preset**, with the name the file gives it (or the file's name). **Save palette as…** keeps the current palette there under a name of yours; saving again with the same name replaces it. **Delete saved palette** removes one. They are available in every sprite.
+- Big palettes scroll inside the panel: Resurrect 64, for instance, shows a few rows at a time.
 
 ## Color actions
 

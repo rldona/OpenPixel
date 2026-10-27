@@ -80,6 +80,45 @@ struct Palette: Identifiable, Hashable {
     /// The presets, with the saved default first when there is one.
     static var all: [Palette] { (savedDefault.map { [$0] } ?? []) + presets }
 
+    // MARK: Saved palettes
+
+    private static let savedKey = "savedPalettes"
+
+    private struct Stored: Codable {
+        let name: String
+        let colors: [String]
+    }
+
+    /// Palettes the user saved or imported, in the order they were added.
+    static var saved: [Palette] {
+        guard let data = UserDefaults.standard.data(forKey: savedKey),
+              let stored = try? JSONDecoder().decode([Stored].self, from: data) else { return [] }
+        return stored.map { Palette($0.name, $0.colors) }
+    }
+
+    /// Adds a palette to the saved ones; one with the same name is replaced in place.
+    static func save(_ colors: [PixelColor], name: String) {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        var palettes = saved
+        let palette = Palette(name: name, colors: colors)
+        if let index = palettes.firstIndex(where: { $0.name == name }) {
+            palettes[index] = palette
+        } else {
+            palettes.append(palette)
+        }
+        store(palettes)
+    }
+
+    static func deleteSaved(named name: String) {
+        store(saved.filter { $0.name != name })
+    }
+
+    private static func store(_ palettes: [Palette]) {
+        let stored = palettes.map { Stored(name: $0.name, colors: $0.colors.map(\.hex)) }
+        UserDefaults.standard.set(try? JSONEncoder().encode(stored), forKey: savedKey)
+    }
+
     /// Every distinct visible color used in the sprite's cels, in order of
     /// appearance (Aseprite's "Palette from sprite"), up to `limit`.
     static func colors(in sprite: Sprite, limit: Int = 256) -> [PixelColor] {

@@ -35,6 +35,21 @@ enum PaletteFile {
         return colors.isEmpty ? nil : Array(colors.prefix(maxColors))
     }
 
+    /// The name a palette file gives itself (GIMP's "Name:" line), if any.
+    static func name(in data: Data) -> String? {
+        guard let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1),
+              text.hasPrefix("GIMP Palette") else { return nil }
+        for line in text.components(separatedBy: .newlines) {
+            var line = line.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("#") { line = line.dropFirst().trimmingCharacters(in: .whitespaces) }
+            for key in ["Palette Name:", "Name:"] where line.hasPrefix(key) {
+                let name = line.dropFirst(key.count).trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { return name }
+            }
+        }
+        return nil
+    }
+
     /// Understands GIMP (.gpl), JASC (.pal), Paint.NET (.txt) and plain hex lists.
     static func parse(_ text: String) -> [PixelColor] {
         let lines = text.components(separatedBy: .newlines)

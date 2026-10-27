@@ -803,3 +803,11 @@
 "Groups can't be copied yet" = "Los grupos aún no se pueden copiar";
 "This cel is empty" = "Este cel está vacío";
 "Groups the checked layers, or adds an empty group to drag layers into" = "Agrupa las capas marcadas, o añade un grupo vacío al que arrastrar capas";
+
+"Save palette" = "Guardar paleta";
+"Save palette as…" = "Guardar paleta como…";
+"It shows up in Load preset for every sprite. A saved palette with the same name is replaced." = "Aparecerá en Cargar predefinida en todos los sprites. Si ya hay una paleta guardada con ese nombre, se sustituye.";
+"My palettes" = "Mis paletas";
+"Delete saved palette" = "Eliminar paleta guardada";
+"“%@” is now in Load preset" = "«%@» ya está en Cargar predefinida";
+"Deleted “%@”" = "Se eliminó «%@»";

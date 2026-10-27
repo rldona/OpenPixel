@@ -15,6 +15,8 @@ struct SidePanel: View {
     @State private var paletteRange: ClosedRange<Int>?
     @State private var paletteAnchor: Int?
     @State private var editingEntry: PaletteEntry?
+    @State private var savingPalette = false
+    @State private var paletteName = ""
     /// The Tileset tab is on (only while a tilemap layer is active).
     @State private var showingTileset = false
 
@@ -69,6 +71,18 @@ struct SidePanel: View {
         }
         .sheet(item: $editingEntry) { entry in
             PaletteEntryEditor(color: entry.color, index: entry.index) { document.setPaletteColor($0, at: entry.index) }
+        }
+        .alert("Save palette", isPresented: $savingPalette) {
+            TextField("Name", text: $paletteName)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let name = paletteName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !name.isEmpty else { return }
+                Palette.save(document.structure.palette, name: name)
+                document.notice = L10n.string("“%@” is now in Load preset", name)
+            }
+        } message: {
+            Text("It shows up in Load preset for every sprite. A saved palette with the same name is replaced.")
         }
     }
 
@@ -292,6 +306,14 @@ struct SidePanel: View {
     private var paletteMenu: some View {
         Menu {
             Menu("Load preset") {
+                let saved = Palette.saved
+                if !saved.isEmpty {
+                    Section("My palettes") {
+                        ForEach(saved) { palette in
+                            Button(palette.name) { document.setPalette(palette.colors) }
+                        }
+                    }
+                }
                 ForEach(Palette.all) { preset in
                     Button(LocalizedStringKey(preset.name)) { document.setPalette(preset.colors) }
                 }
@@ -318,6 +340,22 @@ struct SidePanel: View {
                 }
             }
             Divider()
+            Button("Save palette as…", systemImage: "square.and.arrow.down.on.square") {
+                paletteName = document.name
+                savingPalette = true
+            }
+            .disabled(document.structure.palette.isEmpty)
+            let saved = Palette.saved
+            if !saved.isEmpty {
+                Menu("Delete saved palette", systemImage: "trash") {
+                    ForEach(saved) { palette in
+                        Button(palette.name, role: .destructive) {
+                            Palette.deleteSaved(named: palette.name)
+                            document.notice = L10n.string("Deleted “%@”", palette.name)
+                        }
+                    }
+                }
+            }
             Button("Save as default palette", systemImage: "star") {
                 Palette.saveDefault(document.structure.palette)
                 document.notice = L10n.string("New sprites will start with this palette")
@@ -348,7 +386,7 @@ struct SidePanel: View {
             .frame(height: 27)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(
-                selected ? Theme.accent : (isPrimary && !isEditingPalette ? Theme.text : .white.opacity(0.08)),
+                selected ? Theme.accent : (isPrimary && !isEditingPalette ? Theme.text : Theme.border),
                 lineWidth: selected ? 2.5 : (isPrimary && !isEditingPalette ? 2 : 1)
             ))
             // Corner marks for the primary and secondary colors, as in Aseprite's color bar.
