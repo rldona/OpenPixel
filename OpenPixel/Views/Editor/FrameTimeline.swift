@@ -44,10 +44,7 @@ struct FrameTimeline: View {
     /// How far the cels are scrolled sideways; the header follows it.
     @State private var gridOffset: CGFloat = 0
     private static let speeds: [Double] = [0.25, 0.5, 1, 1.5, 2, 3]
-    /// While something is selected the header holds the selection (or
-    /// transform) bar; this switch brings the playback controls back.
-    @State private var showsPlayback = false
-
+    /// While something is selected the header holds the selection (or transform) bar.
     private var hasEditBar: Bool {
         document.canvasResize == nil && (document.isTransforming || document.hasSelection)
     }
@@ -207,62 +204,17 @@ struct FrameTimeline: View {
     private var controls: some View {
         if document.isSelectingRange {
             rangeControls
+        } else if document.isTransforming && hasEditBar {
+            TransformBar(document: document, docked: true).padding(.horizontal, 10)
         } else if hasEditBar {
-            HStack(spacing: 0) {
-                headerSwitch
-                if showsPlayback {
-                    playbackRow
-                } else if document.isTransforming {
-                    TransformBar(document: document, docked: true)
-                } else {
-                    SelectionActionBar(document: document, docked: true)
-                }
-            }
-            .padding(.leading, 10)
+            SelectionActionBar(document: document, docked: true).padding(.horizontal, 10)
         } else {
-            playbackRow
+            // Labels give way to icons when the timeline is narrow.
+            ViewThatFits(in: .horizontal) {
+                playbackControls(compact: false)
+                playbackControls(compact: true)
+            }
         }
-    }
-
-    /// Labels give way to icons when the timeline is narrow.
-    private var playbackRow: some View {
-        ViewThatFits(in: .horizontal) {
-            playbackControls(compact: false)
-            playbackControls(compact: true)
-        }
-    }
-
-    /// Switches the header between the selection tools and the playback
-    /// controls. A dot on the tools says a selection is waiting there.
-    private var headerSwitch: some View {
-        HStack(spacing: 2) {
-            switchButton("Timeline", "film", isOn: showsPlayback) { showsPlayback = true }
-            switchButton(document.isTransforming ? "Transform tools" : "Selection tools", "rectangle.dashed", isOn: !showsPlayback) { showsPlayback = false }
-                .overlay(alignment: .topTrailing) {
-                    if showsPlayback {
-                        Circle().fill(Theme.accent).frame(width: 7, height: 7).padding(5).allowsHitTesting(false)
-                    }
-                }
-        }
-        .padding(3)
-        .background(Theme.chip, in: RoundedRectangle(cornerRadius: 10))
-        .padding(.trailing, 6)
-        // A new selection shows its tools.
-        .onChange(of: hasEditBar, initial: true) { if hasEditBar { showsPlayback = false } }
-    }
-
-    private func switchButton(_ title: LocalizedStringKey, _ systemImage: String, isOn: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .medium))
-                .frame(width: 38, height: 32)
-                .foregroundStyle(isOn ? Theme.onAccent : Theme.text)
-                .background(isOn ? Theme.accent : .clear, in: RoundedRectangle(cornerRadius: 8))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(title))
-        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     /// Shown while selecting: what can be done with the selected block.

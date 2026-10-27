@@ -17,7 +17,7 @@ The options bar picks the mode: **replace**, **add**, **subtract** or **intersec
 
 While something is selected, drawing, filling and erasing stay inside it, and a bar gives you the common actions: transform, duplicate and move, cut, copy, paste, delete, fill with the primary color, flip, rotate 90°, **arrange**, invert and deselect.
 
-The bar takes the place of the timeline's header, so it never covers the drawing. A switch at its left goes back to the playback controls (a dot on the selection button says the bar is still there) and back again. Deselecting, applying or cancelling brings the header back. With the timeline hidden (collapsed or in focus mode), the bar floats at the bottom of the canvas instead.
+The bar takes the place of the timeline's header, so it never covers the drawing. Deselecting, applying or cancelling brings the header back. With the timeline hidden (collapsed or in focus mode), the bar floats at the bottom of the canvas instead.
 
 While you drag a marquee or the lasso, a label next to it shows the size of the area, counting only the part inside the sprite. Once there's a selection, the bar starts with its size and the position of its top-left corner, like `12×8 · 3, 5`.
 
