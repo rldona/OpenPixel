@@ -19,6 +19,8 @@ struct SidePanel: View {
     @State private var paletteName = ""
     /// The Tileset tab is on (only while a tilemap layer is active).
     @State private var showingTileset = false
+    /// The color square and its sliders, hidden by default so the palette gets the room.
+    @AppStorage("showsColorPicker") private var showsColorPicker = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 8)
 
@@ -51,7 +53,8 @@ struct SidePanel: View {
                         paletteSection(maxHeight: 120)
                     }
                 } else {
-                    paletteSection()
+                    // Without the square, the palette takes its room and big ones scroll less.
+                    paletteSection(maxHeight: showsColorPicker ? 151 : 461)
                 }
                 colorSection
             }
@@ -92,7 +95,10 @@ struct SidePanel: View {
     /// the two colors is picked in the chips below it.
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
+            colorPickerToggle
+            if showsColorPicker {
+                QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
+            }
             // Swap sits between the two colors, as in Aseprite's color bar.
             HStack(spacing: 4) {
                 colorChip(secondary: false)
@@ -126,6 +132,27 @@ struct SidePanel: View {
                 }
             }
         }
+    }
+
+    /// Shows or hides the color square and its sliders.
+    private var colorPickerToggle: some View {
+        Button {
+            withAnimation(.snappy(duration: 0.2)) { showsColorPicker.toggle() }
+        } label: {
+            HStack(spacing: 6) {
+                SectionLabel("Color picker")
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .rotationEffect(.degrees(showsColorPicker ? 180 : 0))
+            }
+            .foregroundStyle(Theme.muted)
+            .frame(height: 28)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Color picker"))
+        .accessibilityValue(showsColorPicker ? Text("Shown") : Text("Hidden"))
     }
 
     /// The last colors painted with, newest first; tapping one picks it for

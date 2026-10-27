@@ -26,7 +26,7 @@ The row under the chips keeps the last 8 colors you painted with, newest first. 
 
 ## The color selector
 
-Always on, under the palette:
+Hidden at first, so the palette gets the room. Tap **Color picker** under the palette to show it or hide it again; the panel remembers your choice:
 
 - the **square** sets saturation (left to right) and brightness (bottom to top);
 - the **hue** bar picks the hue;

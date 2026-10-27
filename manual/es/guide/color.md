@@ -26,7 +26,7 @@ La fila de debajo de los chips guarda los últimos 8 colores con los que has pin
 
 ## El selector de color
 
-Siempre visible, bajo la paleta:
+Oculto al principio, para que la paleta tenga más sitio. Toca **Selector de color**, bajo la paleta, para mostrarlo u ocultarlo de nuevo; el panel recuerda lo que elijas:
 
 - el **cuadrado** ajusta la saturación (de izquierda a derecha) y el brillo (de abajo arriba);
 - la barra de **tono** elige el tono;
