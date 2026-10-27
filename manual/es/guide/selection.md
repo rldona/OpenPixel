@@ -15,7 +15,9 @@ La barra de opciones elige el modo: **reemplazar**, **añadir**, **restar** o **
 
 ![Una selección con su barra de acciones](/crops/es/selection.jpg)
 
-Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra flotante te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, **organizar**, invertir y deseleccionar.
+Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, **organizar**, invertir y deseleccionar.
+
+La barra ocupa el lugar de la cabecera del timeline, así que nunca tapa el dibujo. Un interruptor a su izquierda vuelve a los controles de reproducción (un punto en el botón de selección indica que la barra sigue ahí) y de vuelta. Al deseleccionar, aplicar o cancelar vuelve la cabecera. Con el timeline oculto (plegado o en modo enfoque), la barra flota abajo del lienzo.
 
 Mientras arrastras un marco o el lazo, una etiqueta a su lado muestra el tamaño del área, contando solo la parte que queda dentro del sprite. Cuando ya hay una selección, la barra empieza con su tamaño y la posición de su esquina superior izquierda, como `12×8 · 3, 5`.
 

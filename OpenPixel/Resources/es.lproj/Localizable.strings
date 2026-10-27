@@ -790,3 +790,6 @@
 "Up one layer" = "Subir una capa";
 "Down one layer" = "Bajar una capa";
 "Z-index: %lld" = "Z-index: %lld";
+"Timeline" = "Timeline";
+"Selection tools" = "Herramientas de selección";
+"Transform tools" = "Herramientas de transformación";

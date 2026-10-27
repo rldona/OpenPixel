@@ -62,11 +62,13 @@ struct EditorView: View {
                                 // timeline: its capsule is 11 pt above the timeline, 8 pt clear of it, so the
                                 // bars end 8 pt above the capsule.
                                 let barBottom: CGFloat = !focusMode && !timelineCollapsed ? 22 : 14
+                                // With the timeline open, the selection and transform bars sit in its header.
+                                let timelineHidden = focusMode || timelineCollapsed
                                 if document.canvasResize != nil {
                                     CanvasResizeBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
-                                } else if document.isTransforming {
+                                } else if document.isTransforming && timelineHidden {
                                     TransformBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
-                                } else if document.hasSelection {
+                                } else if document.hasSelection && timelineHidden {
                                     SelectionActionBar(document: document).padding([.horizontal, .top], 14).padding(.bottom, barBottom)
                                 }
                                 // Also in focus mode, so the animation can be played and scrubbed full screen.

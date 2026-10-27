@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// Floating bar shown while something is selected: the common actions
-/// within reach of a finger, since an iPad has no menu bar.
+/// Bar shown while something is selected: the common actions within reach
+/// of a finger, since an iPad has no menu bar. It sits in the timeline's
+/// header, or floats over the canvas when the timeline is hidden.
 struct SelectionActionBar: View {
     let document: SpriteDocument
+    /// In the timeline's header instead of floating.
+    var docked = false
 
     var body: some View {
         HStack(spacing: 2) {
@@ -34,7 +37,7 @@ struct SelectionActionBar: View {
             barButton("Invert selection", "square.on.square.intersection.dashed") { document.invertSelection() }
             barButton("Deselect", "xmark") { document.deselect() }
         }
-        .floatingBarStyle()
+        .barStyle(docked: docked)
     }
 
     private var divider: some View {
@@ -95,9 +98,11 @@ struct CanvasResizeBar: View {
     }
 }
 
-/// Floating bar shown while pixels are being transformed.
+/// Bar shown while pixels are being transformed, docked or floating like
+/// `SelectionActionBar`.
 struct TransformBar: View {
     @Bindable var document: SpriteDocument
+    var docked = false
 
     var body: some View {
         HStack(spacing: 2) {
@@ -169,7 +174,7 @@ struct TransformBar: View {
             .buttonStyle(.plain)
             .padding(.leading, 4)
         }
-        .floatingBarStyle()
+        .barStyle(docked: docked)
     }
 
     private func toggle(_ title: LocalizedStringKey, _ systemImage: String, isOn: Binding<Bool>) -> some View {
@@ -406,5 +411,23 @@ private extension View {
             .background(Theme.panel.opacity(0.96), in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
             .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
+    }
+
+    /// Docked in the timeline's header the bar has no frame of its own and
+    /// starts at the left, scrolling when it doesn't fit.
+    @ViewBuilder
+    func barStyle(docked: Bool) -> some View {
+        if docked {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 0) {
+                    self
+                    Spacer(minLength: 0)
+                }
+                ScrollView(.horizontal, showsIndicators: false) { self }
+            }
+            .frame(height: 44)
+        } else {
+            floatingBarStyle()
+        }
     }
 }
