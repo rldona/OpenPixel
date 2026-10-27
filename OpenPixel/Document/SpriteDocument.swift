@@ -1569,14 +1569,71 @@ final class SpriteDocument {
     /// Layer > New > Group: a group around the active layer.
     func groupActiveLayer() { groupLayers([activeLayerID]) }
 
+    /// The timeline's New group: the checked layers go into it; with none
+    /// checked it starts empty above the active layer, to drag layers into.
+    func newGroup() {
+        let checked = sprite.layers.filter { checkedLayers.contains($0.id) }.map(\.id)
+        if !checked.isEmpty {
+            groupLayers(checked)
+            endRangeSelection()
+            return
+        }
+        var group = Layer(name: nextGroupName())
+        group.isGroup = true
+        group.parent = activeLayer?.parent
+        perform { s in
+            let index = s.layers.firstIndex { $0.id == self.activeLayerID }.map { $0 + 1 } ?? s.layers.count
+            s.layers.insert(group, at: index)
+            s.normalizeGroups()
+        }
+        activeLayerID = group.id
+    }
+
+    private func nextGroupName() -> String {
+        let names = Set(sprite.layers.map(\.name))
+        var n = sprite.layers.filter(\.isGroup).count + 1
+        while names.contains(L10n.string("Group %d", n)) { n += 1 }
+        return L10n.string("Group %d", n)
+    }
+
+    /// Where a dragged layer lands next to the row it's dropped on.
+    enum LayerDrop: Equatable { case above, below, into }
+
+    /// Drops layer `id` above or below `target` (on its level), or into
+    /// `target` when it's a group (on top of its children). A group moves
+    /// with its layers.
+    func moveLayer(_ id: UUID, _ drop: LayerDrop, _ target: UUID) {
+        guard id != target,
+              let t = sprite.layers.first(where: { $0.id == target }),
+              sprite.layers.contains(where: { $0.id == id }),
+              !sprite.descendants(of: id).contains(where: { $0.id == target }) else { return }
+        // Just under an open group's row is its first child.
+        if drop == .into || (drop == .below && t.isGroup && t.isExpanded) {
+            guard t.isGroup else { return }
+            return moveIntoGroup(id, group: target)
+        }
+        perform { s in
+            guard let from = s.layers.firstIndex(where: { $0.id == id }) else { return }
+            var layer = s.layers.remove(at: from)
+            layer.parent = t.parent
+            guard var to = s.layers.firstIndex(where: { $0.id == target }) else { return }
+            if drop == .above {
+                to += 1
+            } else if t.isGroup {
+                // Below a closed group: under all of its layers.
+                to = s.layers.firstIndex { l in s.ancestors(of: l).contains { $0.id == target } } ?? to
+            }
+            s.layers.insert(layer, at: to)
+            s.normalizeGroups()
+            s.keepBackgroundAtBottom()
+        }
+    }
+
     /// Puts `ids` in a new group placed where the topmost of them was.
     func groupLayers(_ ids: [UUID]) {
         let members = sprite.layers.filter { ids.contains($0.id) && !$0.isBackground }
         guard let top = members.last else { return }
-        let names = Set(sprite.layers.map(\.name))
-        var n = sprite.layers.filter(\.isGroup).count + 1
-        while names.contains(L10n.string("Group %d", n)) { n += 1 }
-        var group = Layer(name: L10n.string("Group %d", n))
+        var group = Layer(name: nextGroupName())
         group.isGroup = true
         group.parent = top.parent
         let memberIDs = Set(members.map(\.id))

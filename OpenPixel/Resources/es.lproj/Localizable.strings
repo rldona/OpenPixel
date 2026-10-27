@@ -802,3 +802,4 @@
 "Touch and hold to paste into this frame" = "Mantén pulsado para pegar en este frame";
 "Groups can't be copied yet" = "Los grupos aún no se pueden copiar";
 "This cel is empty" = "Este cel está vacío";
+"Groups the checked layers, or adds an empty group to drag layers into" = "Agrupa las capas marcadas, o añade un grupo vacío al que arrastrar capas";

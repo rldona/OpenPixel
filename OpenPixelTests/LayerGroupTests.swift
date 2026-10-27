@@ -34,6 +34,46 @@ final class LayerGroupTests: XCTestCase {
         XCTAssertFalse(doc.sprite.hasGroups, "one undo step")
     }
 
+    func testNewGroupStartsEmptyAndTakesDroppedLayers() {
+        let doc = makeDocument()
+        doc.activeLayerID = id(doc, "C")
+        doc.newGroup()
+        let group = doc.activeLayerID
+        XCTAssertEqual(names(doc).last, doc.sprite.layers.last?.name)
+        XCTAssertTrue(doc.sprite.layers.last!.isGroup, "an empty group above the active layer")
+        doc.moveLayer(id(doc, "A"), .into, group)
+        doc.moveLayer(id(doc, "B"), .above, id(doc, "A"))
+        XCTAssertEqual(doc.sprite.layers.first { $0.name == "A" }?.parent, group)
+        XCTAssertEqual(doc.sprite.layers.first { $0.name == "B" }?.parent, group, "above a child is still inside")
+        XCTAssertEqual(Array(names(doc).prefix(3)), ["C", "A", "B"])
+    }
+
+    func testDroppingAboveOrBelowAGroupStaysOutside() {
+        let doc = makeDocument()
+        doc.groupLayers([id(doc, "A"), id(doc, "B")])
+        let group = doc.sprite.layers.first(where: \.isGroup)!.id
+        doc.moveLayer(id(doc, "C"), .below, id(doc, "A"))
+        XCTAssertEqual(doc.sprite.layers.first { $0.name == "C" }?.parent, group, "below a child goes in the group")
+        XCTAssertEqual(names(doc).first, "C")
+        doc.toggleExpanded(group)
+        doc.moveLayer(id(doc, "C"), .above, group)
+        XCTAssertNil(doc.sprite.layers.first { $0.name == "C" }?.parent)
+        XCTAssertEqual(names(doc).last, "C")
+        doc.moveLayer(id(doc, "C"), .below, group)
+        XCTAssertNil(doc.sprite.layers.first { $0.name == "C" }?.parent, "below a closed group: out of it, under its layers")
+        XCTAssertEqual(names(doc).first, "C")
+    }
+
+    func testCheckedLayersGoIntoTheNewGroup() {
+        let doc = makeDocument()
+        doc.toggleLayerCheck(id(doc, "A"))
+        doc.toggleLayerCheck(id(doc, "B"))
+        doc.newGroup()
+        let group = doc.sprite.layers.first(where: \.isGroup)!.id
+        XCTAssertEqual(doc.sprite.layers.filter { $0.parent == group }.map(\.name), ["A", "B"])
+        XCTAssertNil(doc.timelineRange)
+    }
+
     func testGroupVisibilityOpacityAndLockApplyToChildren() {
         let doc = makeDocument()
         doc.groupLayers([id(doc, "A"), id(doc, "B")])

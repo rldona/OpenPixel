@@ -9,7 +9,7 @@ Cada fila tiene un **ojo** (mostrar u ocultar, ⇧X), un **candado** y los **pun
 - **⚙** elige si el primer frame es el 0 o el 1;
 - **+** añade una capa encima de la activa (⇧N); mantenlo pulsado para más opciones (abajo);
 - la **papelera** elimina la capa activa;
-- arrastra una capa para reordenarla (o usa **Subir** y **Bajar** en su menú).
+- arrastra una capa para reordenarla (o usa **Subir** y **Bajar** en su menú). Se abre una fila discontinua donde va a quedar; suéltala sobre la fila de un grupo para meterla dentro.
 
 ## El menú de la capa
 
@@ -43,7 +43,7 @@ Como en Aseprite, una capa de fondo es opaca, aparece subrayada en la lista y si
 
 ## Grupos
 
-Agrupa una capa desde su menú, varias desde una selección del timeline, o crea uno vacío desde el menú **+**. Los grupos se pliegan con su flecha. Su visibilidad, su bloqueo y su opacidad se aplican a todo lo que contienen, y al mover, duplicar o eliminar un grupo van con él sus capas. Una capa nueva añadida con un grupo activo va dentro de él.
+Agrupa una capa desde su menú, varias desde una selección del timeline, o toca el botón de la **carpeta** encima de las capas: agrupa las capas marcadas o, si no hay ninguna, añade un grupo vacío encima de la capa activa. Arrastra capas sobre la fila de un grupo para meterlas dentro, o entre sus capas para colocarlas ahí. Los grupos se pliegan con su flecha. Su visibilidad, su bloqueo y su opacidad se aplican a todo lo que contienen, y al mover, duplicar o eliminar un grupo van con él sus capas. Una capa nueva añadida con un grupo activo va dentro de él.
 
 ## Capas nuevas desde el menú +
 

@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 struct FrameTimeline: View {
     @Bindable var document: SpriteDocument
     @State private var renaming: Layer?
+    /// Where a layer being dragged in the layer column would land.
+    @State private var layerDrop: LayerDropSlot?
     /// Picking the image for a new reference layer.
     @State private var pickingReferencePhoto = false
     @State private var referencePhoto: PhotosPickerItem?
@@ -565,7 +567,7 @@ struct FrameTimeline: View {
                 timelineOptions
                 Menu {
                     Button("New layer", systemImage: "square.3.layers.3d") { document.addLayer() }
-                    Button("New group", systemImage: "folder.badge.plus") { document.groupActiveLayer() }
+                    Button("New group", systemImage: "folder.badge.plus") { document.newGroup() }
                     Button("New tilemap layer", systemImage: "square.grid.3x3.fill") { document.addTilemapLayer() }
                     Button("Import image or GIF…", systemImage: "photo.stack") {
                         importingAsLayer = true
@@ -596,6 +598,8 @@ struct FrameTimeline: View {
                         .accessibilityHidden(true)
                 }
 
+                IconButton(systemImage: "folder.badge.plus", label: "New group", size: 28) { document.newGroup() }
+                    .accessibilityHint(Text("Groups the checked layers, or adds an empty group to drag layers into"))
                 IconButton(systemImage: "trash", label: "Delete layer", size: 28) { document.deleteLayer(document.activeLayerID) }
                     .opacity(document.structure.layers.count > 1 ? 1 : 0.35)
                 // Layers move by dragging them, or with Move up / Move down in their menu.
@@ -615,21 +619,32 @@ struct FrameTimeline: View {
 
     private var layerColumn: some View {
         VStack(spacing: 0) {
+            VStack(spacing: 0) {
             ForEach(layersTopFirst) { layer in
+                if gapBefore(layer) { dropGap(depth: document.structure.depth(of: layer)) }
                 layerRow(layer)
                     .draggable(layerDragPayload(layer)) { dragPreview(Text(verbatim: layer.name)) }
-                    .dropDestination(for: String.self) { items, _ in
-                        guard let payload = items.first else { return false }
-                        if let grabbed = RangePayload(payload) {
-                            document.dropRange(from: (grabbed.layer, grabbed.frame), to: (layer.id, grabbed.frame))
-                            return true
+                    .overlay {
+                        // Dropping into a closed group: the group itself is outlined.
+                        if layerDrop == LayerDropSlot(target: layer.id, drop: .into), !layer.isExpanded {
+                            RoundedRectangle(cornerRadius: 7)
+                                .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                                .padding(2)
+                                .allowsHitTesting(false)
                         }
-                        guard let id = Self.layerID(payload) else { return false }
-                        document.moveLayer(id, to: layer.id)
-                        return true
                     }
                     .id(layer.id)
+                if gapAfter(layer) {
+                    dropGap(depth: document.structure.depth(of: layer) + (layer.isGroup && layerDrop?.drop == .into ? 1 : 0))
+                }
             }
+            }
+            .onDrop(of: [.text], delegate: LayerColumnDrop(
+                update: { y in layerDrop = layerDropSlot(atY: y) },
+                exit: { layerDrop = nil },
+                slot: { layerDrop },
+                perform: { payload, slot in dropLayer(payload, at: slot) }
+            ))
             // Projected layers: tapping one adds layers under the bottom one, down to it.
             ForEach(0..<projectedLayerRows, id: \.self) { row in
                 Button { document.extendTimeline(toFrame: nil, layersBelow: row + 1) } label: {
@@ -718,6 +733,63 @@ struct FrameTimeline: View {
     }
 
     /// While a block of layers is selected its rows drag the block; otherwise a row drags its layer.
+    // MARK: Layer drag and drop
+
+    private func gapBefore(_ layer: Layer) -> Bool {
+        layerDrop == LayerDropSlot(target: layer.id, drop: .above)
+    }
+
+    private func gapAfter(_ layer: Layer) -> Bool {
+        guard let slot = layerDrop, slot.target == layer.id else { return false }
+        return slot.drop == .below || (slot.drop == .into && layer.isExpanded)
+    }
+
+    /// The dashed row a dragged layer would take, indented to its level.
+    private func dropGap(depth: Int) -> some View {
+        RoundedRectangle(cornerRadius: 7)
+            .fill(Theme.accentSoft)
+            .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+            .padding(.vertical, 3)
+            .padding(.leading, 6 + CGFloat(depth) * 14)
+            .padding(.trailing, 8)
+            .frame(height: rowHeight)
+            .allowsHitTesting(false)
+    }
+
+    /// The landing spot under `y` (from the top of the rows). The gap row
+    /// itself keeps the spot it shows, so the rows don't jump under the finger.
+    private func layerDropSlot(atY y: CGFloat) -> LayerDropSlot? {
+        var rows: [Layer?] = []
+        for layer in layersTopFirst {
+            if gapBefore(layer) { rows.append(nil) }
+            rows.append(layer)
+            if gapAfter(layer) { rows.append(nil) }
+        }
+        guard let last = layersTopFirst.last else { return nil }
+        let i = Int((y / rowHeight).rounded(.down))
+        if i < 0 { return layerDrop }
+        if i >= rows.count { return LayerDropSlot(target: last.id, drop: .below) }
+        guard let layer = rows[i] else { return layerDrop }
+        let f = (y - CGFloat(i) * rowHeight) / rowHeight
+        if layer.isGroup {
+            // Top edge: above the group; the rest: into it (a closed one has a bottom edge to go below it).
+            if f < 0.3 { return LayerDropSlot(target: layer.id, drop: .above) }
+            if !layer.isExpanded, f > 0.7 { return LayerDropSlot(target: layer.id, drop: .below) }
+            return LayerDropSlot(target: layer.id, drop: .into)
+        }
+        return LayerDropSlot(target: layer.id, drop: f < 0.5 ? .above : .below)
+    }
+
+    /// A layer, or a block of selected layers, dropped on the layer column.
+    private func dropLayer(_ payload: String, at slot: LayerDropSlot) {
+        layerDrop = nil
+        if let grabbed = RangePayload(payload) {
+            document.dropRange(from: (grabbed.layer, grabbed.frame), to: (slot.target, grabbed.frame))
+        } else if let id = Self.layerID(payload) {
+            document.moveLayer(id, slot.drop, slot.target)
+        }
+    }
+
     private func layerDragPayload(_ layer: Layer) -> String {
         if let range = document.timelineRange, range.kind == .layers, range.layers.contains(layer.id) {
             return RangePayload(layer: layer.id, frame: document.activeFrameIndex).string
@@ -1077,6 +1149,8 @@ struct FrameTimeline: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
             ForEach(layersTopFirst) { layer in
+                // Keeps the cels in line with the gap a dragged layer opens.
+                if gapBefore(layer) { Color.clear.frame(height: rowHeight) }
                 HStack(spacing: 0) {
                     if layer.isGroup {
                         Rectangle()
@@ -1114,6 +1188,7 @@ struct FrameTimeline: View {
                 }
                 .frame(height: rowHeight)
                 .background(layer.id == document.activeLayerID && !document.isSelectingRange ? Theme.accentSoft : .clear)
+                if gapAfter(layer) { Color.clear.frame(height: rowHeight) }
             }
             }
             .overlay(alignment: .topLeading) { rangeOutline }
@@ -1661,5 +1736,39 @@ private struct LayerThumbnail: View {
                 .map { cel.cropped(to: $0).scaled(x: ratio.width, y: ratio.height).makeCGImage() } ?? nil
         }
         return cache.image
+    }
+}
+
+/// Where a layer dragged in the timeline would land.
+struct LayerDropSlot: Equatable {
+    var target: UUID
+    var drop: SpriteDocument.LayerDrop
+}
+
+/// One drop target for the whole layer column, so the landing spot follows
+/// the finger row by row (and between rows) instead of per row.
+private struct LayerColumnDrop: DropDelegate {
+    let update: (CGFloat) -> Void
+    let exit: () -> Void
+    let slot: () -> LayerDropSlot?
+    let perform: (String, LayerDropSlot) -> Void
+
+    func dropEntered(info: DropInfo) { update(info.location.y) }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        update(info.location.y)
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) { exit() }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.text]).first, let slot = slot() else { exit(); return false }
+        let perform = perform
+        _ = provider.loadTransferable(type: String.self) { result in
+            let payload = try? result.get()
+            Task { @MainActor in perform(payload ?? "", slot) }
+        }
+        return true
     }
 }
