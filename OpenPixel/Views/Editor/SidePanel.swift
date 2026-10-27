@@ -120,7 +120,9 @@ struct SidePanel: View {
                         document.beginHueSaturation()
                     }
                 }
-                colorAction("Replace color…", "drop.halffull") { document.isReplacingColor = true }
+                colorAction("Replace color…", "drop.halffull", isOn: document.isReplacingColor) {
+                    document.isReplacingColor.toggle()
+                }
             }
         }
     }

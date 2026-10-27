@@ -133,6 +133,8 @@ struct EditorView: View {
                             OutlinePanel(document: document, area: geometry.size, trailingInset: inset)
                         } else if document.isShowingColorShading {
                             ColorShadingPanel(document: document, area: geometry.size, trailingInset: inset)
+                        } else if document.isReplacingColor {
+                            ReplaceColorPanel(document: document, area: geometry.size, trailingInset: inset)
                         }
                     }
                     .transition(.opacity)
@@ -160,7 +162,6 @@ struct EditorView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) { ExportView(document: document) }
         .sheet(isPresented: $showingShortcuts) { NavigationStack { KeyboardShortcutsView(showsDone: true) } }
-        .sheet(isPresented: $document.isReplacingColor) { ReplaceColorSheet(document: document) }
         .sheet(isPresented: Binding(get: { document.textAnchor != nil }, set: { if !$0 { document.textAnchor = nil } })) {
             TextEntrySheet(document: document)
         }

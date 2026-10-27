@@ -245,8 +245,16 @@ final class SpriteDocument {
     // Timeline range selection
     var isSelectingRange = false
     var timelineRange: TimelineRange?
-    /// The Replace Color sheet is open (Edit > Replace Color, ⇧R).
-    var isReplacingColor = false
+    /// The Replace Color window is open (Edit > Replace Color, ⇧R). Opening it
+    /// closes Hue/Saturation (without applying), Outline and Color Shading.
+    var isReplacingColor = false {
+        didSet {
+            guard isReplacingColor, !oldValue else { return }
+            endHueSaturation(apply: nil, everyCel: false)
+            endOutline(apply: nil, everyCel: false)
+            isShowingColorShading = false
+        }
+    }
     /// Edit > Canvas > Canvas size: the proposed canvas, in the current canvas's
     /// coordinates, while its edges are being dragged on the canvas.
     var canvasResize: PixelRect?
@@ -1921,6 +1929,7 @@ final class SpriteDocument {
         endOutline(apply: nil, everyCel: false)
         adjustmentBase = DocumentSnapshot(sprite: storage, selection: selection)
         isShowingColorShading = false
+        isReplacingColor = false
     }
 
     /// Shows or hides Color Shading. Showing it closes Hue/Saturation without applying it.
@@ -1930,6 +1939,7 @@ final class SpriteDocument {
         } else {
             endHueSaturation(apply: nil, everyCel: false)
             endOutline(apply: nil, everyCel: false)
+            isReplacingColor = false
             isShowingColorShading = true
         }
     }
@@ -2007,6 +2017,7 @@ final class SpriteDocument {
         stopPlayback()
         outlineBase = DocumentSnapshot(sprite: storage, selection: selection)
         isShowingColorShading = false
+        isReplacingColor = false
     }
 
     /// Shows the outline on the canvas without committing it.

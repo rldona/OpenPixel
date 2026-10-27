@@ -207,3 +207,21 @@ final class SavedPaletteTests: XCTestCase {
         XCTAssertNil(PaletteFile.name(in: Data("ffffff\n".utf8)))
     }
 }
+
+@MainActor
+final class ColorWindowTests: XCTestCase {
+    func testTheThreeColorWindowsTakeTurns() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
+        doc.isReplacingColor = true
+        doc.toggleColorShading()
+        XCTAssertTrue(doc.isShowingColorShading)
+        XCTAssertFalse(doc.isReplacingColor, "Color shading closes Replace color")
+        doc.isReplacingColor = true
+        XCTAssertFalse(doc.isShowingColorShading, "Replace color closes Color shading")
+        doc.beginHueSaturation()
+        XCTAssertTrue(doc.isAdjustingHueSaturation)
+        XCTAssertFalse(doc.isReplacingColor, "Hue/Saturation closes Replace color")
+        doc.isReplacingColor = true
+        XCTAssertFalse(doc.isAdjustingHueSaturation, "Replace color closes Hue/Saturation")
+    }
+}
