@@ -1004,9 +1004,9 @@ struct FrameTimeline: View {
                 document.isSelectingRange = true
                 document.extendRange(layerRow: layer.id)
             }
-            if !layer.isGroup {
-                Button("Copy layer", systemImage: "doc.on.doc") { document.copyLayer(layer.id) }
-            }
+            Button(layer.isGroup ? LocalizedStringKey("Copy group") : LocalizedStringKey("Copy layer"), systemImage: "doc.on.doc") { document.copyLayer(layer.id) }
+            Button(layer.isGroup ? LocalizedStringKey("Cut group") : LocalizedStringKey("Cut layer"), systemImage: "scissors") { document.cutLayer(layer.id) }
+                .disabled(document.structure.layers.count <= 1)
             Button("Paste layers above", systemImage: "doc.on.clipboard") {
                 document.activeLayerID = layer.id
                 document.pasteLayers()

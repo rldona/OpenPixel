@@ -134,6 +134,28 @@ final class LayerGroupTests: XCTestCase {
         XCTAssertEqual(doc.sprite.cel(layer: id(doc, "A"), frame: frame)?[0, 0], .black, "one undo step")
     }
 
+    func testCopyCutAndPasteAGroupWithItsLayers() {
+        let doc = makeDocument()
+        doc.groupLayers([id(doc, "A"), id(doc, "B")])
+        let group = doc.sprite.layers.first(where: \.isGroup)!
+        doc.cutLayer(group.id)
+        XCTAssertEqual(names(doc), ["C"], "the group and its layers are gone")
+        // Pasted into another sprite, the group keeps its layers and pixels.
+        let other = SpriteDocument(name: "Other", sprite: .blank(width: 4, height: 1, background: nil, palette: []))
+        other.pasteLayers()
+        let pasted = other.sprite
+        XCTAssertEqual(pasted.layers.map(\.name), [pasted.layers[0].name, "A", "B", group.name])
+        let pastedGroup = pasted.layers.first(where: \.isGroup)!
+        XCTAssertNotEqual(pastedGroup.id, group.id)
+        XCTAssertEqual(pasted.descendants(of: pastedGroup.id).map(\.name), ["A", "B"])
+        let a = pasted.layers.first { $0.name == "A" }!
+        XCTAssertEqual(pasted.cel(layer: a.id, frame: pasted.frames[0].id)?[0, 0], .black)
+        // And it can be pasted again in the first one.
+        doc.pasteLayers()
+        XCTAssertEqual(doc.sprite.layers.filter(\.isGroup).count, 1)
+        XCTAssertEqual(names(doc).filter { $0 == "A" }.count, 1)
+    }
+
     func testIntoOutOfUngroupAndDelete() {
         let doc = makeDocument()
         doc.groupLayers([id(doc, "A")])

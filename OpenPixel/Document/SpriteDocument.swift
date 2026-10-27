@@ -2344,6 +2344,11 @@ extension SpriteDocument {
             keys = rangeKeys(range).flatMap { $0 }
         } else if let scope = selectionScopeKeys {
             keys = scope
+        } else if let group = activeLayer, group.isGroup {
+            // A group's edits reach every layer inside it.
+            if !storage.shows(group) { notice = L10n.string("Layer “%@” is hidden", group.name); return [] }
+            if storage.locks(group) { notice = L10n.string("Layer “%@” is locked", group.name); return [] }
+            keys = groupCelKeys(group.id)
         } else {
             return activeLayerEditable ? [activeCelKey] : []
         }
@@ -2499,6 +2504,12 @@ extension SpriteDocument {
     }
 
     private func clearActiveCel() {
+        if activeLayer?.isGroup == true {
+            let keys = selectionEditKeys
+            guard !keys.isEmpty else { return }
+            perform { s in for key in keys { s.cels[key] = nil; s.syncLinks(from: key) } }
+            return
+        }
         guard activeLayerEditable else { return }
         let key = activeCelKey, erase = eraseColor, (w, h) = (storage.width, storage.height)
         perform { $0.cels[key] = erase == .clear ? nil : PixelImage(width: w, height: h, fill: erase) }
@@ -2659,15 +2670,20 @@ extension SpriteDocument {
         guard let group = activeLayer, group.isGroup else { return nil }
         if !storage.shows(group) { notice = L10n.string("Layer “%@” is hidden", group.name); return [] }
         if storage.locks(group) { notice = L10n.string("Layer “%@” is locked", group.name); return [] }
-        let keys = storage.descendants(of: group.id)
-            .filter { !$0.isGroup && !$0.isReference && storage.shows($0) && !storage.locks($0) }
-            .map { CelKey(layer: $0.id, frame: activeFrame.id) }
+        let keys = groupCelKeys(group.id)
             .sorted { (storage.cels[$0] != nil ? 0 : 1) < (storage.cels[$1] != nil ? 0 : 1) }
         if keys.first.map({ storage.cels[$0] == nil }) ?? true {
             notice = L10n.string("“%@” has nothing to move in this frame", group.name)
             return []
         }
         return keys
+    }
+
+    /// The active frame's cels of the visible, unlocked layers inside a group.
+    private func groupCelKeys(_ group: UUID) -> [CelKey] {
+        storage.descendants(of: group)
+            .filter { !$0.isGroup && !$0.isReference && storage.shows($0) && !storage.locks($0) }
+            .map { CelKey(layer: $0.id, frame: activeFrame.id) }
     }
 
     private func rangeTransformTargets(keys groupKeys: [CelKey]? = nil, active: CelKey? = nil) -> [(key: CelKey, linked: [CelKey])] {
@@ -3277,7 +3293,6 @@ extension SpriteDocument {
         case .frame:
             copyFrame(at: activeFrameIndex)
         case .layer:
-            guard activeLayer?.isGroup == false else { notice = L10n.string("Groups can't be copied yet"); return }
             copyLayer(activeLayerID)
         case .cel:
             guard storage.cels[activeCelKey] != nil else { notice = L10n.string("This cel is empty"); return }
@@ -3301,9 +3316,19 @@ extension SpriteDocument {
         copy(TimelineRange(kind: .frames, layers: Set(sprite.layers.map(\.id)), frames: index...index))
     }
 
-    /// Copies one layer, with all its cels, for Paste layers.
+    /// Copies one layer, with all its cels, for Paste layers. A group comes
+    /// with every layer inside it.
     func copyLayer(_ id: UUID) {
         copy(TimelineRange(kind: .layers, layers: [id], frames: 0...max(0, sprite.frames.count - 1)))
+    }
+
+    /// Copies a layer or a group and removes it, as one undo step. The last
+    /// drawable layer can't go, so then it's only copied.
+    func cutLayer(_ id: UUID) {
+        copyLayer(id)
+        let before = sprite.layers.count
+        deleteLayer(id)
+        if sprite.layers.count != before { notice = L10n.string("Cut to the timeline") }
     }
 
     /// Copies one cel, for Paste cels.
@@ -3325,7 +3350,13 @@ extension SpriteDocument {
                 (s.frames[f].duration, s.layers.map { s.content(CelKey(layer: $0.id, frame: s.frames[f].id)) })
             })
         case .layers:
-            TimelineClipboard.shared.content = .layers(layerIndices(range).map { li in
+            // Groups bring the layers inside them.
+            var ids = range.layers
+            for layer in s.layers where layer.isGroup && range.layers.contains(layer.id) {
+                ids.formUnion(s.descendants(of: layer.id).map(\.id))
+            }
+            let indices = s.layers.indices.filter { ids.contains(s.layers[$0].id) }
+            TimelineClipboard.shared.content = .layers(indices.map { li in
                 (s.layers[li], s.frames.map { s.content(CelKey(layer: s.layers[li].id, frame: $0.id)) })
             })
         }
@@ -3405,21 +3436,25 @@ extension SpriteDocument {
               let index = sprite.layers.firstIndex(where: { $0.id == activeLayerID }) else { return }
         let w = sprite.width, h = sprite.height
         var newIDs: [UUID] = []
-        // Pasted layers join the group of the layer they go above.
+        // Pasted layers join the group of the layer they go above; copied
+        // groups keep their own layers inside them, with new ids.
         let parent = sprite.layers[index].parent
+        var newID: [UUID: UUID] = [:]
+        for item in copied { newID[item.layer.id] = UUID() }
         perform { s in
             s.ensureFrames(copied.map(\.cels.count).max() ?? 0)
-            for item in copied where !item.layer.isGroup {
+            for item in copied {
                 var layer = item.layer
-                layer.id = UUID()
+                layer.id = newID[item.layer.id]!
                 layer.isBackground = false
-                layer.parent = parent
+                layer.parent = item.layer.parent.flatMap { newID[$0] } ?? parent
                 s.layers.insert(layer, at: index + 1 + newIDs.count)
                 newIDs.append(layer.id)
-                for (f, cel) in item.cels.enumerated() {
+                for (f, cel) in item.cels.enumerated() where !layer.isGroup {
                     s.setContent(cel.fitted(width: w, height: h), CelKey(layer: layer.id, frame: s.frames[f].id))
                 }
             }
+            s.normalizeGroups()
         }
         if let last = newIDs.last { activeLayerID = last }
     }

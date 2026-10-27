@@ -800,7 +800,6 @@
 "Copies the current layer" = "Copia la capa actual";
 "Copies the current cel" = "Copia el cel actual";
 "Touch and hold to paste into this frame" = "Mantén pulsado para pegar en este frame";
-"Groups can't be copied yet" = "Los grupos aún no se pueden copiar";
 "This cel is empty" = "Este cel está vacío";
 "Groups the checked layers, or adds an empty group to drag layers into" = "Agrupa las capas marcadas, o añade un grupo vacío al que arrastrar capas";
 
@@ -813,3 +812,7 @@
 "Deleted “%@”" = "Se eliminó «%@»";
 "Color picker" = "Selector de color";
 "“%@” has nothing to move in this frame" = "«%@» no tiene nada que mover en este frame";
+"Copy group" = "Copiar grupo";
+"Cut group" = "Cortar grupo";
+"Cut layer" = "Cortar capa";
+"Cut to the timeline" = "Cortado al timeline";
