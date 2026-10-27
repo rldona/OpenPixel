@@ -150,6 +150,9 @@ struct EditorView: View {
             document.stopPlayback()
             document.stopScripts()
             save()
+            // The gallery shows again before this runs, so it read its cards
+            // before this save: bring them up to date once it's written.
+            Task { await store.flush() }
         }
         // Scripts picked from Files are added to the Scripts menu and run.
         .fileImporter(isPresented: $addingScript, allowedContentTypes: [.luaScript, .plainText]) { result in

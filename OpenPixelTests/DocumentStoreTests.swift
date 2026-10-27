@@ -25,6 +25,20 @@ final class DocumentStoreTests: XCTestCase {
         XCTAssertFalse(store.items.contains { $0.id == id }, "and no file either")
     }
 
+    /// Going back, the gallery reads its cards before the editor's last save;
+    /// the flush after that save brings the card up to date.
+    func testTheCardCatchesUpWithASaveMadeAfterTheGalleryShowed() async throws {
+        let store = makeStore()
+        let id = try store.create(name: "Old", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
+        let document = try store.load(id)
+        await store.flush()
+        store.reload()
+        document.name = "New"
+        store.save(document)
+        await store.flush()
+        XCTAssertEqual(store.items.first { $0.id == id }?.name, "New")
+    }
+
     func testNewSpritesGetNumberedNames() throws {
         let store = makeStore()
         let blank = Sprite.blank(width: 4, height: 4, background: nil, palette: [])
