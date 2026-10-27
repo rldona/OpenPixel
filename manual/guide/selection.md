@@ -35,6 +35,7 @@ With a selection tool (or Move) and something selected, the rail's slider sets t
 ### Smart selection
 
 - **Tap a drawn element** with the marquee or lasso to select exactly its pixels. Its layer becomes active (the topmost visible layer under your finger). In add mode, keep tapping to collect several elements.
+- **Double tap** with the marquee or lasso to select the whole **grid cell** under your finger (for example 16×16), with every layer that has pixels in it, ready to move, rotate or copy, like Aseprite's double click.
 - A marquee or lasso takes **every visible layer** under it (or the layers selected in the timeline) and, with **Fit to content**, shrinks to the drawn pixels inside it. Over empty canvas it keeps its shape.
 - Moving, transforming, deleting, filling and cutting that selection changes all those layers. Copying copies them merged.
 - **All frames** applies all of it to every frame of the animation.

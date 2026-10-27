@@ -46,6 +46,20 @@ final class GridDocumentTests: XCTestCase {
         XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 0, minY: 0, maxX: 15, maxY: 7))
     }
 
+    func testADoubleTapSelectsTheGridCell() {
+        let doc = makeDocument()
+        doc.beginStroke(at: PixelPoint(x: 10, y: 3))
+        doc.endStroke()
+        doc.select(.selectRectangle)
+        for _ in 0..<2 {
+            doc.beginStroke(at: PixelPoint(x: 12, y: 5))
+            doc.endStroke()
+        }
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 8, minY: 0, maxX: 15, maxY: 7), "the whole cell, not just its pixels")
+        doc.undo()
+        XCTAssertNil(doc.selection, "one undo step for the double tap")
+    }
+
     func testMoveGoesCellByCell() {
         let doc = makeDocument()
         doc.beginStroke(at: PixelPoint(x: 1, y: 1))

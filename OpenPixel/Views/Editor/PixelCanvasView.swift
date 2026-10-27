@@ -30,7 +30,7 @@ struct ReferenceOverlay: Equatable {
 /// panning and zooming only move layers, and a stroke recomposites just the
 /// pixels it touched (`render(_:)`) instead of redrawing the whole view.
 final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilInteractionDelegate {
-    weak var document: SpriteDocument?
+    weak var document: SpriteDocument? { didSet { updateTapSlop() } }
 
     var spriteSize = CGSize(width: 32, height: 32) {
         didSet { if oldValue != spriteSize { needsFit = true; setNeedsLayout() } }
@@ -72,7 +72,14 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     var onTransformOutsideTap: (() -> Void)?
 
     /// Screen points per sprite pixel (its height and width when the pixel ratio is 1:1).
-    private(set) var scale: CGFloat = 1
+    private(set) var scale: CGFloat = 1 { didSet { updateTapSlop() } }
+
+    /// How far apart, in sprite pixels, the two taps of a double tap can be.
+    private func updateTapSlop() {
+        document?.tapSlop = Int((Self.doubleTapSlop / max(scale, 0.01)).rounded(.up))
+    }
+
+    private static let doubleTapSlop: CGFloat = 24
     /// Aseprite's pixel ratio: 2:1 shows each sprite pixel twice as wide as tall.
     var pixelRatio = PixelRatio.square {
         didSet {

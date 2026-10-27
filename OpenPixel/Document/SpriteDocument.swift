@@ -198,7 +198,12 @@ final class SpriteDocument {
     @ObservationIgnored private var lastSelection: SelectionMask?
     @ObservationIgnored private var selectionDrag: (start: PixelPoint, before: SelectionMask?, moved: Bool)?
     @ObservationIgnored private var lassoPath: [PixelPoint] = []
-    var selectionMode = SelectionMode.replace
+    /// The last tap of a selection tool, to tell a double tap.
+    @ObservationIgnored private var lastSelectionTap: (time: TimeInterval, point: PixelPoint, before: SelectionMask?, undoDepth: Int)?
+    /// How far apart, in pixels, the two taps of a double tap can be (the canvas
+    /// sets it from the zoom).
+    @ObservationIgnored var tapSlop = 0
+    var selectionMode = SelectionMode.replace { didSet { lastSelectionTap = nil } }
     /// Magic wand options.
     var wandTolerance = 0
     var wandContiguous = true
@@ -2094,6 +2099,23 @@ extension SpriteDocument {
         selection = result.isEmpty ? nil : result
     }
 
+    static let doubleTapInterval: TimeInterval = 0.4
+
+    /// Selects a whole grid cell, with every layer that has pixels in it.
+    private func selectCell(_ cell: PixelRect, base: SelectionMask?) {
+        guard let rect = cell.clipped(width: storage.width, height: storage.height) else { return }
+        let shape = SelectionMask.rect(rect, width: storage.width, height: storage.height)
+        let result = (base ?? emptyMask).combined(with: shape, mode: selectionMode)
+        selection = result.isEmpty ? nil : result
+        var layers = Set(layersWithContent(in: shape).map(\.id))
+        layers.insert(activeLayerID)
+        selectionLayers = layers.count > 1 && timelineRange == nil ? layers : nil
+        updateSelectionBounds()
+        if base != nil { lastSelection = base }
+        registerUndo(DocumentSnapshot(sprite: storage, selection: base))
+        changed()
+    }
+
     private func finishSelection() {
         guard let drag = selectionDrag else { return }
         let shape = dragShape
@@ -2104,6 +2126,19 @@ extension SpriteDocument {
         defer { updateSelectionBounds() }
         let base = drag.before ?? emptyMask
         if !drag.moved && tool != .magicWand {
+            // A double tap selects the grid cell under it, like Aseprite's
+            // double click, ready to move, rotate or copy.
+            let cell = storage.grid.cell(containing: drag.start)
+            let now = ProcessInfo.processInfo.systemUptime
+            if let last = lastSelectionTap, now - last.time < Self.doubleTapInterval,
+               storage.grid.cell(containing: last.point) == cell,
+               max(abs(last.point.x - drag.start.x), abs(last.point.y - drag.start.y)) <= tapSlop {
+                lastSelectionTap = nil
+                // The double tap is one step: drop the first tap's.
+                if undoStack.count == last.undoDepth + 1 { undoStack.removeLast() }
+                return selectCell(cell, base: last.before)
+            }
+            lastSelectionTap = (now, drag.start, drag.before, undoStack.count)
             // A tap picks the element under it: the content of the topmost layer
             // with a pixel there. On empty canvas it deselects, like Aseprite.
             selectionLayers = nil
