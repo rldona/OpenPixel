@@ -49,7 +49,20 @@ final class TimelineAdvancedTests: XCTestCase {
         XCTAssertEqual(doc.timelineRange?.frames, 0...1)
     }
 
-    func testPickedCelsStayTheScopeOfAFillAfterDone() {
+    func testDoneLeavesOnlyTheActiveCel() {
+        let doc = makeDocument()
+        let ids = doc.sprite.layers.map(\.id)
+        doc.selectCel(layer: ids[1], frameIndex: 0)
+        doc.isSelectingRange = true
+        doc.extendRange(layer: ids[1], frameIndex: 2)
+        XCTAssertNotNil(doc.timelineRange)
+        doc.endRangeSelection()
+        XCTAssertNil(doc.timelineRange)
+        XCTAssertFalse(doc.isSelectingRange)
+        XCTAssertEqual(doc.activeLayerID, ids[1])
+    }
+
+    func testPickedCelsAreTheScopeOfAFill() {
         let doc = makeDocument()
         let ids = doc.sprite.layers.map(\.id)
         // The bottom layer gets a pixel at (3, 3) in frame 2.

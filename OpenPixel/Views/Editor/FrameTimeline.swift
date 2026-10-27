@@ -267,9 +267,9 @@ struct FrameTimeline: View {
             dragModePicker
                 .padding(.leading, 4)
 
-            // The picked cels stay selected, so edits on the canvas (fill, delete,
-            // transforms) keep reaching all of them, as in Aseprite. Tapping a cel clears them.
-            Button { document.isSelectingRange = false } label: {
+            // Ends the selection: only the active cel stays picked. Canvas edits reach
+            // every selected cel while the selection is open.
+            Button { document.endRangeSelection() } label: {
                 Text("Done")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.onAccent)
