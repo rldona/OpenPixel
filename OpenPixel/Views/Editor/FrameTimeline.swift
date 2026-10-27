@@ -614,7 +614,6 @@ struct FrameTimeline: View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
             ForEach(layersTopFirst) { layer in
-                if gapBefore(layer) { dropGap(depth: document.structure.depth(of: layer)) }
                 layerRow(layer)
                     .draggable(layerDragPayload(layer)) { dragPreview(Text(verbatim: layer.name)) }
                     .overlay {
@@ -626,10 +625,18 @@ struct FrameTimeline: View {
                                 .allowsHitTesting(false)
                         }
                     }
+                    // The landing line sits on the row's edge, over the rows, so nothing moves while dragging.
+                    .overlay(alignment: .top) {
+                        if gapBefore(layer) { dropLine(depth: document.structure.depth(of: layer)).offset(y: -5) }
+                    }
+                    .overlay(alignment: .bottom) {
+                        if gapAfter(layer) {
+                            dropLine(depth: document.structure.depth(of: layer) + (layer.isGroup && layerDrop?.drop == .into ? 1 : 0))
+                                .offset(y: 5)
+                        }
+                    }
+                    .zIndex(gapBefore(layer) || gapAfter(layer) ? 1 : 0)
                     .id(layer.id)
-                if gapAfter(layer) {
-                    dropGap(depth: document.structure.depth(of: layer) + (layer.isGroup && layerDrop?.drop == .into ? 1 : 0))
-                }
             }
             }
             .onDrop(of: [.text], delegate: LayerColumnDrop(
@@ -738,32 +745,29 @@ struct FrameTimeline: View {
         return slot.drop == .below || (slot.drop == .into && layer.isExpanded)
     }
 
-    /// The dashed row a dragged layer would take, indented to its level.
-    private func dropGap(depth: Int) -> some View {
-        RoundedRectangle(cornerRadius: 7)
+    /// The dashed line where a dragged layer would land, indented to its level.
+    private func dropLine(depth: Int) -> some View {
+        Capsule()
             .fill(Theme.accentSoft)
             .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-            .padding(.vertical, 3)
-            .padding(.leading, 6 + CGFloat(depth) * 14)
+            .frame(height: 10)
+            .padding(.leading, 6 + Self.indent(depth))
             .padding(.trailing, 8)
-            .frame(height: rowHeight)
             .allowsHitTesting(false)
     }
 
-    /// The landing spot under `y` (from the top of the rows). The gap row
-    /// itself keeps the spot it shows, so the rows don't jump under the finger.
+    /// How far a layer sits to the right for each group it's in.
+    static func indent(_ depth: Int) -> CGFloat { CGFloat(depth) * 20 }
+
+    /// The landing spot under `y` (from the top of the rows). The rows never
+    /// move during a drag, so the spot follows the finger steadily.
     private func layerDropSlot(atY y: CGFloat) -> LayerDropSlot? {
-        var rows: [Layer?] = []
-        for layer in layersTopFirst {
-            if gapBefore(layer) { rows.append(nil) }
-            rows.append(layer)
-            if gapAfter(layer) { rows.append(nil) }
-        }
-        guard let last = layersTopFirst.last else { return nil }
+        let rows = layersTopFirst
+        guard let last = rows.last else { return nil }
         let i = Int((y / rowHeight).rounded(.down))
         if i < 0 { return layerDrop }
         if i >= rows.count { return LayerDropSlot(target: last.id, drop: .below) }
-        guard let layer = rows[i] else { return layerDrop }
+        let layer = rows[i]
         let f = (y - CGFloat(i) * rowHeight) / rowHeight
         if layer.isGroup {
             // Top edge: above the group; the rest: into it (a closed one has a bottom edge to go below it).
@@ -839,15 +843,29 @@ struct FrameTimeline: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(layer.isLocked ? Text("Unlock \(layer.name)") : Text("Lock \(layer.name)"))
-            Button { document.toggleContinuous(layer.id) } label: {
-                ContinuityIcon(isOn: layer.isContinuous, color: layer.isContinuous ? Theme.accent : Theme.muted)
-                    .frame(width: 26, height: rowHeight)
+            if layer.isGroup {
+                // Groups fold and unfold with the chevron in the continuity column, so
+                // their names line up with the layers at the same level.
+                Button { document.toggleExpanded(layer.id) } label: {
+                    Image(systemName: layer.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.muted)
+                        .frame(width: 26, height: rowHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(layer.isExpanded ? Text("Collapse \(layer.name)") : Text("Expand \(layer.name)"))
+            } else {
+                Button { document.toggleContinuous(layer.id) } label: {
+                    ContinuityIcon(isOn: layer.isContinuous, color: layer.isContinuous ? Theme.accent : Theme.muted)
+                        .frame(width: 26, height: rowHeight)
+                }
+                .buttonStyle(.plain)
+                .opacity(layer.isReference ? 0 : 1)
+                .disabled(layer.isReference)
+                .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
+                .accessibilityHint(Text("New frames link this layer's cel instead of copying it"))
             }
-            .buttonStyle(.plain)
-            .opacity(layer.isReference || layer.isGroup ? 0 : 1)
-            .disabled(layer.isReference || layer.isGroup)
-            .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
-            .accessibilityHint(Text("New frames link this layer's cel instead of copying it"))
             Button {
                 if document.isSelectingRange { document.extendRange(layerRow: layer.id) } else { document.activeLayerID = layer.id; document.focusTimeline(.layer) }
             } label: {
@@ -883,22 +901,20 @@ struct FrameTimeline: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // Layers inside groups move right, one step per group, with a guide line
+            // on the left so it's clear they're inside.
+            .padding(.leading, Self.indent(document.structure.depth(of: layer)))
             .overlay(alignment: .leading) {
-                // Groups fold and unfold with the chevron to the left of their name.
-                if layer.isGroup {
-                    Button { document.toggleExpanded(layer.id) } label: {
-                        Image(systemName: layer.isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Theme.muted)
-                            .frame(width: 20, height: rowHeight)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .offset(x: -16)
-                    .accessibilityLabel(layer.isExpanded ? Text("Collapse \(layer.name)") : Text("Expand \(layer.name)"))
+                let depth = document.structure.depth(of: layer)
+                if depth > 0 {
+                    Rectangle()
+                        .fill(Theme.accent.opacity(0.35))
+                        .frame(width: 2)
+                        .padding(.vertical, 1)
+                        .offset(x: Self.indent(depth) - 9)
+                        .allowsHitTesting(false)
                 }
             }
-            .padding(.leading, CGFloat(document.structure.depth(of: layer)) * 14 + (layer.isGroup ? 12 : 0))
             // Double tap renames, as double-click does in Aseprite.
             .simultaneousGesture(TapGesture(count: 2).onEnded {
                 guard !document.isSelectingRange else { return }
@@ -1131,8 +1147,6 @@ struct FrameTimeline: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
             ForEach(layersTopFirst) { layer in
-                // Keeps the cels in line with the gap a dragged layer opens.
-                if gapBefore(layer) { Color.clear.frame(height: rowHeight) }
                 HStack(spacing: 0) {
                     if layer.isGroup {
                         Rectangle()
@@ -1170,7 +1184,6 @@ struct FrameTimeline: View {
                 }
                 .frame(height: rowHeight)
                 .background(layer.id == document.activeLayerID && !document.isSelectingRange ? Theme.accentSoft : .clear)
-                if gapAfter(layer) { Color.clear.frame(height: rowHeight) }
             }
             }
             .overlay(alignment: .topLeading) { rangeOutline }

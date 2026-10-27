@@ -9,7 +9,7 @@ Each row has an **eye** (show or hide, ⇧X), a **lock** and the **continuity** 
 - **⚙** chooses whether the first frame is numbered 0 or 1;
 - **+** adds a layer above the active one (⇧N); touch and hold it for more (below);
 - the **bin** deletes the active layer;
-- drag a layer to reorder it (or use **Move up** and **Move down** in its menu). A dashed row opens where it will land; drop it on a group's row to put it inside.
+- drag a layer to reorder it (or use **Move up** and **Move down** in its menu). A dashed line between the rows shows where it will land, indented when that's inside a group; drop it on a group's row to put it inside.
 
 ## The layer menu
 
@@ -43,7 +43,7 @@ As in Aseprite, a background layer is opaque, underlined in the list and always 
 
 ## Groups
 
-Group a layer from its menu, several from a timeline selection, or tap the **folder** button above the layers: it groups the checked layers or, with none checked, adds an empty group above the active layer. Drag layers onto a group's row to put them inside, or between its layers to place them there. Groups fold with their chevron. Their visibility, lock and opacity apply to everything inside, and moving, duplicating or deleting a group takes its layers along. A new layer added while a group is active goes inside it.
+Group a layer from its menu, several from a timeline selection, or tap the **folder** button above the layers: it groups the checked layers or, with none checked, adds an empty group above the active layer. Drag layers onto a group's row to put them inside, or between its layers to place them there. A group lines up with the layers beside it, and the layers inside it move to the right, with a line on their left. Groups fold with the chevron before their name. Their visibility, lock and opacity apply to everything inside, and moving, duplicating or deleting a group takes its layers along. A new layer added while a group is active goes inside it.
 
 ## New layers from the + menu
 
