@@ -22,8 +22,8 @@ The tool options can make Pencil **pressure** change the brush size, the opacity
 
 ## Focus mode
 
-⇥ Tab or a four-finger tap hides the panels and leaves only the canvas, with a small capsule to play and scrub the animation. Its button leaves focus mode.
+The arrows button in the canvas's bottom-right corner (or ⇥ Tab, or a four-finger tap) hides the panels and leaves only the canvas, with a small capsule to play and scrub the animation. Its button leaves focus mode.
 
 ## Zoom
 
-Pinch to zoom; the zoom snaps to whole levels so pixels stay square. The zoom menu in the canvas's bottom-right corner (it shows the zoom, like **400 %**) has **Actual size** (⌘1), **Center**, **Fit to screen** (⌘0), **Zoom in** and **Zoom out**. Fit to screen makes the sprite as big as it fits, centered.
+Pinch to zoom; the zoom snaps to whole levels so pixels stay square. The zoom menu in the top bar (it shows the zoom, like **400 %**) has **Actual size** (⌘1), **Center**, **Fit to screen** (⌘0), **Zoom in** and **Zoom out**. Fit to screen makes the sprite as big as it fits, centered.

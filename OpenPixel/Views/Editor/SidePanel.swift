@@ -18,7 +18,7 @@ struct SidePanel: View {
     /// The Tileset tab is on (only while a tilemap layer is active).
     @State private var showingTileset = false
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 8)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 10)
 
     var body: some View {
         // Everything fits without scrolling.
@@ -289,9 +289,9 @@ struct SidePanel: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(inPalette ? Theme.muted.opacity(0.5) : Theme.text)
                 .frame(maxWidth: .infinity)
-                .frame(height: 27)
-                .background(Theme.field, in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                .frame(height: 21)
+                .background(Theme.field, in: RoundedRectangle(cornerRadius: 5))
+                .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Theme.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -379,9 +379,9 @@ struct SidePanel: View {
                 Checkerboard(cell: 4)
                 color.color
             }
-            .frame(height: 27)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(
+            .frame(height: 21)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(
                 selected ? Theme.accent : (isPrimary && !isEditingPalette ? Theme.text : Theme.border),
                 lineWidth: selected ? 2.5 : (isPrimary && !isEditingPalette ? 2 : 1)
             ))
@@ -404,7 +404,7 @@ struct SidePanel: View {
                 // Drag to reorder: a selected run moves together.
                 tile
                     .draggable("palette:\(index)") {
-                        RoundedRectangle(cornerRadius: 6).fill(color.color).frame(width: 30, height: 30)
+                        RoundedRectangle(cornerRadius: 5).fill(color.color).frame(width: 30, height: 30)
                     }
                     .dropDestination(for: String.self) { items, _ in
                         guard let source = items.first.flatMap(Self.paletteIndex) else { return false }

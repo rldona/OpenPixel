@@ -57,12 +57,21 @@ struct EditorView: View {
                                 onRevision: scheduleSave
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
-                            // The zoom floats in the canvas's corner, clear of the bars centered below.
-                            ZoomMenu(canvas: canvas)
-                                .background(Theme.raised, in: Capsule())
-                                .overlay(Capsule().strokeBorder(Theme.border))
-                                .padding(14)
-                                .padding(.bottom, !focusMode && !timelineCollapsed ? 8 : 0)
+                            // Focus mode floats in the canvas's corner, clear of the bars centered below.
+                            Button(action: toggleFocus) {
+                                Image(systemName: focusMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Theme.text)
+                                    .frame(width: 40, height: 40)
+                                    .background(Theme.raised, in: Circle())
+                                    .overlay(Circle().strokeBorder(Theme.border))
+                                    .contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .help(Text("Focus mode"))
+                            .accessibilityLabel(Text("Focus mode"))
+                            .padding(14)
+                            .padding(.bottom, !focusMode && !timelineCollapsed ? 8 : 0)
                         }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {
@@ -331,7 +340,7 @@ struct EditorView: View {
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity)
 
-            // Undo, redo, Edit and grid in one capsule, then Export.
+            // Undo, redo, zoom, grid and Edit in one capsule, then Export.
             HStack(spacing: 0) {
                 Button { document.undo() } label: { topBarIcon("arrow.uturn.backward", isOn: false) }
                     .buttonStyle(.plain)
@@ -345,8 +354,9 @@ struct EditorView: View {
                     .opacity(document.canRedo ? 1 : 0.35)
                     .help(Text("Redo"))
                     .accessibilityLabel(Text("Redo"))
-                EditMenu(document: document, addScript: { document.fileImport = .script }) { showingShortcuts = true }.help(Text("Edit"))
+                ZoomMenu(canvas: canvas)
                 gridMenu
+                EditMenu(document: document, addScript: { document.fileImport = .script }) { showingShortcuts = true }.help(Text("Edit"))
             }
             .padding(.horizontal, 4)
             .frame(height: 44)
@@ -609,6 +619,29 @@ struct ToolRail: View {
 
     var body: some View {
         VStack(spacing: 2) {
+            // First in the rail. With something selected, the selection's opacity; otherwise
+            // brush size and opacity, dragged like Procreate's side sliders. Their slot keeps
+            // its height so the tools below don't move when the sliders come and go.
+            VStack {
+                if document.hasSelection && (document.tool.isSelection || document.tool == .move) && !document.isTransforming {
+                    RailSlider(label: "Selection opacity", value: Binding(get: { document.selectionOpacity * 100 }, set: { document.setSelectionOpacity($0 / 100) }),
+                               range: 0...100, text: { "\(Int($0.rounded()))%" }, preview: .opacity, mirrored: mirrored,
+                               onBegin: { document.beginSelectionOpacity() }, onEnd: { document.endSelectionOpacity() })
+                        .frame(maxHeight: 150)
+                } else if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
+                    // Size above opacity, one after the other like Procreate's.
+                    VStack(spacing: 14) {
+                        RailSlider(label: "Brush size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
+                                   range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, preview: .size, mirrored: mirrored)
+                            .opacity(document.tool.usesBrush && document.activeCustomBrushImage == nil ? 1 : 0.3)
+                            .disabled(!document.tool.usesBrush || document.activeCustomBrushImage != nil)
+                        RailSlider(label: "Opacity", value: Binding(get: { Double(document.toolOpacity) }, set: { document.toolOpacity = Int($0.rounded()) }),
+                                   range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded()))%" }, preview: .opacity, mirrored: mirrored)
+                    }
+                }
+            }
+            .frame(height: 240)
+            Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
             ForEach(ToolGroup.allCases) { group in
                 toolButton(for: group)
             }
@@ -616,28 +649,7 @@ struct ToolRail: View {
             symmetryButton
             outlineButton
             scriptsButton
-            Spacer(minLength: 8)
-            // With something selected, the selection's opacity; otherwise
-            // brush size and opacity, dragged like Procreate's side sliders.
-            if document.hasSelection && (document.tool.isSelection || document.tool == .move) && !document.isTransforming {
-                RailSlider(label: "Selection opacity", value: Binding(get: { document.selectionOpacity * 100 }, set: { document.setSelectionOpacity($0 / 100) }),
-                           range: 0...100, text: { "\(Int($0.rounded()))%" }, preview: .opacity, mirrored: mirrored,
-                           onBegin: { document.beginSelectionOpacity() }, onEnd: { document.endSelectionOpacity() })
-                    .frame(maxHeight: 150)
-            } else if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
-                // Size above opacity, one after the other like Procreate's.
-                VStack(spacing: 14) {
-                    RailSlider(label: "Brush size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
-                               range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, preview: .size, mirrored: mirrored)
-                        .opacity(document.tool.usesBrush && document.activeCustomBrushImage == nil ? 1 : 0.3)
-                        .disabled(!document.tool.usesBrush || document.activeCustomBrushImage != nil)
-                    RailSlider(label: "Opacity", value: Binding(get: { Double(document.toolOpacity) }, set: { document.toolOpacity = Int($0.rounded()) }),
-                               range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded()))%" }, preview: .opacity, mirrored: mirrored)
-                }
-                .frame(maxHeight: 300)
-            }
-            // The same room above and below, so the sliders sit centred.
-            Spacer(minLength: 8)
+            Spacer(minLength: 0)
         }
         .padding(.vertical, 12)
         .frame(width: EditorView.railWidth)
