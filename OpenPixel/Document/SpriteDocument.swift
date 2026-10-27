@@ -2305,8 +2305,10 @@ extension SpriteDocument {
         selectionFade?.revision = revision
     }
 
-    /// Clears the selected pixels in every selected layer.
+    /// Clears the selected pixels in every selected layer. During a
+    /// transform it deletes the pixels being transformed.
     func deleteSelection() {
+        if isTransforming { return deleteTransform() }
         guard let mask = selection else { return }
         let keys = selectionEditKeys
         guard !keys.isEmpty else { return }
@@ -2641,6 +2643,33 @@ extension SpriteDocument {
         stretchMove = false
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
         // Applying finishes the job: the selection goes away (Reselect brings it back).
+        if let selection { lastSelection = selection }
+        selection = nil
+        selectionLayers = nil
+        if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
+        restoreToolAfterTransform()
+        changed()
+    }
+
+    /// Drops the floating pixels instead of placing them: the cels keep what
+    /// was around them, as one undo step.
+    func deleteTransform() {
+        guard isTransforming, let start = transformStart, let key = floating?.celKey, let base = floatingBase else { return }
+        storage.cels[key] = base.isEmpty ? nil : base
+        storage.syncLinks(from: key)
+        for other in rangeFloating {
+            let cel = other.base.isEmpty ? nil : other.base
+            for k in [other.floating.celKey] + other.linked { storage.cels[k] = cel }
+        }
+        rangeFloating = []
+        transformExtraCels = 0
+        floating = nil
+        floatingBase = nil
+        transformStart = nil
+        floatingDirty = nil
+        transformDrag = nil
+        isTransforming = false
+        stretchMove = false
         if let selection { lastSelection = selection }
         selection = nil
         selectionLayers = nil

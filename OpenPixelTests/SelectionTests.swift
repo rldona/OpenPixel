@@ -328,3 +328,31 @@ final class SelectionDocumentTests: XCTestCase {
         XCTAssertEqual(doc.sprite.composite(frameIndex: 0)[2, 0], .black)
     }
 }
+
+@MainActor
+final class TransformDeleteTests: XCTestCase {
+    func testDeleteWhileTransformingRemovesTheContent() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
+        doc.primary = .black
+        doc.beginStroke(at: PixelPoint(x: 2, y: 2))
+        doc.endStroke()
+        doc.beginStroke(at: PixelPoint(x: 6, y: 6))
+        doc.endStroke()
+        let before = doc.sprite
+        doc.select(.selectRectangle)
+        doc.beginStroke(at: PixelPoint(x: 1, y: 1))
+        doc.continueStroke(to: PixelPoint(x: 3, y: 3))
+        doc.endStroke()
+        doc.beginTransform()
+        doc.nudgeTransform(dx: 1, dy: 0)
+        doc.deleteSelection()
+        XCTAssertFalse(doc.isTransforming)
+        XCTAssertFalse(doc.hasSelection)
+        let image = doc.sprite.composite(frameIndex: 0)
+        XCTAssertEqual(image[2, 2], .clear)
+        XCTAssertEqual(image[3, 2], .clear, "not left where it was dragged either")
+        XCTAssertEqual(image[6, 6], .black, "the rest stays")
+        doc.undo()
+        XCTAssertEqual(doc.sprite, before)
+    }
+}

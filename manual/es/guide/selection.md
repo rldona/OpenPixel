@@ -51,7 +51,7 @@ Mientras los píxeles flotan, el lienzo muestra asas:
 
 - arrastra las **esquinas y los lados** para escalar (pasa del lado contrario para voltear);
 - arrastra el **asa redonda** de arriba para girar alrededor del **pivote** (el punto del centro, que se puede arrastrar);
-- la barra de transformación voltea, gira 90°, **organiza**, **mantiene la proporción**, **ajusta el ángulo** de 15 en 15° y elige giro **RotSprite** (pixel art más limpio) o **rápido**.
+- la barra de transformación voltea, gira 90°, **organiza**, **borra** los píxeles flotantes (también ⌫), **mantiene la proporción**, **ajusta el ángulo** de 15 en 15° y elige giro **RotSprite** (pixel art más limpio) o **rápido**.
 
 **Aplicar** (o tocar fuera, o ↩) suelta los píxeles; **Cancelar** (⎋) lo devuelve todo a su sitio. La transformación entera es un solo paso de deshacer. Con teclado, las flechas mueven los píxeles de 1 en 1 px.
 

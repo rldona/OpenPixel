@@ -106,6 +106,7 @@ struct TransformBar: View {
             barButton("Rotate 90° counterclockwise", "rotate.left") { document.rotate90(clockwise: false) }
             barButton("Rotate 90° clockwise", "rotate.right") { document.rotate90(clockwise: true) }
             ArrangeMenu(document: document)
+            barButton("Delete", "trash") { document.deleteTransform() }
             Rectangle().fill(Theme.border).frame(width: 1, height: 22).padding(.horizontal, 4)
 
             toggle("Keep aspect", "lock", isOn: $document.keepAspect)
@@ -395,8 +396,12 @@ private func barButton(_ title: LocalizedStringKey, _ systemImage: String, actio
 }
 
 private extension View {
+    /// When the bar is wider than the room it has (portrait), it scrolls sideways.
     func floatingBarStyle() -> some View {
-        padding(.horizontal, 8)
+        ViewThatFits(in: .horizontal) {
+            padding(.horizontal, 8)
+            ScrollView(.horizontal, showsIndicators: false) { padding(.horizontal, 8) }
+        }
             .frame(height: 50)
             .background(Theme.panel.opacity(0.96), in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))

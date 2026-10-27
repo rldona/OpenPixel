@@ -51,7 +51,7 @@ While pixels are floating, the canvas shows handles:
 
 - drag the **corners and edges** to scale (drag past the opposite edge to flip);
 - drag the **round handle** above to rotate around the **pivot** (the dot in the middle, which you can drag);
-- the transform bar flips, rotates 90°, **arranges**, **keeps the aspect**, **snaps the angle** to 15° and chooses **RotSprite** (cleaner pixel art) or **fast** rotation.
+- the transform bar flips, rotates 90°, **arranges**, **deletes** the floating pixels (also ⌫), **keeps the aspect**, **snaps the angle** to 15° and chooses **RotSprite** (cleaner pixel art) or **fast** rotation.
 
 **Apply** (or tap outside, or ↩) drops the pixels; **Cancel** (⎋) puts everything back. The whole transform is one undo step. With a keyboard, the arrows nudge the pixels 1 px.
 
