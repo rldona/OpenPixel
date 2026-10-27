@@ -582,13 +582,21 @@ final class SpriteDocument {
     }
 
     /// Aseprite's Snap to Grid for drawing tools: the point goes to the closest
-    /// grid corner, offset so the brush's top-left pixel lands on it (a brush
-    /// as big as a cell fills whole cells). Selections, moves and slices snap
-    /// in their own way; the bucket has Stop at grid.
+    /// grid corner, offset so the brush's top-left pixel lands on it. Freehand
+    /// strokes stay free inside the cells, unless the brush is as big as a cell:
+    /// then it fills whole cells. Selections, moves and slices snap in their
+    /// own way; the bucket has Stop at grid.
     private func snapped(_ p: PixelPoint) -> PixelPoint {
         guard snapToGrid, !(activeLayer?.isTilemap == true && tileDrawMode == .tiles) else { return p }
-        let tools: Set<Tool> = [.pencil, .eraser, .spray, .line, .curve, .polygon, .contour, .rectangle, .ellipse, .gradient, .text]
-        guard tools.contains(tool) else { return p }
+        let tools: Set<Tool> = [.line, .curve, .polygon, .rectangle, .ellipse, .gradient, .text]
+        let freehand: Set<Tool> = [.pencil, .eraser, .spray, .contour]
+        if freehand.contains(tool) {
+            let w = activeCustomBrush?.width ?? effectiveBrushSize
+            let h = activeCustomBrush?.height ?? effectiveBrushSize
+            guard tool.usesBrush, w >= storage.grid.width, h >= storage.grid.height else { return p }
+        } else if !tools.contains(tool) {
+            return p
+        }
         var cx = 0, cy = 0
         if let brush = activeCustomBrush {
             cx = (brush.width - 1) / 2

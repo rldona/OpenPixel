@@ -91,14 +91,12 @@ final class SnapToGridToolTests: XCTestCase {
         return points
     }
 
-    func testThePencilPaintsOnGridCorners() {
+    func testThePencilDrawsFreelyInsideTheCells() {
         let doc = makeDocument(.pencil)
         doc.beginStroke(at: PixelPoint(x: 3, y: 2))
+        doc.continueStroke(to: PixelPoint(x: 5, y: 2))
         doc.endStroke()
-        XCTAssertEqual(painted(doc), [PixelPoint(x: 0, y: 0)], "(3, 2) goes to the closest corner")
-        doc.beginStroke(at: PixelPoint(x: 13, y: 5))
-        doc.endStroke()
-        XCTAssertTrue(painted(doc).contains(PixelPoint(x: 16, y: 8)))
+        XCTAssertEqual(painted(doc), [PixelPoint(x: 3, y: 2), PixelPoint(x: 4, y: 2), PixelPoint(x: 5, y: 2)])
     }
 
     func testABrushAsBigAsACellFillsWholeCells() {
