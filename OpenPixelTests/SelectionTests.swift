@@ -355,4 +355,26 @@ final class TransformDeleteTests: XCTestCase {
         doc.undo()
         XCTAssertEqual(doc.sprite, before)
     }
+
+    func testTransformUsesTheMoveToolUntilItEnds() {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
+        doc.primary = .black
+        doc.beginStroke(at: PixelPoint(x: 2, y: 2))
+        doc.endStroke()
+        doc.select(.selectRectangle)
+        doc.selectAll()
+        doc.beginTransform()
+        XCTAssertEqual(doc.tool, .move)
+        doc.applyTransform()
+        XCTAssertEqual(doc.tool, .selectRectangle, "back to the tool from before")
+        doc.selectAll()
+        doc.beginTransform(copy: true)
+        doc.cancelTransform()
+        XCTAssertEqual(doc.tool, .selectRectangle)
+        doc.selectAll()
+        doc.beginTransform()
+        doc.select(.move)
+        doc.applyTransform()
+        XCTAssertEqual(doc.tool, .move, "picked by hand, it stays")
+    }
 }

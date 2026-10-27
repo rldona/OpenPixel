@@ -441,6 +441,8 @@ final class SpriteDocument {
     func select(_ newTool: Tool) {
         if newTool != tool { finishPendingShape() }
         if newTool != .move { applyTransformIfNeeded() }
+        // Picking Move during a transform keeps it after the transform ends.
+        if newTool == .move { toolAfterTransform = nil }
         if newTool != tool { previousTool = tool }
         tool = newTool
         toolInGroup[ToolGroup.of(newTool)] = newTool
@@ -2451,6 +2453,15 @@ extension SpriteDocument {
         return true
     }
 
+    /// While pixels float the Move tool is the one in use, as when they were
+    /// picked up with it; the tool from before comes back when they're dropped.
+    private func takeMoveToolForTransform() {
+        guard tool != .move, toolAfterTransform == nil else { return }
+        toolAfterTransform = tool
+        tool = .move
+        toolInGroup[.move] = .move
+    }
+
     private func restoreToolAfterTransform() {
         guard let next = toolAfterTransform else { return }
         toolAfterTransform = nil
@@ -2515,6 +2526,7 @@ extension SpriteDocument {
         transformExtraCels = rangeFloating.count
         floatingDirty = bounds
         isTransforming = true
+        takeMoveToolForTransform()
         renderFloating()
     }
 
