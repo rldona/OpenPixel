@@ -233,7 +233,7 @@ struct SidePanel: View {
 
     // MARK: Palette
 
-    private func paletteSection(maxHeight: CGFloat = 151) -> some View {
+    private func paletteSection(maxHeight: CGFloat = 236) -> some View {
         let palette = document.structure.palette
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
