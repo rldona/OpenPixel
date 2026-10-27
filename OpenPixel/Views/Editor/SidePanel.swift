@@ -36,6 +36,9 @@ struct SidePanel: View {
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
                 }
 
+                // The last colors painted with, at hand above the palette.
+                recentColors
+
                 // A tilemap layer's tileset shares the palette's place, as a tab,
                 // so the panel doesn't grow.
                 if let tileset = document.activeLayer?.tileset {
@@ -95,7 +98,6 @@ struct SidePanel: View {
     /// the two colors is picked in the chips below it.
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            colorPickerToggle
             if showsColorPicker {
                 QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
             }
@@ -113,13 +115,18 @@ struct SidePanel: View {
                 .accessibilityLabel(Text("Swap colors"))
                 colorChip(secondary: true)
             }
-            recentColors
             // What changes the sprite's own colors; the last two open floating
             // windows and stay lit while they're open.
             HStack(spacing: 6) {
-                colorAction("Replace color…", "drop.halffull") { document.isReplacingColor = true }
+                // Shows or hides the square and its bars above the chips.
+                colorAction("Color picker", "paintpalette", isOn: showsColorPicker) {
+                    withAnimation(.snappy(duration: 0.2)) { showsColorPicker.toggle() }
+                }
                 // One window at a time: each opens its own and closes the other, or
                 // closes its own when it's open. Hue/Saturation closes without applying, like Cancel.
+                colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
+                    document.toggleColorShading()
+                }
                 colorAction("Hue/Saturation", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
                     if document.isAdjustingHueSaturation {
                         document.endHueSaturation(apply: nil, everyCel: false)
@@ -127,32 +134,9 @@ struct SidePanel: View {
                         document.beginHueSaturation()
                     }
                 }
-                colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
-                    document.toggleColorShading()
-                }
+                colorAction("Replace color…", "drop.halffull") { document.isReplacingColor = true }
             }
         }
-    }
-
-    /// Shows or hides the color square and its sliders.
-    private var colorPickerToggle: some View {
-        Button {
-            withAnimation(.snappy(duration: 0.2)) { showsColorPicker.toggle() }
-        } label: {
-            HStack(spacing: 6) {
-                SectionLabel("Color picker")
-                Spacer()
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
-                    .rotationEffect(.degrees(showsColorPicker ? 180 : 0))
-            }
-            .foregroundStyle(Theme.muted)
-            .frame(height: 28)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text("Color picker"))
-        .accessibilityValue(showsColorPicker ? Text("Shown") : Text("Hidden"))
     }
 
     /// The last colors painted with, newest first; tapping one picks it for

@@ -22,11 +22,11 @@ The two **chips** under the selector show them with their hex value:
 
 ## Recent colors
 
-The row under the chips keeps the last 8 colors you painted with, newest first. Tap one to use it again: it goes to the color the square is editing. Handy for colors that aren't in the palette.
+The row above the palette keeps the last 8 colors you painted with, newest first. Tap one to use it again: it goes to the color the square is editing. Handy for colors that aren't in the palette.
 
 ## The color selector
 
-Hidden at first, so the palette gets the room. Tap **Color picker** under the palette to show it or hide it again; the panel remembers your choice:
+Hidden at first, so the palette gets the room. The first of the four buttons under the color chips, **Color picker**, shows it or hides it again; the panel remembers your choice. The other three are **Color shading**, **Hue/Saturation** and **Replace color**. The selector has:
 
 - the **square** sets saturation (left to right) and brightness (bottom to top);
 - the **hue** bar picks the hue;

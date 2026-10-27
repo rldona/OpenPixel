@@ -22,11 +22,11 @@ Los dos **chips** bajo el selector los muestran con su valor hexadecimal:
 
 ## Colores recientes
 
-La fila de debajo de los chips guarda los últimos 8 colores con los que has pintado, el más reciente primero. Toca uno para volver a usarlo: va al color que está editando el cuadrado. Muy útil con colores que no están en la paleta.
+La fila de encima de la paleta guarda los últimos 8 colores con los que has pintado, el más reciente primero. Toca uno para volver a usarlo: va al color que está editando el cuadrado. Muy útil con colores que no están en la paleta.
 
 ## El selector de color
 
-Oculto al principio, para que la paleta tenga más sitio. Toca **Selector de color**, bajo la paleta, para mostrarlo u ocultarlo de nuevo; el panel recuerda lo que elijas:
+Oculto al principio, para que la paleta tenga más sitio. El primero de los cuatro botones bajo los chips de color, **Selector de color**, lo muestra u oculta de nuevo; el panel recuerda lo que elijas. Los otros tres son **Sombreado de color**, **Tono/Saturación** y **Reemplazar color**. El selector tiene:
 
 - el **cuadrado** ajusta la saturación (de izquierda a derecha) y el brillo (de abajo arriba);
 - la barra de **tono** elige el tono;
