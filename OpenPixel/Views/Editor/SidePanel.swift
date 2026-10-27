@@ -6,8 +6,6 @@ struct SidePanel: View {
     let canvas: CanvasController
     /// On the left of the canvas, so its divider goes on the right.
     var mirrored = false
-    @State private var editingPrimary = false
-    @State private var editingSecondary = false
     /// Which color the square under the palette edits.
     @State private var pickingSecondary = false
     /// Palette edit mode: taps select a run of entries instead of picking a color.
@@ -19,8 +17,6 @@ struct SidePanel: View {
     @State private var paletteName = ""
     /// The Tileset tab is on (only while a tilemap layer is active).
     @State private var showingTileset = false
-    /// The color square and its sliders, hidden by default so the palette gets the room.
-    @AppStorage("showsColorPicker") private var showsColorPicker = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 8)
 
@@ -35,9 +31,6 @@ struct SidePanel: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
                 }
-
-                // The last colors painted with, at hand above the palette.
-                recentColors
 
                 // A tilemap layer's tileset shares the palette's place, as a tab,
                 // so the panel doesn't grow.
@@ -56,8 +49,7 @@ struct SidePanel: View {
                         paletteSection(maxHeight: 120)
                     }
                 } else {
-                    // Without the square, the palette takes its room and big ones scroll less.
-                    paletteSection(maxHeight: showsColorPicker ? 151 : 461)
+                    paletteSection()
                 }
                 colorSection
             }
@@ -98,9 +90,7 @@ struct SidePanel: View {
     /// the two colors is picked in the chips below it.
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if showsColorPicker {
-                QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
-            }
+            QuickColorPicker(color: pickingSecondary ? $document.secondary : $document.primary)
             // Swap sits between the two colors, as in Aseprite's color bar.
             HStack(spacing: 4) {
                 colorChip(secondary: false)
@@ -118,10 +108,6 @@ struct SidePanel: View {
             // What changes the sprite's own colors; the last two open floating
             // windows and stay lit while they're open.
             HStack(spacing: 6) {
-                // Shows or hides the square and its bars above the chips.
-                colorAction("Color picker", "paintpalette", isOn: showsColorPicker) {
-                    withAnimation(.snappy(duration: 0.2)) { showsColorPicker.toggle() }
-                }
                 // One window at a time: each opens its own and closes the other, or
                 // closes its own when it's open. Hue/Saturation closes without applying, like Cancel.
                 colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
@@ -188,16 +174,14 @@ struct SidePanel: View {
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
-    /// One of the two colors: its swatch, its hex (typed to change it) and,
-    /// for the primary while it isn't in the palette, Aseprite's warning that adds it.
-    /// Tapping picks it for the square; tapping the picked swatch opens the full editor.
+    /// One of the two colors: its swatch, its hex and, for the primary while it
+    /// isn't in the palette, Aseprite's warning that adds it. Tapping picks it for the square.
     private func colorChip(secondary: Bool) -> some View {
         let color = secondary ? document.secondary : document.primary
         let isOn = pickingSecondary == secondary
-        let binding = secondary ? $document.secondary : $document.primary
         return HStack(spacing: 6) {
             Button {
-                if isOn { if secondary { editingSecondary = true } else { editingPrimary = true } } else { pickingSecondary = secondary }
+                pickingSecondary = secondary
             } label: {
                 ZStack {
                     Checkerboard(cell: 5)
@@ -210,7 +194,7 @@ struct SidePanel: View {
             .buttonStyle(.plain)
             .accessibilityLabel(secondary ? Text("Secondary color") : Text("Primary color"))
             .accessibilityValue(Text(verbatim: color.hex))
-            .accessibilityHint(isOn ? Text("Opens the color editor") : Text("Edits it with the square"))
+            .accessibilityHint(Text("Edits it with the square"))
             // Aseprite's warning, as a badge: the color you paint with isn't in the
             // palette; tapping adds it. Only on the primary, the one that paints.
             .overlay(alignment: .topTrailing) {
@@ -231,13 +215,12 @@ struct SidePanel: View {
                     .accessibilityHint(Text("Adds it to the palette"))
                 }
             }
-            .popover(isPresented: secondary ? $editingSecondary : $editingPrimary) {
-                ColorEditor(color: binding, palette: document.structure.palette) { document.addToPalette($0) }
-                    .presentationCompactAdaptation(.popover)
-            }
 
-            HexField(color: binding)
-                .simultaneousGesture(TapGesture().onEnded { pickingSecondary = secondary })
+            // Read-only: the colors change with the square, the palette and the swap.
+            Text(verbatim: color.hex)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(Theme.text)
+                .lineLimit(1)
         }
         .padding(5)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -268,6 +251,8 @@ struct SidePanel: View {
                 }
                 paletteMenu
             }
+            // The last colors painted with, at hand right over the palette.
+            recentColors
             // Big palettes scroll inside a few rows, so the colors below stay in view.
             // The cap cuts a row in half to show there's more.
             ViewThatFits(in: .vertical) {
@@ -591,24 +576,3 @@ struct PaletteExport: Transferable {
 }
 
 /// A color's hex, typed and applied on return; it follows the color otherwise.
-private struct HexField: View {
-    @Binding var color: PixelColor
-    @State private var text = ""
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        TextField("Hex", text: $text)
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
-            .textInputAutocapitalization(.characters)
-            .autocorrectionDisabled()
-            .focused($focused)
-            .lineLimit(1)
-            .onSubmit {
-                if let parsed = PixelColor(hex: text) { color = parsed } else { text = color.hex }
-            }
-            .onAppear { text = color.hex }
-            // Typing only changes the color on return, so any change comes from elsewhere.
-            .onChange(of: color) { _, new in text = new.hex }
-            .onChange(of: focused) { _, isFocused in if !isFocused { text = color.hex } }
-    }
-}

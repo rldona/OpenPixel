@@ -57,6 +57,12 @@ struct EditorView: View {
                                 onRevision: scheduleSave
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
+                            // The zoom floats in the canvas's corner, clear of the bars centered below.
+                            ZoomMenu(canvas: canvas)
+                                .background(Theme.raised, in: Capsule())
+                                .overlay(Capsule().strokeBorder(Theme.border))
+                                .padding(14)
+                                .padding(.bottom, !focusMode && !timelineCollapsed ? 8 : 0)
                         }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {
@@ -325,11 +331,21 @@ struct EditorView: View {
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity)
 
-            // The view and the file: zoom, Edit, focus and grid in one capsule, then Export.
+            // Undo, redo, Edit and grid in one capsule, then Export.
             HStack(spacing: 0) {
-                ZoomMenu(canvas: canvas)
+                Button { document.undo() } label: { topBarIcon("arrow.uturn.backward", isOn: false) }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut("z", modifiers: .command)
+                    .opacity(document.canUndo || document.isTransforming ? 1 : 0.35)
+                    .help(Text("Undo"))
+                    .accessibilityLabel(Text("Undo"))
+                Button { document.redo() } label: { topBarIcon("arrow.uturn.forward", isOn: false) }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+                    .opacity(document.canRedo ? 1 : 0.35)
+                    .help(Text("Redo"))
+                    .accessibilityLabel(Text("Redo"))
                 EditMenu(document: document, addScript: { document.fileImport = .script }) { showingShortcuts = true }.help(Text("Edit"))
-                focusMenu
                 gridMenu
             }
             .padding(.horizontal, 4)
@@ -399,20 +415,6 @@ struct EditorView: View {
             .foregroundStyle(isOn ? Theme.accent : Theme.text)
             .background(isOn ? Theme.accentSoft : Color.clear, in: RoundedRectangle(cornerRadius: 11))
             .contentShape(Rectangle())
-    }
-
-    /// Tap toggles focus mode; touch and hold names it, like the other view buttons.
-    private var focusMenu: some View {
-        Menu {
-            Button("Focus mode", systemImage: "arrow.up.left.and.arrow.down.right", action: toggleFocus)
-        } label: {
-            topBarIcon("arrow.up.left.and.arrow.down.right", isOn: false)
-        } primaryAction: {
-            toggleFocus()
-        }
-        .menuIndicator(.hidden)
-        .help(Text("Focus mode"))
-        .accessibilityLabel(Text("Focus mode"))
     }
 
     /// Tap toggles the pixel grid; touch and hold for the sprite's grid, snapping and its settings.
@@ -623,7 +625,8 @@ struct ToolRail: View {
                            onBegin: { document.beginSelectionOpacity() }, onEnd: { document.endSelectionOpacity() })
                     .frame(maxHeight: 150)
             } else if document.tool.usesBrush || document.tool.usesInk || document.tool == .eraser {
-                HStack(spacing: 6) {
+                // Size above opacity, one after the other like Procreate's.
+                VStack(spacing: 14) {
                     RailSlider(label: "Brush size", value: Binding(get: { Double(document.brushSize) }, set: { document.setBrushSize(Int($0.rounded())) }),
                                range: 1...Double(SpriteDocument.maxBrushSize), text: { "\(Int($0)) px" }, preview: .size, mirrored: mirrored)
                         .opacity(document.tool.usesBrush && document.activeCustomBrushImage == nil ? 1 : 0.3)
@@ -631,18 +634,10 @@ struct ToolRail: View {
                     RailSlider(label: "Opacity", value: Binding(get: { Double(document.toolOpacity) }, set: { document.toolOpacity = Int($0.rounded()) }),
                                range: 1...255, text: { "\(Int(($0 / 255 * 100).rounded()))%" }, preview: .opacity, mirrored: mirrored)
                 }
-                .frame(maxHeight: 150)
+                .frame(maxHeight: 300)
             }
             // The same room above and below, so the sliders sit centred.
             Spacer(minLength: 8)
-            Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
-            // Undo and redo, at the bottom of the rail.
-            IconButton(systemImage: "arrow.uturn.backward", label: "Undo", size: Self.button) { document.undo() }
-                .keyboardShortcut("z", modifiers: .command)
-                .opacity(document.canUndo || document.isTransforming ? 1 : 0.35)
-            IconButton(systemImage: "arrow.uturn.forward", label: "Redo", size: Self.button) { document.redo() }
-                .keyboardShortcut("z", modifiers: [.command, .shift])
-                .opacity(document.canRedo ? 1 : 0.35)
         }
         .padding(.vertical, 12)
         .frame(width: EditorView.railWidth)

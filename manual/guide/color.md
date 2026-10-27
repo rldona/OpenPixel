@@ -15,18 +15,17 @@ You always have two colors. The **primary** paints; the **secondary** is what th
 The two **chips** under the selector show them with their hex value:
 
 - The chip with the accent border is the one the square and bars edit. Tap the other chip to edit it instead.
-- Tap the active chip's swatch to open the full **color editor**.
-- Tap the hex value to type one; it applies when you press return.
+- The hex values are read-only: change the colors with the square, the palette or the eyedropper.
 - A **!** badge on a swatch means that color isn't in the palette. Tap it to add it.
 - **⇄** between the chips (or X) swaps the two colors. The Apple Pencil Pro **squeeze** does the same.
 
 ## Recent colors
 
-The row above the palette keeps the last 8 colors you painted with, newest first. Tap one to use it again: it goes to the color the square is editing. Handy for colors that aren't in the palette.
+The row right under the palette's title keeps the last 8 colors you painted with, newest first. Tap one to use it again: it goes to the color the square is editing. Handy for colors that aren't in the palette.
 
 ## The color selector
 
-Hidden at first, so the palette gets the room. The first of the four buttons under the color chips, **Color picker**, shows it or hides it again; the panel remembers your choice. The other three are **Color shading**, **Hue/Saturation** and **Replace color**. The selector has:
+Always on, under the palette:
 
 - the **square** sets saturation (left to right) and brightness (bottom to top);
 - the **hue** bar picks the hue;
@@ -36,7 +35,7 @@ Drag and the pencil already paints with the new color. Picking a color from the 
 
 ## The color editor
 
-Tapping the active chip's swatch opens the full editor: a spectrum, **RGB** and **HSB** sliders, the hex value, opacity, **shades** of the current color and **harmonies** (complementary, analogous, triadic, split complementary, tetradic). The left half of the swatch at the top is the color you started with: tap it to go back.
+Tapping a palette color in **Edit colors** mode, then editing it, opens the full editor: a spectrum, **RGB** and **HSB** sliders, the hex value, opacity, **shades** of the current color and **harmonies** (complementary, analogous, triadic, split complementary, tetradic). The left half of the swatch at the top is the color you started with: tap it to go back.
 
 ## The palette
 

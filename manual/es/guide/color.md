@@ -15,18 +15,17 @@ Siempre tienes dos colores. El **principal** pinta; el **secundario** es lo que 
 Los dos **chips** bajo el selector los muestran con su valor hexadecimal:
 
 - El chip con el borde del color de acento es el que editan el cuadrado y las barras. Toca el otro chip para editarlo a él.
-- Toca la muestra del chip activo para abrir el **editor de color** completo.
-- Toca el valor hexadecimal para escribir uno; se aplica al pulsar intro.
+- Los valores hexadecimales son solo de lectura: cambia los colores con el cuadrado, la paleta o el cuentagotas.
 - Una insignia **!** en una muestra indica que ese color no está en la paleta. Tócala para añadirlo.
 - **⇄** entre los chips (o X) cambia un color por el otro. **Apretar** el Apple Pencil Pro hace lo mismo.
 
 ## Colores recientes
 
-La fila de encima de la paleta guarda los últimos 8 colores con los que has pintado, el más reciente primero. Toca uno para volver a usarlo: va al color que está editando el cuadrado. Muy útil con colores que no están en la paleta.
+La fila justo bajo el título de la paleta guarda los últimos 8 colores con los que has pintado, el más reciente primero. Toca uno para volver a usarlo: va al color que está editando el cuadrado. Muy útil con colores que no están en la paleta.
 
 ## El selector de color
 
-Oculto al principio, para que la paleta tenga más sitio. El primero de los cuatro botones bajo los chips de color, **Selector de color**, lo muestra u oculta de nuevo; el panel recuerda lo que elijas. Los otros tres son **Sombreado de color**, **Tono/Saturación** y **Reemplazar color**. El selector tiene:
+Siempre visible, bajo la paleta:
 
 - el **cuadrado** ajusta la saturación (de izquierda a derecha) y el brillo (de abajo arriba);
 - la barra de **tono** elige el tono;
@@ -36,7 +35,7 @@ Arrastras y el lápiz ya pinta con el color nuevo. Al elegir un color de la pale
 
 ## El editor de color
 
-Al tocar la muestra del chip activo se abre el editor completo: un espectro, deslizadores **RGB** y **HSB**, el valor hexadecimal, la opacidad, **sombras y luces** del color actual y **armonías** (complementario, análogos, tríada, complementario dividido, tétrada). La mitad izquierda de la muestra de arriba es el color con el que empezaste: tócala para volver a él.
+Al editar un color de la paleta (en el modo **Editar colores**) se abre el editor completo: un espectro, deslizadores **RGB** y **HSB**, el valor hexadecimal, la opacidad, **sombras y luces** del color actual y **armonías** (complementario, análogos, tríada, complementario dividido, tétrada). La mitad izquierda de la muestra de arriba es el color con el que empezaste: tócala para volver a él.
 
 ## La paleta
 

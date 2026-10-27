@@ -22,8 +22,8 @@ Las opciones de la herramienta pueden hacer que la **presión** del Pencil cambi
 
 ## Modo enfoque
 
-El botón de las flechas de la barra superior (o ⇥ Tab, o un toque con cuatro dedos) oculta los paneles y deja solo el lienzo, con una pequeña cápsula para reproducir y recorrer la animación. Su botón sale del modo enfoque.
+⇥ Tab o un toque con cuatro dedos oculta los paneles y deja solo el lienzo, con una pequeña cápsula para reproducir y recorrer la animación. Su botón sale del modo enfoque.
 
 ## Zoom
 
-Pellizca para hacer zoom; se ajusta a niveles enteros para que los píxeles sigan cuadrados. El menú de zoom de la barra superior (muestra el zoom, como **400 %**) tiene **Tamaño real** (⌘1), **Centrar**, **Ajustar a pantalla** (⌘0), **Acercar** y **Alejar**. Ajustar a pantalla deja el sprite lo más grande que cabe, centrado.
+Pellizca para hacer zoom; se ajusta a niveles enteros para que los píxeles sigan cuadrados. El menú de zoom de la esquina inferior derecha del lienzo (muestra el zoom, como **400 %**) tiene **Tamaño real** (⌘1), **Centrar**, **Ajustar a pantalla** (⌘0), **Acercar** y **Alejar**. Ajustar a pantalla deja el sprite lo más grande que cabe, centrado.
