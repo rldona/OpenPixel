@@ -233,7 +233,7 @@ struct SidePanel: View {
 
     // MARK: Palette
 
-    private func paletteSection(maxHeight: CGFloat = 236) -> some View {
+    private func paletteSection(maxHeight: CGFloat = 246) -> some View {
         let palette = document.structure.palette
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -253,8 +253,8 @@ struct SidePanel: View {
             }
             // The last colors painted with, at hand right over the palette.
             recentColors
-            // Big palettes scroll inside a few rows, so the colors below stay in view.
-            // The cap cuts a row in half to show there's more.
+            // Up to 100 colors (ten rows of 21 pt swatches) fit; bigger palettes scroll
+            // inside, so the colors below stay in view.
             ViewThatFits(in: .vertical) {
                 paletteGrid(palette)
                 ScrollView { paletteGrid(palette) }
