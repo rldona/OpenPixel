@@ -156,6 +156,17 @@ final class LayerGroupTests: XCTestCase {
         XCTAssertEqual(names(doc).filter { $0 == "A" }.count, 1)
     }
 
+    func testActionsAnnounceThemselvesWithTheirIcon() {
+        let doc = makeDocument()
+        doc.copy()
+        XCTAssertEqual(doc.noticeIcon, "doc.on.doc")
+        doc.deleteLayer(id(doc, "C"))
+        XCTAssertEqual(doc.noticeIcon, "trash")
+        // Warnings keep the lock.
+        doc.notice = "Locked"
+        XCTAssertEqual(doc.noticeIcon, "lock.fill")
+    }
+
     func testIntoOutOfUngroupAndDelete() {
         let doc = makeDocument()
         doc.groupLayers([id(doc, "A")])

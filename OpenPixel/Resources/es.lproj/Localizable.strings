@@ -816,3 +816,12 @@
 "Cut group" = "Cortar grupo";
 "Cut layer" = "Cortar capa";
 "Cut to the timeline" = "Cortado al timeline";
+"Copied to the clipboard" = "Copiado";
+"Cut to the clipboard" = "Cortado";
+"Pasted" = "Pegado";
+"Duplicated" = "Duplicado";
+"Merged down" = "Combinada con la de abajo";
+"Layers flattened" = "Capas aplanadas";
+"Frame deleted" = "Frame eliminado";
+"Layer deleted" = "Capa eliminada";
+"Group deleted" = "Grupo eliminado";

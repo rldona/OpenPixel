@@ -486,7 +486,7 @@ struct EditorView: View {
     @ViewBuilder
     private var noticeBanner: some View {
         if let notice = document.notice {
-            Label { Text(verbatim: notice) } icon: { Image(systemName: "lock.fill") }
+            Label { Text(verbatim: notice) } icon: { Image(systemName: document.noticeIcon) }
                 .font(.system(size: 14, weight: .medium))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)

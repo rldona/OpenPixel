@@ -180,7 +180,20 @@ final class SpriteDocument {
     var playbackSpeed: Double = 1
     private(set) var isPlaying = false
     /// Short feedback shown over the canvas, e.g. when drawing on a locked layer.
-    var notice: String?
+    var notice: String? {
+        didSet { if !isAnnouncing { noticeIcon = "lock.fill" } }
+    }
+    /// The notice's symbol: a lock for warnings, or the action's own for `announce`.
+    private(set) var noticeIcon = "lock.fill"
+    @ObservationIgnored private var isAnnouncing = false
+
+    /// Shows a notice for an action that worked (copy, paste, delete…) with its symbol.
+    func announce(_ message: String, icon: String) {
+        isAnnouncing = true
+        noticeIcon = icon
+        notice = message
+        isAnnouncing = false
+    }
 
     // Selection
     /// Not observed (it changes on every move of a marquee drag); views use `hasSelection`.
@@ -1364,11 +1377,13 @@ final class SpriteDocument {
             let below = sprite.layers[..<index].last { !removed.contains($0.id) }
             activeLayerID = (below ?? remaining.first!).id
         }
+        let isGroup = sprite.layers[index].isGroup
         perform { s in
             s.layers.removeAll { removed.contains($0.id) }
             s.cels = s.cels.filter { !removed.contains($0.key.layer) }
             s.normalizeLinks()
         }
+        announce(isGroup ? L10n.string("Group deleted") : L10n.string("Layer deleted"), icon: "trash")
     }
 
     func setBlendMode(_ mode: BlendMode, layer id: UUID) {
@@ -1740,6 +1755,7 @@ final class SpriteDocument {
     func deleteFrame(at index: Int) {
         guard sprite.frames.count > 1, sprite.frames.indices.contains(index) else { return }
         perform { $0.removeFrame(at: index) }
+        announce(L10n.string("Frame deleted"), icon: "trash")
     }
 
     func moveFrame(at index: Int, by offset: Int) {
@@ -2476,13 +2492,14 @@ extension SpriteDocument {
     /// Copies the selected pixels (or the whole cel) to the app clipboard and,
     /// as a PNG, to the system pasteboard. With several layers selected it
     /// copies them merged, as they look.
-    func copy() {
+    @discardableResult
+    func copy() -> Bool {
         applyTransformIfNeeded()
         let keys = selectionEditKeys.filter { $0.frame == activeFrame.id }
-        guard !keys.isEmpty else { return }
+        guard !keys.isEmpty else { return false }
         let image: PixelImage
         if keys.count == 1 {
-            guard let cel = storage.cels[keys[0]] else { return }
+            guard let cel = storage.cels[keys[0]] else { return false }
             image = cel
         } else {
             var merged = storage
@@ -2491,16 +2508,19 @@ extension SpriteDocument {
             image = merged.composite(frameIndex: activeFrameIndex)
         }
         let mask = selection ?? SelectionMask(width: storage.width, height: storage.height, filled: true)
-        guard let bounds = mask.bounds else { return }
+        guard let bounds = mask.bounds else { return false }
         var cropped = image.cropped(to: bounds)
         let local = mask.cropped(to: bounds)
         for i in cropped.pixels.indices where !local.bits[i] { cropped.pixels[i] = .clear }
         PixelClipboard.store(cropped, origin: PixelPoint(x: bounds.minX, y: bounds.minY))
+        announce(L10n.string("Copied to the clipboard"), icon: "doc.on.doc")
+        return true
     }
 
     func cut() {
-        copy()
+        guard copy() else { return }
         if selection != nil { deleteSelection() } else { clearActiveCel() }
+        announce(L10n.string("Cut to the clipboard"), icon: "scissors")
     }
 
     private func clearActiveCel() {
@@ -2529,6 +2549,7 @@ extension SpriteDocument {
         let (w, h) = (storage.width, storage.height)
         let fits = origin.x >= 0 && origin.y >= 0 && origin.x + image.width <= w && origin.y + image.height <= h
         beginFloating(image, at: fits ? origin : PixelPoint(x: (w - image.width) / 2, y: (h - image.height) / 2))
+        announce(L10n.string("Pasted"), icon: "doc.on.clipboard")
     }
 
     /// Puts `image` on the active cel as floating pixels, ready to move,
@@ -3328,7 +3349,7 @@ extension SpriteDocument {
         copyLayer(id)
         let before = sprite.layers.count
         deleteLayer(id)
-        if sprite.layers.count != before { notice = L10n.string("Cut to the timeline") }
+        if sprite.layers.count != before { announce(L10n.string("Cut to the timeline"), icon: "scissors") }
     }
 
     /// Copies one cel, for Paste cels.
@@ -3360,7 +3381,7 @@ extension SpriteDocument {
                 (s.layers[li], s.frames.map { s.content(CelKey(layer: s.layers[li].id, frame: $0.id)) })
             })
         }
-        notice = L10n.string("Copied to the timeline")
+        announce(L10n.string("Copied to the timeline"), icon: "doc.on.doc")
     }
 
     /// Pastes copied cels with their top-left cel on the active cel. Rows past
@@ -3380,6 +3401,7 @@ extension SpriteDocument {
             }
             s.normalizeLinks()
         }
+        announce(L10n.string("Pasted"), icon: "doc.on.clipboard")
     }
 
     /// Inserts copied frames after the active one; cels go to layers by position.
@@ -3396,6 +3418,7 @@ extension SpriteDocument {
             }
         }
         selectFrames(at...(at + copied.count - 1))
+        announce(L10n.string("Pasted"), icon: "doc.on.clipboard")
     }
 
     /// Pastes copied frames into the active frame and the ones after it,
@@ -3428,6 +3451,7 @@ extension SpriteDocument {
             }
             s.normalizeLinks()
         }
+        announce(L10n.string("Pasted"), icon: "doc.on.clipboard")
     }
 
     /// Inserts copied layers above the active one; frames are added if needed.
@@ -3457,6 +3481,7 @@ extension SpriteDocument {
             s.normalizeGroups()
         }
         if let last = newIDs.last { activeLayerID = last }
+        announce(L10n.string("Pasted"), icon: "doc.on.clipboard")
     }
 
     // MARK: Frames, tags and cels
@@ -3566,6 +3591,7 @@ extension SpriteDocument {
             }
         }
         if let copy = placed.last { activeLayerID = copy }
+        announce(L10n.string("Duplicated"), icon: "plus.square.on.square")
     }
 
     /// Adds a reference layer with the image in `data` (PNG, JPEG, HEIC…),
@@ -3737,6 +3763,7 @@ extension SpriteDocument {
         let lower = sprite.layers[index - 1].id
         perform { s in s.mergeDown(at: index) }
         activeLayerID = lower
+        announce(L10n.string("Merged down"), icon: "arrow.down.to.line")
     }
 
     /// Layer > Flatten: every visible layer becomes one (the background if
@@ -3746,6 +3773,7 @@ extension SpriteDocument {
         var flat: UUID?
         perform { s in flat = s.flatten(name: L10n.string("Flattened")) }
         if let flat { activeLayerID = flat }
+        announce(L10n.string("Layers flattened"), icon: "square.stack.3d.down.forward")
     }
 
     /// Aseprite's Ctrl+J / Ctrl+Shift+J: the selected pixels of the active cel
