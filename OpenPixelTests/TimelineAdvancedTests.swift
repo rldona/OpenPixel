@@ -266,6 +266,26 @@ final class TimelineAdvancedTests: XCTestCase {
         XCTAssertNotEqual(doc.sprite.layers[2].id, doc.sprite.layers[1].id)
     }
 
+    func testCopyOneFrameCelOrLayerFromItsMenu() {
+        let doc = makeDocument()
+        doc.copyFrame(at: 2)
+        doc.goToFrame(0)
+        doc.pasteFrames()
+        XCTAssertEqual(doc.sprite.frames.count, 5)
+        XCTAssertEqual(marker(doc, frame: 1, layer: top), 2, "frame 3 pasted after frame 1")
+
+        doc.copyCel(layer: doc.sprite.layers[top].id, frameIndex: 0)
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 4)
+        doc.pasteCels()
+        XCTAssertEqual(marker(doc, frame: 4, layer: 0), 0)
+
+        doc.copyLayer(doc.sprite.layers[top].id)
+        doc.activeLayerID = doc.sprite.layers[top].id
+        doc.pasteLayers()
+        XCTAssertEqual(doc.sprite.layers.count, 3)
+        XCTAssertEqual(marker(doc, frame: 0, layer: 2), 0)
+    }
+
     // MARK: Tags, loop and focus
 
     func testTagAndLoopSectionUseTheSelectedFrames() {

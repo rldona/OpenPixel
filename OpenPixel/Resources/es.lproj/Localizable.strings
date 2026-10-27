@@ -790,3 +790,7 @@
 "Up one layer" = "Subir una capa";
 "Down one layer" = "Bajar una capa";
 "Z-index: %lld" = "Z-index: %lld";
+
+"Copy layer" = "Copiar capa";
+"Copy frame" = "Copiar frame";
+"Copy cel" = "Copiar cel";

@@ -3168,6 +3168,25 @@ extension SpriteDocument {
     /// Copies the selected cels, frames or layers to the timeline clipboard.
     func copyRange() {
         guard let range = timelineRange else { return }
+        copy(range)
+    }
+
+    /// Copies one frame, with every layer, for Paste frames.
+    func copyFrame(at index: Int) {
+        copy(TimelineRange(kind: .frames, layers: Set(sprite.layers.map(\.id)), frames: index...index))
+    }
+
+    /// Copies one layer, with all its cels, for Paste layers.
+    func copyLayer(_ id: UUID) {
+        copy(TimelineRange(kind: .layers, layers: [id], frames: 0...max(0, sprite.frames.count - 1)))
+    }
+
+    /// Copies one cel, for Paste cels.
+    func copyCel(layer: UUID, frameIndex: Int) {
+        copy(TimelineRange(kind: .cels, layers: [layer], frames: frameIndex...frameIndex))
+    }
+
+    private func copy(_ range: TimelineRange) {
         let s = sprite
         let frameIDs = range.frames.compactMap { s.frames.indices.contains($0) ? s.frames[$0].id : nil }
         switch range.kind {
@@ -3229,14 +3248,17 @@ extension SpriteDocument {
               let index = sprite.layers.firstIndex(where: { $0.id == activeLayerID }) else { return }
         let w = sprite.width, h = sprite.height
         var newIDs: [UUID] = []
+        // Pasted layers join the group of the layer they go above.
+        let parent = sprite.layers[index].parent
         perform { s in
             s.ensureFrames(copied.map(\.cels.count).max() ?? 0)
-            for (offset, item) in copied.enumerated() {
+            for item in copied where !item.layer.isGroup {
                 var layer = item.layer
                 layer.id = UUID()
                 layer.isBackground = false
+                layer.parent = parent
+                s.layers.insert(layer, at: index + 1 + newIDs.count)
                 newIDs.append(layer.id)
-                s.layers.insert(layer, at: index + 1 + offset)
                 for (f, cel) in item.cels.enumerated() {
                     s.setContent(cel.fitted(width: w, height: h), CelKey(layer: layer.id, frame: s.frames[f].id))
                 }

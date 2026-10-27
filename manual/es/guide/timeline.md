@@ -62,6 +62,6 @@ Toca **Seleccionar** y luego cels, números de frame o nombres de capa para sele
 
 - **Elegir cels uno a uno**: cada cel que tocas fuera del bloque lo amplía para incluirlo, aunque esté en otra capa. Toca un cel dentro del bloque para recortarlo.
 - **Mover y copiar bloques** de cels, frames o capas arrastrándolos. Un interruptor junto a **Listo** elige entre mover y copiar. Los bloques que sueltas más allá del último frame añaden frames.
-- **Copiar y pegar entre sprites**: copia un bloque y pega cels, frames o capas desde el menú de un cel, de un número de frame o de una capa en cualquier sprite.
+- **Copiar y pegar**: mantén pulsado un número de frame, un cel o una capa y elige **Copiar frame**, **Copiar cel** o **Copiar capa** (o copia un bloque seleccionado). Después pega desde ese mismo menú en otro sitio: **Pegar frames detrás**, **Pegar cels aquí** o **Pegar capas encima**. También funciona entre sprites.
 - Las [transformaciones](./selection#transformar-varios-cels) cambian todos los cels seleccionados.
 - **Listo** mantiene los cels seleccionados (con contorno), así que rellenar, borrar o transformar en el lienzo les llega a todos (rellenar solo recolorea lo que ya tiene cada cel). Toca cualquier cel para quitarlos.

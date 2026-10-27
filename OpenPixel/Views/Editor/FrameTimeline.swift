@@ -874,12 +874,14 @@ struct FrameTimeline: View {
                 document.isSelectingRange = true
                 document.extendRange(layerRow: layer.id)
             }
-            if clipboard.hasLayers {
-                Button("Paste layers above", systemImage: "doc.on.clipboard") {
-                    document.activeLayerID = layer.id
-                    document.pasteLayers()
-                }
+            if !layer.isGroup {
+                Button("Copy layer", systemImage: "doc.on.doc") { document.copyLayer(layer.id) }
             }
+            Button("Paste layers above", systemImage: "doc.on.clipboard") {
+                document.activeLayerID = layer.id
+                document.pasteLayers()
+            }
+            .disabled(!clipboard.hasLayers)
             Divider()
             Button("Move up", systemImage: "arrow.up") { document.moveLayer(layer.id, by: 1) }
                 .disabled(layer.isBackground)
@@ -1283,12 +1285,12 @@ struct FrameTimeline: View {
                 document.isSelectingRange = true
                 document.extendRange(frameIndex: index)
             }
-            if clipboard.hasFrames {
-                Button("Paste frames after", systemImage: "doc.on.clipboard") {
-                    document.goToFrame(index)
-                    document.pasteFrames()
-                }
+            Button("Copy frame", systemImage: "doc.on.doc") { document.copyFrame(at: index) }
+            Button("Paste frames after", systemImage: "doc.on.clipboard") {
+                document.goToFrame(index)
+                document.pasteFrames()
             }
+            .disabled(!clipboard.hasFrames)
             Divider()
             Button("Move left", systemImage: "arrow.left") { document.moveFrame(at: index, by: -1) }
                 .disabled(index == 0)
@@ -1399,12 +1401,14 @@ struct FrameTimeline: View {
                 document.isSelectingRange = true
                 document.extendRange(layer: layer.id, frameIndex: frameIndex)
             }
-            if clipboard.hasCels {
-                Button("Paste cels here", systemImage: "doc.on.clipboard") {
-                    document.selectCel(layer: layer.id, frameIndex: frameIndex)
-                    document.pasteCels()
-                }
+            if filled {
+                Button("Copy cel", systemImage: "doc.on.doc") { document.copyCel(layer: layer.id, frameIndex: frameIndex) }
             }
+            Button("Paste cels here", systemImage: "doc.on.clipboard") {
+                document.selectCel(layer: layer.id, frameIndex: frameIndex)
+                document.pasteCels()
+            }
+            .disabled(!clipboard.hasCels)
         }
         // Selected cels drag the whole block (Aseprite drags it from its border).
         return Group {
