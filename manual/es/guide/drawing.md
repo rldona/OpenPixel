@@ -81,7 +81,7 @@ La **opacidad** de la herramienta se aplica una vez por trazo, así que pasar do
 
 ## Cuentagotas
 
-El cuentagotas (I) toma el color de toda la imagen o solo de la capa activa. No hace falta cambiar a él: **mantén pulsado** el lienzo con un dedo mientras dibujas con el Pencil, o con teclado mantén **⌥** y toca.
+El cuentagotas (I) toma el color de toda la imagen o solo de la capa activa. No hace falta cambiar a él: **mantén pulsado** el lienzo con un dedo mientras dibujas con el Pencil, o con teclado mantén **⌥** y toca. El color elegido aparece arriba del lienzo, en un aviso de ese color con su valor hexadecimal.
 
 ## Simetría
 

@@ -482,15 +482,30 @@ struct EditorView: View {
         }
     }
 
+    /// Black or white, whichever reads on `color` (seen over a light panel when see-through).
+    private static func readableText(on color: PixelColor) -> Color {
+        let alpha = Double(color.a) / 255
+        let luminance = color.luminance * alpha + (1 - alpha)
+        return luminance > 0.55 ? .black : .white
+    }
+
     /// Aseprite's View > Tiled Mode.
     @ViewBuilder
     private var noticeBanner: some View {
         if let notice = document.notice {
+            let color = document.noticeColor
             Label { Text(verbatim: notice) } icon: { Image(systemName: document.noticeIcon) }
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14, weight: .medium, design: color == nil ? .default : .monospaced))
+                .foregroundStyle(color.map { Self.readableText(on: $0) } ?? Theme.text)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(Theme.raised, in: Capsule())
+                // A picked color fills the notice, its hex in black or white, whichever reads.
+                .background {
+                    ZStack {
+                        Capsule().fill(Theme.raised)
+                        if let color { Capsule().fill(color.color) }
+                    }
+                }
                 .overlay(Capsule().strokeBorder(Theme.border))
                 .padding(.top, 14)
                 .transition(.move(edge: .top).combined(with: .opacity))

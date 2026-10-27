@@ -181,16 +181,19 @@ final class SpriteDocument {
     private(set) var isPlaying = false
     /// Short feedback shown over the canvas, e.g. when drawing on a locked layer.
     var notice: String? {
-        didSet { if !isAnnouncing { noticeIcon = "lock.fill" } }
+        didSet { if !isAnnouncing { noticeIcon = "lock.fill"; noticeColor = nil } }
     }
     /// The notice's symbol: a lock for warnings, or the action's own for `announce`.
     private(set) var noticeIcon = "lock.fill"
+    /// A color the notice is filled with (the eyedropper's pick), if any.
+    private(set) var noticeColor: PixelColor?
     @ObservationIgnored private var isAnnouncing = false
 
     /// Shows a notice for an action that worked (copy, paste, delete…) with its symbol.
-    func announce(_ message: String, icon: String) {
+    func announce(_ message: String, icon: String, color: PixelColor? = nil) {
         isAnnouncing = true
         noticeIcon = icon
+        noticeColor = color
         notice = message
         isAnnouncing = false
     }
@@ -523,6 +526,7 @@ final class SpriteDocument {
             : sprite.composite(frameIndex: activeFrameIndex)
         guard image.contains(p), !image[p].isTransparent else { return }
         primary = image[p]
+        announce(primary.hex, icon: "eyedropper", color: primary)
     }
 
     // MARK: - Strokes

@@ -162,6 +162,10 @@ final class LayerGroupTests: XCTestCase {
         XCTAssertEqual(doc.noticeIcon, "doc.on.doc")
         doc.deleteLayer(id(doc, "C"))
         XCTAssertEqual(doc.noticeIcon, "trash")
+        // The eyedropper shows the picked color and its hex.
+        doc.pickColor(at: PixelPoint(x: 0, y: 0))
+        XCTAssertEqual(doc.noticeColor, .black)
+        XCTAssertEqual(doc.notice, PixelColor.black.hex)
         // Warnings keep the lock.
         doc.notice = "Locked"
         XCTAssertEqual(doc.noticeIcon, "lock.fill")

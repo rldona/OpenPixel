@@ -81,7 +81,7 @@ The tool's **opacity** applies once per stroke, so going over the same spot does
 
 ## Eyedropper
 
-The eyedropper (I) picks from the whole image or from the active layer only. You don't need to switch to it: **touch and hold** the canvas with a finger while drawing with the Pencil, or hold **⌥** and tap with a keyboard.
+The eyedropper (I) picks from the whole image or from the active layer only. You don't need to switch to it: **touch and hold** the canvas with a finger while drawing with the Pencil, or hold **⌥** and tap with a keyboard. The picked color shows at the top of the canvas, filling the notice with its hex value.
 
 ## Symmetry
 
