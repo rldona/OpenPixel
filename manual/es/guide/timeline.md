@@ -8,7 +8,7 @@ El timeline de abajo contiene los frames (numerados arriba), los tags encima de 
 
 Arrastra la **barra** de su borde superior para hacerlo más alto o más bajo; con un doble toque se ajusta a todas las capas. Si sigues empujando hacia abajo, se esconde tras una pequeña cápsula con reproducir, el número de frame y una barra para recorrer la animación. Toca su flecha o arrástrala hacia arriba para recuperar el timeline.
 
-Después del último frame y de la última capa, unos frames y capas **proyectados**, tenues, continúan la cuadrícula. Toca uno para crear todo lo necesario hasta él en un solo paso.
+Después del último frame y de la última capa, unos frames y capas **proyectados**, tenues, continúan la cuadrícula. Toca uno con el Apple Pencil para crear todo lo necesario hasta él en un solo paso (con el dedo solo se desplazan, así no se añade nada sin querer).
 
 ## Frames
 

@@ -15,7 +15,6 @@ struct SidePanel: View {
     @State private var paletteRange: ClosedRange<Int>?
     @State private var paletteAnchor: Int?
     @State private var editingEntry: PaletteEntry?
-    @State private var importingPalette = false
     /// The Tileset tab is on (only while a tilemap layer is active).
     @State private var showingTileset = false
 
@@ -70,9 +69,6 @@ struct SidePanel: View {
         }
         .sheet(item: $editingEntry) { entry in
             PaletteEntryEditor(color: entry.color, index: entry.index) { document.setPaletteColor($0, at: entry.index) }
-        }
-        .fileImporter(isPresented: $importingPalette, allowedContentTypes: [.data]) { result in
-            importPalette(result)
         }
     }
 
@@ -312,7 +308,7 @@ struct SidePanel: View {
             Button("Palette from sprite", systemImage: "eyedropper.halffull") { document.paletteFromSprite() }
             Button("New empty palette", systemImage: "square.dashed") { document.clearPalette() }
             Divider()
-            Button("Import palette…", systemImage: "square.and.arrow.down") { importingPalette = true }
+            Button("Import palette…", systemImage: "square.and.arrow.down") { document.fileImport = .palette }
             Menu("Export palette") {
                 ForEach(PaletteFile.Format.allCases) { format in
                     ShareLink(item: PaletteExport(colors: document.structure.palette, name: document.name, format: format),
@@ -472,17 +468,6 @@ struct SidePanel: View {
         .accessibilityLabel(Text(title))
     }
 
-    private func importPalette(_ result: Result<URL, Error>) {
-        guard case .success(let url) = result else { return }
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        guard let data = try? Data(contentsOf: url),
-              let colors = PaletteFile.colors(from: data, fileExtension: url.pathExtension) else {
-            document.notice = L10n.string("Couldn't read a palette from that file")
-            return
-        }
-        document.setPalette(colors)
-    }
 }
 
 extension PaletteSort {

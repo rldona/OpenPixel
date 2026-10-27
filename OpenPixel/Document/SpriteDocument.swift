@@ -203,6 +203,12 @@ final class SpriteDocument {
     /// How far apart, in pixels, the two taps of a double tap can be (the canvas
     /// sets it from the zoom).
     @ObservationIgnored var tapSlop = 0
+    /// A file the editor is asked to pick from Files. One picker serves them
+    /// all: SwiftUI shows only one file importer per view hierarchy, so the
+    /// side panel's and the timeline's own never opened under the editor's.
+    enum FileImport: Equatable { case script, palette, imageLayer, referenceLayer }
+    var fileImport: FileImport?
+
     /// The frame, layer or cel last tapped in the timeline, for its Copy button.
     var timelineFocus = TimelineFocus.cel
     var selectionMode = SelectionMode.replace { didSet { lastSelectionTap = nil } }

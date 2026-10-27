@@ -8,7 +8,7 @@ The timeline at the bottom holds the frames (numbered across the top), the tags 
 
 Drag the **grab bar** on its top edge to make it taller or shorter; double tap it to fit every layer. Keep pushing down and it hides behind a small capsule with play, the frame number and a scrubber. Tap its arrow or drag it up to bring the timeline back.
 
-Past the last frame and the last layer, faint **projected** frames and layers keep the grid going. Tap one to create everything up to it in one step.
+Past the last frame and the last layer, faint **projected** frames and layers keep the grid going. Tap one with the Apple Pencil to create everything up to it in one step (fingers only scroll over them, so nothing is added by accident).
 
 ## Frames
 

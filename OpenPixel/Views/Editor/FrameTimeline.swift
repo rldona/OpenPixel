@@ -12,9 +12,7 @@ struct FrameTimeline: View {
     /// Picking the image for a new reference layer.
     @State private var pickingReferencePhoto = false
     @State private var referencePhoto: PhotosPickerItem?
-    @State private var importingReferenceFile = false
     /// The file picker brings an image or GIF in as a layer of pixels, not a reference.
-    @State private var importingAsLayer = false
     @State private var renameText = ""
     @State private var editingTag: FrameTag?
     /// A tag just added from New tag, until its sheet is saved.
@@ -55,9 +53,6 @@ struct FrameTimeline: View {
         content
             .photosPicker(isPresented: $pickingReferencePhoto, selection: $referencePhoto, matching: .images)
             .onChange(of: referencePhoto) { loadReferencePhoto() }
-            .fileImporter(isPresented: $importingReferenceFile, allowedContentTypes: [.image]) { result in
-                loadReferenceFile(result)
-            }
     }
 
     private var content: some View {
@@ -570,14 +565,12 @@ struct FrameTimeline: View {
                     Button("New group", systemImage: "folder.badge.plus") { document.newGroup() }
                     Button("New tilemap layer", systemImage: "square.grid.3x3.fill") { document.addTilemapLayer() }
                     Button("Import image or GIF…", systemImage: "photo.stack") {
-                        importingAsLayer = true
-                        importingReferenceFile = true
+                        document.fileImport = .imageLayer
                     }
                     Section("New reference layer") {
                         Button("From Photos", systemImage: "photo.on.rectangle") { pickingReferencePhoto = true }
                         Button("From Files", systemImage: "folder") {
-                            importingAsLayer = false
-                            importingReferenceFile = true
+                            document.fileImport = .referenceLayer
                         }
                     }
                 } label: {
@@ -647,7 +640,7 @@ struct FrameTimeline: View {
             ))
             // Projected layers: tapping one adds layers under the bottom one, down to it.
             ForEach(0..<projectedLayerRows, id: \.self) { row in
-                Button { document.extendTimeline(toFrame: nil, layersBelow: row + 1) } label: {
+                Group {
                     // The same eye, lock and continuity icons as a real row, faint.
                     HStack(spacing: 0) {
                         checkBox(false).frame(width: checkColumn, height: rowHeight)
@@ -666,7 +659,8 @@ struct FrameTimeline: View {
                     .frame(height: rowHeight)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                // Only the Pencil adds layers here, so a finger scrolling the timeline can't.
+                .pencilTap { _ in document.extendTimeline(toFrame: nil, layersBelow: row + 1) }
                 .accessibilityLabel(Text("New layer"))
             }
         }
@@ -1025,18 +1019,6 @@ struct FrameTimeline: View {
         }
     }
 
-    private func loadReferenceFile(_ result: Result<URL, Error>) {
-        guard case .success(let url) = result else { return }
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        guard let data = try? Data(contentsOf: url) else { return }
-        let name = url.deletingPathExtension().lastPathComponent
-        if importingAsLayer {
-            document.importLayer(imageData: data, name: name)
-        } else {
-            document.addReferenceLayer(imageData: data, name: name)
-        }
-    }
 
     // MARK: Tags
 
@@ -1233,15 +1215,13 @@ struct FrameTimeline: View {
                         .dropDestination(for: String.self) { items, _ in dropRange(items, layer: nil, frame: frames.count) }
                 }
                 ForEach((frames.count + (showsDropColumn ? 1 : 0))..<max(shownFrames, frames.count + (showsDropColumn ? 1 : 0)), id: \.self) { index in
-                    Button { document.extendTimeline(toFrame: index, layersBelow: 0) } label: {
-                        Text(verbatim: "\(index + firstFrame)")
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(Theme.muted.opacity(0.4))
-                            .frame(width: celWidth, height: headerHeight)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("New frame"))
+                    Text(verbatim: "\(index + firstFrame)")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Theme.muted.opacity(0.4))
+                        .frame(width: celWidth, height: headerHeight)
+                        .contentShape(Rectangle())
+                        .pencilTap { _ in document.extendTimeline(toFrame: index, layersBelow: 0) }
+                        .accessibilityLabel(Text("New frame"))
                 }
             }
             .simultaneousGesture(scrub)
@@ -1264,12 +1244,11 @@ struct FrameTimeline: View {
             }
         }
         .frame(width: width, height: height)
-        .contentShape(Rectangle())
-        .gesture(SpatialTapGesture().onEnded { value in
-            let column = columns.lowerBound + min(columns.count - 1, max(0, Int(value.location.x / celWidth)))
-            let row = min(rows - 1, max(0, Int(value.location.y / rowHeight)))
+        .pencilTap { location in
+            let column = columns.lowerBound + min(columns.count - 1, max(0, Int(location.x / celWidth)))
+            let row = min(rows - 1, max(0, Int(location.y / rowHeight)))
             tap(column, row)
-        })
+        }
         .accessibilityHidden(true)
     }
 
@@ -1770,5 +1749,38 @@ private struct LayerColumnDrop: DropDelegate {
             Task { @MainActor in perform(payload ?? "", slot) }
         }
         return true
+    }
+}
+
+extension View {
+    /// Runs `action` for a tap of the Apple Pencil only (with the point
+    /// tapped); fingers pass through to scroll. Also a VoiceOver action.
+    func pencilTap(_ action: @escaping (CGPoint) -> Void) -> some View {
+        overlay(PencilTapView(action: action))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { action(.zero) }
+    }
+}
+
+private struct PencilTapView: UIViewRepresentable {
+    let action: (CGPoint) -> Void
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.tapped(_:)))
+        tap.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
+        view.addGestureRecognizer(tap)
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) { context.coordinator.action = action }
+
+    func makeCoordinator() -> Coordinator { Coordinator(action: action) }
+
+    final class Coordinator: NSObject {
+        var action: (CGPoint) -> Void
+        init(action: @escaping (CGPoint) -> Void) { self.action = action }
+        @objc func tapped(_ gesture: UITapGestureRecognizer) { action(gesture.location(in: gesture.view)) }
     }
 }

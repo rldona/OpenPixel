@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct EditorView: View {
     @Bindable var document: SpriteDocument
@@ -9,7 +10,8 @@ struct EditorView: View {
     @State private var showingExport = false
     @State private var showingGridSettings = false
     @State private var showingShortcuts = false
-    @State private var addingScript = false
+    /// The file import in progress, kept once the picker clears the request.
+    @State private var lastImport: SpriteDocument.FileImport?
     @State private var saveTask: Task<Void, Never>?
     /// Focus mode hides everything but the canvas (four-finger tap or Tab).
     @State private var focusMode = false
@@ -155,13 +157,16 @@ struct EditorView: View {
             Task { await store.flush() }
         }
         // Scripts picked from Files are added to the Scripts menu and run.
-        .fileImporter(isPresented: $addingScript, allowedContentTypes: [.luaScript, .plainText]) { result in
-            do {
-                let script = try ScriptStore.shared.install(contentsOf: result.get())
-                document.runScript(named: script.name, source: try ScriptStore.shared.source(of: script))
-            } catch {
-                document.scriptMessage = ScriptMessage(title: L10n.string("Couldn't add the script"), text: error.localizedDescription)
-            }
+        // The one file picker of the editor (see SpriteDocument.FileImport).
+        .fileImporter(
+            isPresented: Binding(get: { document.fileImport != nil }, set: { shown in
+                if !shown, let kind = document.fileImport { lastImport = kind; document.fileImport = nil }
+            }),
+            allowedContentTypes: Self.contentTypes(document.fileImport ?? lastImport)
+        ) { result in
+            guard let kind = document.fileImport ?? lastImport else { return }
+            document.fileImport = nil
+            importFile(result, as: kind)
         }
         .alert(Text(verbatim: document.scriptMessage?.title ?? ""), isPresented: Binding(get: { document.scriptMessage != nil }, set: { if !$0 { document.scriptMessage = nil } })) {
             Button("OK", role: .cancel) {}
@@ -188,6 +193,43 @@ struct EditorView: View {
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled else { return }
             save()
+        }
+    }
+
+    private static func contentTypes(_ kind: SpriteDocument.FileImport?) -> [UTType] {
+        switch kind {
+        case .script: [.luaScript, .plainText]
+        case .palette: [.data]
+        case .imageLayer, .referenceLayer: [.image]
+        case nil: [.data]
+        }
+    }
+
+    private func importFile(_ result: Result<URL, Error>, as kind: SpriteDocument.FileImport) {
+        guard case .success(let url) = result else { return }
+        if kind == .script {
+            do {
+                let script = try ScriptStore.shared.install(contentsOf: url)
+                document.runScript(named: script.name, source: try ScriptStore.shared.source(of: script))
+            } catch {
+                document.scriptMessage = ScriptMessage(title: L10n.string("Couldn't add the script"), text: error.localizedDescription)
+            }
+            return
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let name = url.deletingPathExtension().lastPathComponent
+        switch kind {
+        case .palette:
+            guard let colors = PaletteFile.colors(from: data, fileExtension: url.pathExtension) else {
+                document.notice = L10n.string("Couldn't read a palette from that file")
+                return
+            }
+            document.setPalette(colors)
+        case .imageLayer: document.importLayer(imageData: data, name: name)
+        case .referenceLayer: document.addReferenceLayer(imageData: data, name: name)
+        case .script: break
         }
     }
 
@@ -259,7 +301,7 @@ struct EditorView: View {
     /// active tool's options centered over the canvas, and the view buttons
     /// with Export over the side panel.
     private var toolRail: some View {
-        ToolRail(document: document, mirrored: mirrored) { addingScript = true }
+        ToolRail(document: document, mirrored: mirrored) { document.fileImport = .script }
             .transition(.move(edge: mirrored ? .trailing : .leading).combined(with: .opacity))
     }
 
@@ -282,7 +324,7 @@ struct EditorView: View {
             // The view and the file: zoom, Edit, focus and grid in one capsule, then Export.
             HStack(spacing: 0) {
                 ZoomMenu(canvas: canvas)
-                EditMenu(document: document, addScript: { addingScript = true }) { showingShortcuts = true }.help(Text("Edit"))
+                EditMenu(document: document, addScript: { document.fileImport = .script }) { showingShortcuts = true }.help(Text("Edit"))
                 focusMenu
                 gridMenu
             }
