@@ -50,7 +50,7 @@ El **+** que hay tras el último color añade el color principal, así que puede
 
 ## Acciones de color
 
-Los iconos de abajo, más el contorno:
+Los tres iconos bajo la vista previa, más el contorno:
 
 | Botón | Qué hace |
 |---|---|

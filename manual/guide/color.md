@@ -50,7 +50,7 @@ The **+** after the last color adds the primary color, so you can build a palett
 
 ## Color actions
 
-The icons at the bottom, plus the outline:
+The three icons under the preview, plus the outline:
 
 | Button | What it does |
 |---|---|

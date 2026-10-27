@@ -30,6 +30,7 @@ struct SidePanel: View {
                         .frame(height: 180)
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.border))
+                    colorActions
                 }
 
                 // A tilemap layer's tileset shares the palette's place, as a tab,
@@ -105,24 +106,27 @@ struct SidePanel: View {
                 .accessibilityLabel(Text("Swap colors"))
                 colorChip(secondary: true)
             }
-            // What changes the sprite's own colors; the last two open floating
-            // windows and stay lit while they're open.
-            HStack(spacing: 6) {
-                // One window at a time: each opens its own and closes the other, or
-                // closes its own when it's open. Hue/Saturation closes without applying, like Cancel.
-                colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
-                    document.toggleColorShading()
+        }
+    }
+
+    /// Color shading, Hue/Saturation and Replace color: three floating windows
+    /// that take turns. Under the preview.
+    private var colorActions: some View {
+        // Each button lights up while its window is open and closes it when tapped
+        // again. Hue/Saturation closes without applying, like Cancel.
+        HStack(spacing: 6) {
+            colorAction("Color shading", "swatchpalette", isOn: document.isShowingColorShading) {
+                document.toggleColorShading()
+            }
+            colorAction("Hue/Saturation", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
+                if document.isAdjustingHueSaturation {
+                    document.endHueSaturation(apply: nil, everyCel: false)
+                } else {
+                    document.beginHueSaturation()
                 }
-                colorAction("Hue/Saturation", "slider.horizontal.3", isOn: document.isAdjustingHueSaturation) {
-                    if document.isAdjustingHueSaturation {
-                        document.endHueSaturation(apply: nil, everyCel: false)
-                    } else {
-                        document.beginHueSaturation()
-                    }
-                }
-                colorAction("Replace color…", "drop.halffull", isOn: document.isReplacingColor) {
-                    document.isReplacingColor.toggle()
-                }
+            }
+            colorAction("Replace color…", "drop.halffull", isOn: document.isReplacingColor) {
+                document.isReplacingColor.toggle()
             }
         }
     }
