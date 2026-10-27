@@ -149,11 +149,11 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
 
     private static let minScale: CGFloat = 1
     private static let maxScale: CGFloat = 128
-    /// Room kept free around the sprite when fitting it; more below, for the
-    /// floating selection and transform bars.
-    private static let fitMargin: CGFloat = 32
-    private static let topInset: CGFloat = 32
-    private static let bottomInset: CGFloat = 72
+    /// Room kept free around the sprite when fitting it; more below, to keep
+    /// clear of the timeline's grab bar.
+    private static let fitMargin: CGFloat = 16
+    private static let topInset: CGFloat = 16
+    private static let bottomInset: CGFloat = 32
     private var isDark: Bool { traitCollection.userInterfaceStyle == .dark }
     private var checkerLight: PixelColor { look.checkerLight ?? (isDark ? PixelColor(r: 69, g: 69, b: 69) : PixelColor(r: 236, g: 236, b: 236)) }
     private var checkerDark: PixelColor { look.checkerDark ?? (isDark ? PixelColor(r: 54, g: 54, b: 54) : PixelColor(r: 212, g: 212, b: 212)) }
