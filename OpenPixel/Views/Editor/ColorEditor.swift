@@ -245,8 +245,9 @@ struct QuickColorPicker: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            // Wide and short, so the whole picker takes about half the height it used to.
             SaturationValueSquare(hsv: hsv) { set($0) }
-                .aspectRatio(1.45, contentMode: .fit)
+                .aspectRatio(3, contentMode: .fit)
             HueBar(hue: hsv.h, handleHeight: 24) { set(HSV(h: $0, s: hsv.s, v: hsv.v)) }
                 .frame(height: 18)
             AlphaBar(color: color, format: alphaFormat, handleHeight: 24) { a in
