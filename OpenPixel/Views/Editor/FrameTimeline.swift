@@ -745,13 +745,17 @@ struct FrameTimeline: View {
         return slot.drop == .below || (slot.drop == .into && layer.isExpanded)
     }
 
-    /// The dashed line where a dragged layer would land, indented to its level.
+    /// The dashed line where a dragged layer would land. At the top level it runs
+    /// the whole row; inside a group it starts at the group's guide line, so it's
+    /// clearly shorter.
     private func dropLine(depth: Int) -> some View {
-        Capsule()
+        // Where the names start: check box, eye, lock and continuity columns.
+        let names = checkColumn + 34 + 30 + 26
+        return Capsule()
             .fill(Theme.accentSoft)
             .strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
             .frame(height: 10)
-            .padding(.leading, 6 + Self.indent(depth))
+            .padding(.leading, depth == 0 ? 6 : names + Self.indent(depth) - 9)
             .padding(.trailing, 8)
             .allowsHitTesting(false)
     }
