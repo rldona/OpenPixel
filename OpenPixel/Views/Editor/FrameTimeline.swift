@@ -1286,7 +1286,12 @@ struct FrameTimeline: View {
                 document.extendRange(frameIndex: index)
             }
             Button("Copy frame", systemImage: "doc.on.doc") { document.copyFrame(at: index) }
-            Button("Paste frames after", systemImage: "doc.on.clipboard") {
+            Button("Paste into this frame", systemImage: "doc.on.clipboard") {
+                document.goToFrame(index)
+                document.pasteFramesInto()
+            }
+            .disabled(!clipboard.hasFrames)
+            Button("Paste frames after", systemImage: "doc.on.clipboard.fill") {
                 document.goToFrame(index)
                 document.pasteFrames()
             }

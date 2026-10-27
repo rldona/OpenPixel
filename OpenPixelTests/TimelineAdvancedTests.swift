@@ -286,6 +286,23 @@ final class TimelineAdvancedTests: XCTestCase {
         XCTAssertEqual(marker(doc, frame: 0, layer: 2), 0)
     }
 
+    func testPasteIntoAFrameAddsToWhatIsThere() {
+        let doc = makeDocument()
+        doc.copyFrame(at: 2)
+        doc.goToFrame(0)
+        doc.pasteFramesInto()
+        XCTAssertEqual(doc.sprite.frames.count, 4, "no frame is added")
+        let s = doc.sprite
+        let cel = s.cel(layer: s.layers[top].id, frame: s.frames[0].id)
+        XCTAssertEqual(cel?[0, 0], .black, "frame 1 keeps its pixel")
+        XCTAssertEqual(cel?[2, 0], .black, "and gets frame 3's")
+        doc.goToFrame(3)
+        doc.pasteFramesInto()
+        XCTAssertEqual(doc.sprite.frames.count, 4)
+        doc.undo()
+        XCTAssertEqual(doc.sprite.cel(layer: s.layers[top].id, frame: s.frames[3].id)?[2, 0].a, 0, "one undo step")
+    }
+
     // MARK: Tags, loop and focus
 
     func testTagAndLoopSectionUseTheSelectedFrames() {

@@ -3242,6 +3242,38 @@ extension SpriteDocument {
         selectFrames(at...(at + copied.count - 1))
     }
 
+    /// Pastes copied frames into the active frame and the ones after it,
+    /// layer by layer: copied pixels go on top of what's already there, so
+    /// an empty frame gets them as they were and a drawn one gets more.
+    /// Frames are added past the end.
+    func pasteFramesInto() {
+        guard case .frames(let copied) = TimelineClipboard.shared.content else { return }
+        let at = activeFrameIndex, w = sprite.width, h = sprite.height
+        perform { s in
+            s.ensureFrames(at + copied.count)
+            for (offset, item) in copied.enumerated() {
+                let frameID = s.frames[at + offset].id
+                for (li, cel) in item.cels.enumerated() where s.layers.indices.contains(li) {
+                    guard let image = cel.fitted(width: w, height: h).image else { continue }
+                    let key = CelKey(layer: s.layers[li].id, frame: frameID)
+                    var target = s.content(key)
+                    if var base = target.image {
+                        let opacity = cel.opacity ?? 1
+                        for i in image.pixels.indices where image.pixels[i].a != 0 {
+                            base.pixels[i] = image.pixels[i].blended(over: base.pixels[i], opacity: opacity)
+                        }
+                        target.image = base
+                    } else {
+                        target = cel.fitted(width: w, height: h)
+                    }
+                    s.setContent(target, key)
+                    s.links[key] = nil
+                }
+            }
+            s.normalizeLinks()
+        }
+    }
+
     /// Inserts copied layers above the active one; frames are added if needed.
     func pasteLayers() {
         guard case .layers(let copied) = TimelineClipboard.shared.content,
