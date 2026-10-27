@@ -303,6 +303,27 @@ final class TimelineAdvancedTests: XCTestCase {
         XCTAssertEqual(doc.sprite.cel(layer: s.layers[top].id, frame: s.frames[3].id)?[2, 0].a, 0, "one undo step")
     }
 
+    func testQuickCopyTakesWhatWasTappedLast() {
+        let doc = makeDocument()
+        doc.goToFrame(1)
+        doc.focusTimeline(.frame)
+        doc.copyTimelineFocus()
+        XCTAssertTrue(TimelineClipboard.shared.hasFrames)
+        doc.pasteTimeline()
+        XCTAssertEqual(doc.sprite.frames.count, 5, "frames go after the current one")
+
+        doc.focusTimeline(.layer)
+        doc.copyTimelineFocus()
+        XCTAssertTrue(TimelineClipboard.shared.hasLayers)
+        doc.pasteTimeline()
+        XCTAssertEqual(doc.sprite.layers.count, 3)
+
+        doc.selectCel(layer: doc.sprite.layers[top].id, frameIndex: 0)
+        doc.focusTimeline(.cel)
+        doc.copyTimelineFocus()
+        XCTAssertTrue(TimelineClipboard.shared.hasCels)
+    }
+
     // MARK: Tags, loop and focus
 
     func testTagAndLoopSectionUseTheSelectedFrames() {

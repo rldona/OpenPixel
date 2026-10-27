@@ -795,3 +795,10 @@
 "Copy frame" = "Copiar frame";
 "Copy cel" = "Copiar cel";
 "Paste into this frame" = "Pegar en este frame";
+"Copies the selected block" = "Copia el bloque seleccionado";
+"Copies the current frame" = "Copia el frame actual";
+"Copies the current layer" = "Copia la capa actual";
+"Copies the current cel" = "Copia el cel actual";
+"Touch and hold to paste into this frame" = "Mantén pulsado para pegar en este frame";
+"Groups can't be copied yet" = "Los grupos aún no se pueden copiar";
+"This cel is empty" = "Este cel está vacío";

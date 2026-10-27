@@ -411,6 +411,8 @@ struct FrameTimeline: View {
             }
             .opacity(document.structure.frames.count > 1 ? 1 : 0.35)
 
+            copyPasteButtons(compact: compact)
+
             Button { document.isSelectingRange = true } label: {
                 pill("Select", systemImage: "checkmark.rectangle.stack", isOn: false, compact: compact)
             }
@@ -438,6 +440,48 @@ struct FrameTimeline: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 44)
+    }
+
+    /// Quick Copy and Paste: Copy takes the selected block, or else the frame,
+    /// layer or cel last tapped; Paste puts back whatever was copied.
+    private func copyPasteButtons(compact: Bool) -> some View {
+        HStack(spacing: 4) {
+            Button { document.copyTimelineFocus() } label: {
+                pill("Copy", systemImage: "doc.on.doc", isOn: false, compact: compact)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(Text(copyHint))
+            if clipboard.hasFrames {
+                // Tap inserts the frames after this one; touch and hold to paste into it.
+                Menu {
+                    Button("Paste into this frame", systemImage: "doc.on.clipboard") { document.pasteFramesInto() }
+                    Button("Paste frames after", systemImage: "doc.on.clipboard.fill") { document.pasteFrames() }
+                } label: {
+                    pill("Paste", systemImage: "doc.on.clipboard", isOn: false, compact: compact)
+                } primaryAction: {
+                    document.pasteFrames()
+                }
+                .menuIndicator(.hidden)
+                .accessibilityHint(Text("Touch and hold to paste into this frame"))
+            } else {
+                Button { document.pasteTimeline() } label: {
+                    pill("Paste", systemImage: "doc.on.clipboard", isOn: false, compact: compact)
+                }
+                .buttonStyle(.plain)
+                .disabled(clipboard.content == nil)
+                .opacity(clipboard.content == nil ? 0.4 : 1)
+            }
+        }
+        .padding(.leading, 4)
+    }
+
+    private var copyHint: LocalizedStringKey {
+        if document.timelineRange != nil { return "Copies the selected block" }
+        switch document.timelineFocus {
+        case .frame: return "Copies the current frame"
+        case .layer: return "Copies the current layer"
+        case .cel: return "Copies the current cel"
+        }
     }
 
     /// Tap toggles onion skin; long press opens its settings.
@@ -739,7 +783,7 @@ struct FrameTimeline: View {
             .accessibilityLabel(layer.isContinuous ? Text("\(layer.name) is continuous") : Text("Make \(layer.name) continuous"))
             .accessibilityHint(Text("New frames link this layer's cel instead of copying it"))
             Button {
-                if document.isSelectingRange { document.extendRange(layerRow: layer.id) } else { document.activeLayerID = layer.id }
+                if document.isSelectingRange { document.extendRange(layerRow: layer.id) } else { document.activeLayerID = layer.id; document.focusTimeline(.layer) }
             } label: {
                 HStack(spacing: 4) {
                     if layer.isGroup {
@@ -1227,7 +1271,7 @@ struct FrameTimeline: View {
         let inRange = range.map { $0.kind == .frames && $0.frames.contains(index) } ?? false
         let payload = inRange ? RangePayload(layer: document.structure.layers.last!.id, frame: index).string : "frame:\(index)"
         return Button {
-            if document.isSelectingRange { document.extendRange(frameIndex: index) } else { document.goToFrame(index) }
+            if document.isSelectingRange { document.extendRange(frameIndex: index) } else { document.goToFrame(index); document.focusTimeline(.frame) }
         } label: {
             VStack(spacing: 1) {
                 Text(verbatim: "\(index + firstFrame)")
@@ -1326,6 +1370,7 @@ struct FrameTimeline: View {
             } else {
                 if document.timelineRange != nil { document.endRangeSelection() }
                 document.selectCel(layer: layer.id, frameIndex: frameIndex)
+                document.focusTimeline(.cel)
             }
         } label: {
             ZStack {

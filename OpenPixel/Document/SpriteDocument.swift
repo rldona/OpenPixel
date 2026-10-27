@@ -203,6 +203,8 @@ final class SpriteDocument {
     /// How far apart, in pixels, the two taps of a double tap can be (the canvas
     /// sets it from the zoom).
     @ObservationIgnored var tapSlop = 0
+    /// The frame, layer or cel last tapped in the timeline, for its Copy button.
+    var timelineFocus = TimelineFocus.cel
     var selectionMode = SelectionMode.replace { didSet { lastSelectionTap = nil } }
     /// Magic wand options.
     var wandTolerance = 0
@@ -3169,6 +3171,43 @@ extension SpriteDocument {
     func copyRange() {
         guard let range = timelineRange else { return }
         copy(range)
+    }
+
+    /// What the timeline's Copy button takes when no block is selected: the
+    /// frame, layer or cel tapped last.
+    enum TimelineFocus { case cel, frame, layer }
+
+    /// A tap on a frame number, a layer or a cel outside range selection: it
+    /// becomes what Copy takes, and any block left selected goes.
+    func focusTimeline(_ focus: TimelineFocus) {
+        if timelineRange != nil { endRangeSelection() }
+        timelineFocus = focus
+    }
+
+    /// The timeline's Copy button: the selected block, or else what was tapped last.
+    func copyTimelineFocus() {
+        if timelineRange != nil { return copyRange() }
+        switch timelineFocus {
+        case .frame:
+            copyFrame(at: activeFrameIndex)
+        case .layer:
+            guard activeLayer?.isGroup == false else { notice = L10n.string("Groups can't be copied yet"); return }
+            copyLayer(activeLayerID)
+        case .cel:
+            guard storage.cels[activeCelKey] != nil else { notice = L10n.string("This cel is empty"); return }
+            copyCel(layer: activeLayerID, frameIndex: activeFrameIndex)
+        }
+    }
+
+    /// The timeline's Paste button: cels on the active cel, layers above the
+    /// active layer, frames after the active frame.
+    func pasteTimeline() {
+        switch TimelineClipboard.shared.content {
+        case .cels: pasteCels()
+        case .layers: pasteLayers()
+        case .frames: pasteFrames()
+        case nil: break
+        }
     }
 
     /// Copies one frame, with every layer, for Paste frames.
