@@ -619,9 +619,16 @@ struct ToolRail: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            // First in the rail. With something selected, the selection's opacity; otherwise
-            // brush size and opacity, dragged like Procreate's side sliders. Their slot keeps
-            // its height so the tools below don't move when the sliders come and go.
+            ForEach(ToolGroup.allCases) { group in
+                toolButton(for: group)
+            }
+            Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
+            symmetryButton
+            outlineButton
+            scriptsButton
+            Spacer(minLength: 8)
+            // At the end of the rail. With something selected, the selection's opacity;
+            // otherwise brush size above opacity, dragged like Procreate's side sliders.
             VStack {
                 if document.hasSelection && (document.tool.isSelection || document.tool == .move) && !document.isTransforming {
                     RailSlider(label: "Selection opacity", value: Binding(get: { document.selectionOpacity * 100 }, set: { document.setSelectionOpacity($0 / 100) }),
@@ -640,16 +647,7 @@ struct ToolRail: View {
                     }
                 }
             }
-            .frame(height: 240)
-            Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
-            ForEach(ToolGroup.allCases) { group in
-                toolButton(for: group)
-            }
-            Rectangle().fill(Theme.border).frame(width: 32, height: 1).padding(.vertical, 6)
-            symmetryButton
-            outlineButton
-            scriptsButton
-            Spacer(minLength: 0)
+            .frame(maxHeight: 300)
         }
         .padding(.vertical, 12)
         .frame(width: EditorView.railWidth)

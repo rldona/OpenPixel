@@ -16,7 +16,7 @@ Las herramientas están en la barra de la izquierda. Un triangulito en la esquin
 
 Debajo están la **simetría** y el menú de **scripts** ({ }).
 
-Arriba del todo, encima de las herramientas, hay dos **deslizadores**, **tamaño** del pincel encima de **opacidad**, como los de Procreate: arrástralos arriba o abajo y el valor aparece al lado. El de tamaño se atenúa con herramientas sin pincel o con un pincel propio.
+Abajo del todo hay dos **deslizadores**, **tamaño** del pincel encima de **opacidad**, como los de Procreate: arrástralos arriba o abajo y el valor aparece al lado. El de tamaño se atenúa con herramientas sin pincel o con un pincel propio.
 
 **Deshacer** y **rehacer** están en la barra superior.
 

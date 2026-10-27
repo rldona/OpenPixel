@@ -16,7 +16,7 @@ The tools live in the rail on the left. A small triangle in a button's corner me
 
 Below them are **symmetry** and the **scripts** menu ({ }).
 
-At the top of the rail, above the tools, are two **sliders**, brush **size** above **opacity**, like Procreate's: drag them up or down and the value shows beside them. Size is dimmed for tools without a brush or with a custom brush.
+At the bottom of the rail are two **sliders**, brush **size** above **opacity**, like Procreate's: drag them up or down and the value shows beside them. Size is dimmed for tools without a brush or with a custom brush.
 
 **Undo** and **redo** are in the top bar.
 
