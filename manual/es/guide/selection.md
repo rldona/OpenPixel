@@ -17,6 +17,8 @@ La barra de opciones elige el modo: **reemplazar**, **añadir**, **restar** o **
 
 Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra flotante te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, **organizar**, invertir y deseleccionar.
 
+Mientras arrastras un marco o el lazo, una etiqueta a su lado muestra el tamaño del área, contando solo la parte que queda dentro del sprite. Cuando ya hay una selección, la barra empieza con su tamaño y la posición de su esquina superior izquierda, como `12×8 · 3, 5`.
+
 **Organizar** (el botón de capas) trae lo seleccionado al frente, un paso adelante, un paso atrás o lo envía al fondo. Cada parte de un dibujo vive en su propia capa, así que hay dos formas:
 
 - **Solo este frame**: cambia solo el frame actual (o los frames elegidos en el timeline). El cel recibe un **z-index**, como en las propiedades del cel de Aseprite: se dibuja tantas capas más arriba o más abajo sin mover su capa. Un brazo puede estar detrás del cuerpo en el frame 1 y delante de todo en el frame 4.

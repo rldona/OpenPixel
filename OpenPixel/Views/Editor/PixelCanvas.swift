@@ -34,6 +34,7 @@ struct PixelCanvas: UIViewRepresentable {
     var editingLocked = false
     var look = CanvasLook()
     var fingerInput = FingerInput.automatic
+    var showMeasurements = true
     var pencilDoubleTap = PencilAction.system
     var pencilSqueeze = PencilAction.system
     var onFocusToggle: () -> Void = {}
@@ -72,6 +73,7 @@ struct PixelCanvas: UIViewRepresentable {
         document.canvasOwner = view
         document.onCanvasChange = { [weak view] rect in view?.render(rect) }
         document.onOverlayChange = { [weak view] in view?.selectionChanged() }
+        document.onMeasurementChange = { [weak view] in view?.measurementChanged() }
     }
 
     func updateUIView(_ view: PixelCanvasView, context: Context) {
@@ -86,6 +88,7 @@ struct PixelCanvas: UIViewRepresentable {
         view.editingLocked = editingLocked
         view.look = look
         view.fingerInput = fingerInput
+        view.showMeasurements = showMeasurements
         view.pencilDoubleTap = pencilDoubleTap
         view.pencilSqueeze = pencilSqueeze
         view.onionLayers = onionLayers

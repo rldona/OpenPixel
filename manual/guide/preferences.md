@@ -21,6 +21,7 @@ After [Aseprite's preferences](https://www.aseprite.org/docs/preferences/):
 
 - **Alpha and opacity** shown as 0–255 or as a percentage.
 - **Rewind on stop**: stopping playback goes back to the frame it started from.
+- **Show sizes while drawing**: the size label next to a shape or selection while you drag it. On by default.
 - **Undo steps**: more steps use more memory with big sprites.
 - **Transparent background**: the checkerboard's size (automatic keeps the squares a similar size on screen at any zoom) and its two colors.
 - **Grid**: the colors of the pixel grid and the tile grid. The color's opacity is the grid's opacity.

@@ -187,10 +187,14 @@ final class SpriteDocument {
     @ObservationIgnored private(set) var selection: SelectionMask? {
         didSet {
             if hasSelection != (selection != nil) { hasSelection = selection != nil }
+            if selectionDrag == nil { updateSelectionBounds() }
             onOverlayChange?()
         }
     }
     private(set) var hasSelection = false
+    /// The selection's bounding box, for the selection bar. It's worked out
+    /// once a marquee drag ends, not on every move.
+    private(set) var selectionBounds: PixelRect?
     @ObservationIgnored private var lastSelection: SelectionMask?
     @ObservationIgnored private var selectionDrag: (start: PixelPoint, before: SelectionMask?, moved: Bool)?
     @ObservationIgnored private var lassoPath: [PixelPoint] = []
@@ -255,6 +259,12 @@ final class SpriteDocument {
 
     /// Called when the selection outline or the transform box changes.
     @ObservationIgnored var onOverlayChange: (() -> Void)?
+    /// Called when `dragMeasurement` changes.
+    @ObservationIgnored var onMeasurementChange: (() -> Void)?
+    /// The size of the shape or selection being dragged, for the label next to it.
+    @ObservationIgnored private(set) var dragMeasurement: DragMeasurement? {
+        didSet { if oldValue != dragMeasurement { onMeasurementChange?() } }
+    }
 
     // Transform
     @ObservationIgnored private var floating: FloatingSelection?
@@ -692,6 +702,7 @@ final class SpriteDocument {
         }
         if let drag = selectionDrag {
             selectionDrag = nil
+            dragMeasurement = nil
             selection = drag.before
             return
         }
@@ -723,6 +734,7 @@ final class SpriteDocument {
         contourPath = []
         tileStroke = false
         gradientRegion = nil
+        dragMeasurement = nil
     }
 
     // MARK: Curves and polygons
@@ -986,6 +998,9 @@ final class SpriteDocument {
         case .gradient: drawGradient(from: origin, to: p)
         default: return
         }
+        dragMeasurement = tool == .line || tool == .gradient
+            ? DragMeasurement(lineFrom: origin, to: p)
+            : DragMeasurement(rect: PixelRect(minX: min(origin.x, p.x), minY: min(origin.y, p.y), maxX: max(origin.x, p.x), maxY: max(origin.y, p.y)), origin: origin)
     }
 
     /// Redraws a shape on top of the cel as it was when the stroke began, so
@@ -2016,6 +2031,11 @@ final class SpriteDocument {
 extension SpriteDocument {
     private var emptyMask: SelectionMask { SelectionMask(width: storage.width, height: storage.height) }
 
+    private func updateSelectionBounds() {
+        let bounds = selection?.bounds
+        if selectionBounds != bounds { selectionBounds = bounds }
+    }
+
     private func beginSelection(at p: PixelPoint) {
         applyTransformIfNeeded()
         selectionDrag = (p, selection, false)
@@ -2036,23 +2056,23 @@ extension SpriteDocument {
         guard let drag = selectionDrag, let p = points.last else { return }
         if p != drag.start { selectionDrag?.moved = true }
         let shape: SelectionMask
+        let area: PixelRect?
         switch tool {
-        case .selectEllipse:
-            if snapToGrid {
-                let r = storage.grid.cells(from: drag.start, to: p)
-                shape = .ellipse(from: PixelPoint(x: r.minX, y: r.minY), to: PixelPoint(x: r.maxX, y: r.maxY), width: storage.width, height: storage.height)
-            } else {
-                shape = .ellipse(from: drag.start, to: p, width: storage.width, height: storage.height)
-            }
         case .lasso:
             for q in points where q != lassoPath.last { lassoPath.append(q) }
             shape = .polygon(lassoPath, width: storage.width, height: storage.height)
+            area = PixelRect(bounding: lassoPath)
         default:
             let rect = snapToGrid
                 ? storage.grid.cells(from: drag.start, to: p)
                 : PixelRect(minX: min(drag.start.x, p.x), minY: min(drag.start.y, p.y), maxX: max(drag.start.x, p.x), maxY: max(drag.start.y, p.y))
-            shape = .rect(rect, width: storage.width, height: storage.height)
+            shape = tool == .selectEllipse
+                ? .ellipse(from: PixelPoint(x: rect.minX, y: rect.minY), to: PixelPoint(x: rect.maxX, y: rect.maxY), width: storage.width, height: storage.height)
+                : .rect(rect, width: storage.width, height: storage.height)
+            area = rect
         }
+        // The size of the part inside the sprite, which is what gets selected.
+        dragMeasurement = area?.clipped(width: storage.width, height: storage.height).map { DragMeasurement(rect: $0, origin: drag.start) }
         dragShape = shape
         applySelectionShape(shape)
     }
@@ -2069,7 +2089,9 @@ extension SpriteDocument {
         let shape = dragShape
         selectionDrag = nil
         dragShape = nil
+        dragMeasurement = nil
         lassoPath = []
+        defer { updateSelectionBounds() }
         let base = drag.before ?? emptyMask
         if !drag.moved && tool != .magicWand {
             // A tap picks the element under it: the content of the topmost layer

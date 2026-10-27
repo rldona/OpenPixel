@@ -62,6 +62,8 @@ El pincel se hace con los píxeles seleccionados de la capa activa, y OpenPixel 
 
 Los puntos de control y las esquinas se marcan en el lienzo mientras construyes una forma.
 
+Mientras arrastras una línea, un rectángulo, una elipse o un degradado, una etiqueta a su lado muestra su tamaño en píxeles, como `12 × 8`. La línea muestra además cuántos píxeles mide y su ángulo: `12 × 8 · 12 px · 34°`. La etiqueta se queda junto a la esquina donde empezaste, para que el dedo o el Pencil no la tapen. Puedes desactivarla en [Preferencias](./preferences).
+
 ## Tintas y opacidad
 
 Como en [Aseprite](https://www.aseprite.org/docs/ink/), la **tinta** decide cómo se mezcla un trazo con lo que ya hay:

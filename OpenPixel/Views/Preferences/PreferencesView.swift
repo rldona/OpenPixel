@@ -21,6 +21,7 @@ struct PreferencesView: View {
     @AppStorage(EditorSettings.pencilDoubleTapKey) private var pencilDoubleTap = PencilAction.system
     @AppStorage(EditorSettings.pencilSqueezeKey) private var pencilSqueeze = PencilAction.system
     @AppStorage(EditorSettings.mirroredLayoutKey) private var mirroredLayout = false
+    @AppStorage(EditorSettings.showMeasurementsKey) private var showMeasurements = true
     @State private var confirmingReset = false
 
     var body: some View {
@@ -97,13 +98,14 @@ struct PreferencesView: View {
                         ForEach(AlphaFormat.allCases) { Text($0.title).tag($0) }
                     }
                     Toggle("Rewind on stop", isOn: $rewindOnStop)
+                    Toggle("Show sizes while drawing", isOn: $showMeasurements)
                     Picker("Undo steps", selection: $undoLimit) {
                         ForEach(EditorSettings.undoLimits, id: \.self) { Text(verbatim: "\($0)").tag($0) }
                     }
                 } header: {
                     Text("Editor")
                 } footer: {
-                    Text("Rewind on stop goes back to the frame playback started from. More undo steps use more memory with big sprites.")
+                    Text("Rewind on stop goes back to the frame playback started from. Sizes show next to a shape or selection while you drag it. More undo steps use more memory with big sprites.")
                 }
 
                 Section {

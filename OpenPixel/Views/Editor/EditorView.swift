@@ -773,6 +773,7 @@ private struct CanvasHost: View {
     @AppStorage(EditorSettings.pixelGridColorKey) private var pixelGridColor = ""
     @AppStorage(EditorSettings.tileGridColorKey) private var tileGridColor = ""
     @AppStorage(EditorSettings.fingerInputKey) private var fingerInput = FingerInput.automatic
+    @AppStorage(EditorSettings.showMeasurementsKey) private var showMeasurements = true
     @AppStorage(EditorSettings.pencilDoubleTapKey) private var pencilDoubleTap = PencilAction.system
     @AppStorage(EditorSettings.pencilSqueezeKey) private var pencilSqueeze = PencilAction.system
 
@@ -805,6 +806,7 @@ private struct CanvasHost: View {
                 tileGrid: StoredColor.color(tileGridColor)
             ),
             fingerInput: fingerInput,
+            showMeasurements: showMeasurements,
             pencilDoubleTap: pencilDoubleTap,
             pencilSqueeze: pencilSqueeze,
             onFocusToggle: onFocusToggle

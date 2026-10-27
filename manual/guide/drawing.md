@@ -62,6 +62,8 @@ The brush is made from the selected pixels of the active layer, and OpenPixel sw
 
 Control points and corners are marked on the canvas while you build a shape.
 
+While you drag a line, rectangle, ellipse or gradient, a label next to it shows its size in pixels, like `12 × 8`. A line also shows how many pixels long it is and its angle: `12 × 8 · 12 px · 34°`. The label sits by the corner where you started, so your finger or Pencil doesn't cover it. You can turn it off in [Preferences](./preferences).
+
 ## Inks and opacity
 
 As in [Aseprite](https://www.aseprite.org/docs/ink/), the **ink** decides how a stroke mixes with what's there:

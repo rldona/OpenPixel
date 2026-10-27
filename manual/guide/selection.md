@@ -17,6 +17,8 @@ The options bar picks the mode: **replace**, **add**, **subtract** or **intersec
 
 While something is selected, drawing, filling and erasing stay inside it, and a floating bar gives you the common actions: transform, duplicate and move, cut, copy, paste, delete, fill with the primary color, flip, rotate 90°, **arrange**, invert and deselect.
 
+While you drag a marquee or the lasso, a label next to it shows the size of the area, counting only the part inside the sprite. Once there's a selection, the bar starts with its size and the position of its top-left corner, like `12×8 · 3, 5`.
+
 **Arrange** (the layers button) brings what's selected to the front, one step forward, one step back or to the back. Each part of a drawing lives on its own layer, so there are two ways:
 
 - **This frame**: only the current frame (or the frames picked in the timeline) changes. The cel gets a **z-index**, as in Aseprite's Cel Properties: it's drawn that many layers higher or lower without moving its layer. An arm can be behind the body in frame 1 and in front of everything in frame 4.

@@ -21,6 +21,8 @@ enum EditorSettings {
     static let pencilSqueezeKey = "pencilSqueeze"
     /// Aseprite's Mirrored Default layout: tools on the right, panel on the left.
     static let mirroredLayoutKey = "mirroredLayout"
+    /// The size of a shape or selection shows next to it while it's dragged.
+    static let showMeasurementsKey = "showMeasurements"
 
     static let checkerSizes = [0, 1, 2, 4, 8, 16]
     static let undoLimits = [25, 50, 100, 200, 500]
@@ -42,7 +44,8 @@ enum EditorSettings {
     /// Every editor preference goes back to its default.
     static func reset() {
         for key in [checkerSizeKey, checkerLightKey, checkerDarkKey, pixelGridColorKey, tileGridColorKey, alphaFormatKey,
-                    rewindOnStopKey, undoLimitKey, fingerInputKey, pencilDoubleTapKey, pencilSqueezeKey, mirroredLayoutKey] {
+                    rewindOnStopKey, undoLimitKey, fingerInputKey, pencilDoubleTapKey, pencilSqueezeKey, mirroredLayoutKey,
+                    showMeasurementsKey] {
             defaults.removeObject(forKey: key)
         }
     }

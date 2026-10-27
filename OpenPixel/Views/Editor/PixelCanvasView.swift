@@ -45,6 +45,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     /// Checker and grid colors from Preferences.
     var look = CanvasLook() { didSet { if oldValue != look { applyAppearance() } } }
     var fingerInput = FingerInput.automatic
+    /// The size label next to a shape or selection being dragged.
+    var showMeasurements = true { didSet { if oldValue != showMeasurements { updateMeasurement() } } }
     var pencilDoubleTap = PencilAction.system
     var pencilSqueeze = PencilAction.system
 
@@ -139,6 +141,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
     private let guidesLayer = CAShapeLayer()
     /// Slices: outlines in their colors, with names.
     private let slicesHost = CALayer()
+    private let measureLabel = UILabel()
     /// Selection edges in sprite coordinates, recomputed when the selection changes.
     private var outline: [(PixelPoint, PixelPoint)] = []
     /// Cell size and grid of the current checker image; it's rebuilt when any changes.
@@ -188,6 +191,8 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         boxLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         handlesLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
         guidesLayer.strokeColor = UIColor(Theme.accent).resolvedColor(with: traits).cgColor
+        measureLabel.backgroundColor = UIColor(Theme.accent).resolvedColor(with: traits)
+        measureLabel.textColor = UIColor(Theme.onAccent).resolvedColor(with: traits)
         shadowLayer.shadowOpacity = isDark ? 0.5 : 0.15
         checkerLayer.contents = nil
         updateChecker()
@@ -269,6 +274,14 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         handlesLayer.lineWidth = 1.5
         guidesLayer.fillColor = UIColor.white.cgColor
         guidesLayer.lineWidth = 1.5
+
+        measureLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        measureLabel.textAlignment = .center
+        measureLabel.layer.cornerRadius = 6
+        measureLabel.layer.masksToBounds = true
+        measureLabel.isHidden = true
+        measureLabel.isAccessibilityElement = false
+        addSubview(measureLabel)
     }
 
     private func setUpGestures() {
@@ -507,6 +520,35 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         updateCanvasResize()
     }
 
+    func measurementChanged() {
+        updateMeasurement()
+    }
+
+    /// The label sits outside the corner where the drag started, so the
+    /// finger or Pencil at the other corner doesn't cover it.
+    private func updateMeasurement() {
+        guard showMeasurements, let m = document?.dragMeasurement else {
+            measureLabel.isHidden = true
+            return
+        }
+        measureLabel.text = m.text
+        let fitted = measureLabel.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: 20))
+        let size = CGSize(width: ceil(fitted.width) + 14, height: 22)
+        let topLeft = toView(CGPoint(x: m.rect.minX, y: m.rect.minY))
+        let bottomRight = toView(CGPoint(x: m.rect.maxX + 1, y: m.rect.maxY + 1))
+        let gap: CGFloat = 8
+        let onLeft = m.origin.x == m.rect.minX, onTop = m.origin.y == m.rect.minY
+        var x = onLeft ? topLeft.x : bottomRight.x - size.width
+        var y = onTop ? topLeft.y - size.height - gap : bottomRight.y + gap
+        // Kept on screen; if there's no room on its side it goes to the other.
+        if y < gap { y = onTop ? bottomRight.y + gap : y }
+        if y + size.height > bounds.height - gap { y = onTop ? y : topLeft.y - size.height - gap }
+        x = min(max(gap, x), bounds.width - size.width - gap)
+        y = min(max(gap, y), bounds.height - size.height - gap)
+        measureLabel.frame = CGRect(origin: CGPoint(x: x, y: y), size: size)
+        measureLabel.isHidden = false
+    }
+
     private func toView(_ p: CGPoint) -> CGPoint {
         CGPoint(x: origin.x + p.x * scaleX, y: origin.y + p.y * scaleY)
     }
@@ -539,6 +581,7 @@ final class PixelCanvasView: UIView, UIGestureRecognizerDelegate, UIPencilIntera
         updateGuides()
         updateSlices()
         updateCanvasResize()
+        updateMeasurement()
         boxLayer.frame = bounds
         handlesLayer.frame = bounds
         guard let box = document?.isTransforming == true ? document?.transformBox : nil else {

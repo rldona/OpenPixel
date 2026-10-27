@@ -666,7 +666,9 @@
 "Rewind on stop" = "Rebobinar al parar";
 "Undo steps" = "Pasos de deshacer";
 "Editor" = "Editor";
-"Rewind on stop goes back to the frame playback started from. More undo steps use more memory with big sprites." = "Rebobinar al parar vuelve al frame donde empezó la reproducción. Más pasos de deshacer usan más memoria con sprites grandes.";
+"Rewind on stop goes back to the frame playback started from. Sizes show next to a shape or selection while you drag it. More undo steps use more memory with big sprites." = "Rebobinar al parar vuelve al frame donde empezó la reproducción. Las medidas aparecen junto a la forma o la selección mientras la arrastras. Más pasos de deshacer usan más memoria con sprites grandes.";
+"Show sizes while drawing" = "Mostrar medidas al dibujar";
+"Selection %lld by %lld pixels at %lld, %lld" = "Selección de %lld por %lld píxeles en %lld, %lld";
 "Finger" = "Dedo";
 "Double tap" = "Doble toque";
 "Squeeze" = "Apretar";

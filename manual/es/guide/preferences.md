@@ -21,6 +21,7 @@ Siguiendo las [preferencias de Aseprite](https://www.aseprite.org/docs/preferenc
 
 - **Alfa y opacidad**, en valores de 0 a 255 o en porcentaje.
 - **Rebobinar al parar**: al parar la reproducción se vuelve al frame en el que empezó.
+- **Mostrar medidas al dibujar**: la etiqueta con el tamaño junto a la forma o la selección mientras la arrastras. Activada por defecto.
 - **Pasos de deshacer**: más pasos usan más memoria con sprites grandes.
 - **Fondo transparente**: el tamaño del tablero de ajedrez (automático mantiene los cuadros de un tamaño parecido en pantalla con cualquier zoom) y sus dos colores.
 - **Cuadrícula**: los colores de la cuadrícula de píxeles y de la de tiles. La opacidad del color es la de la cuadrícula.

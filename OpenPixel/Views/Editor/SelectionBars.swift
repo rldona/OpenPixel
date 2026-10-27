@@ -7,6 +7,16 @@ struct SelectionActionBar: View {
 
     var body: some View {
         HStack(spacing: 2) {
+            if let r = document.selectionBounds {
+                // Size and top-left corner of the selected area, like Aseprite's status bar.
+                Text(verbatim: "\(r.maxX - r.minX + 1)×\(r.maxY - r.minY + 1) · \(r.minX), \(r.minY)")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Theme.muted)
+                    .padding(.horizontal, 8)
+                    .fixedSize()
+                    .accessibilityLabel(Text("Selection \(r.maxX - r.minX + 1) by \(r.maxY - r.minY + 1) pixels at \(r.minX), \(r.minY)"))
+                divider
+            }
             barButton("Transform", "arrow.up.left.and.arrow.down.right") { document.beginTransform() }
             barButton("Duplicate and move", "plus.square.on.square") { document.beginTransform(copy: true) }
             divider
