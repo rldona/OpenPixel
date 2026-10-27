@@ -58,20 +58,23 @@ struct EditorView: View {
                             )
                             .ignoresSafeArea(.container, edges: focusMode || timelineCollapsed ? .bottom : [])
                             // Focus mode floats in the canvas's corner, clear of the bars centered below.
-                            Button(action: toggleFocus) {
-                                Image(systemName: focusMode ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundStyle(Theme.text)
-                                    .frame(width: 40, height: 40)
-                                    .background(Theme.raised, in: Circle())
-                                    .overlay(Circle().strokeBorder(Theme.border))
-                                    .contentShape(Circle())
+                            // In focus mode the capsule's own button leaves it.
+                            if !focusMode {
+                                Button(action: toggleFocus) {
+                                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(Theme.text)
+                                        .frame(width: 40, height: 40)
+                                        .background(Theme.raised, in: Circle())
+                                        .overlay(Circle().strokeBorder(Theme.border))
+                                        .contentShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                                .help(Text("Focus mode"))
+                                .accessibilityLabel(Text("Focus mode"))
+                                .padding(14)
+                                .padding(.bottom, timelineCollapsed ? 0 : 8)
                             }
-                            .buttonStyle(.plain)
-                            .help(Text("Focus mode"))
-                            .accessibilityLabel(Text("Focus mode"))
-                            .padding(14)
-                            .padding(.bottom, !focusMode && !timelineCollapsed ? 8 : 0)
                         }
                         .overlay(alignment: .bottom) {
                             VStack(spacing: 0) {

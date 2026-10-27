@@ -22,7 +22,7 @@ The tool options can make Pencil **pressure** change the brush size, the opacity
 
 ## Focus mode
 
-The arrows button in the canvas's bottom-right corner (or ⇥ Tab, or a four-finger tap) hides the panels and leaves only the canvas, with a small capsule to play and scrub the animation. Its button leaves focus mode.
+The arrows button in the canvas's bottom-right corner (or ⇥ Tab, or a four-finger tap) hides the panels and leaves only the canvas, with a small capsule to play and scrub the animation. The capsule's button leaves focus mode.
 
 ## Zoom
 

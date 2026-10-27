@@ -22,7 +22,7 @@ Las opciones de la herramienta pueden hacer que la **presión** del Pencil cambi
 
 ## Modo enfoque
 
-El botón de las flechas de la esquina inferior derecha del lienzo (o ⇥ Tab, o un toque con cuatro dedos) oculta los paneles y deja solo el lienzo, con una pequeña cápsula para reproducir y recorrer la animación. Su botón sale del modo enfoque.
+El botón de las flechas de la esquina inferior derecha del lienzo (o ⇥ Tab, o un toque con cuatro dedos) oculta los paneles y deja solo el lienzo, con una pequeña cápsula para reproducir y recorrer la animación. El botón de la cápsula sale del modo enfoque.
 
 ## Zoom
 
