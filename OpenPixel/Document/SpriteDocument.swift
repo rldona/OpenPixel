@@ -2583,13 +2583,17 @@ extension SpriteDocument {
     /// scaled, rotated and flipped. With `copy`, the original pixels stay.
     /// `wholeCanvas` lifts the full canvas when nothing is selected (flip, rotate).
     func beginTransform(copy: Bool = false, wholeCanvas: Bool = false) {
-        guard !isTransforming, activeLayerEditable else { return }
+        guard !isTransforming else { return }
+        // A group moves and transforms every layer inside it, as in Aseprite.
+        let groupKeys = activeGroupCelKeys()
+        if groupKeys == nil { guard activeLayerEditable else { return } }
+        if let groupKeys, groupKeys.isEmpty { return }
         cancelStroke()
         stopPlayback()
-        let key = activeCelKey
+        let key = groupKeys?.first ?? activeCelKey
         let (w, h) = (storage.width, storage.height)
         let cel = storage.cels[key] ?? PixelImage(width: w, height: h)
-        let targets = rangeTransformTargets()
+        let targets = rangeTransformTargets(keys: groupKeys.map { Array($0.dropFirst()) }, active: key)
         var mask: SelectionMask
         if let selection {
             mask = selection
@@ -2610,7 +2614,7 @@ extension SpriteDocument {
         let localMask = mask.cropped(to: bounds)
         for i in source.pixels.indices where !localMask.bits[i] { source.pixels[i] = .clear }
         var base = cel
-        let erase = eraseColor
+        let erase = eraseColor(forLayer: key.layer)
         if !copy { for i in base.pixels.indices where mask.bits[i] { base.pixels[i] = erase } }
 
         transformStart = DocumentSnapshot(sprite: storage, selection: selection)
@@ -2649,16 +2653,35 @@ extension SpriteDocument {
 
     /// The cels of the timeline range besides the active one: one per link
     /// group, skipping locked layers and empty cels.
-    private func rangeTransformTargets() -> [(key: CelKey, linked: [CelKey])] {
+    /// With a group active: the active frame's cels of the layers inside it
+    /// that can be edited, the ones with pixels first. Nil when no group is active.
+    private func activeGroupCelKeys() -> [CelKey]? {
+        guard let group = activeLayer, group.isGroup else { return nil }
+        if !storage.shows(group) { notice = L10n.string("Layer “%@” is hidden", group.name); return [] }
+        if storage.locks(group) { notice = L10n.string("Layer “%@” is locked", group.name); return [] }
+        let keys = storage.descendants(of: group.id)
+            .filter { !$0.isGroup && !$0.isReference && storage.shows($0) && !storage.locks($0) }
+            .map { CelKey(layer: $0.id, frame: activeFrame.id) }
+            .sorted { (storage.cels[$0] != nil ? 0 : 1) < (storage.cels[$1] != nil ? 0 : 1) }
+        if keys.first.map({ storage.cels[$0] == nil }) ?? true {
+            notice = L10n.string("“%@” has nothing to move in this frame", group.name)
+            return []
+        }
+        return keys
+    }
+
+    private func rangeTransformTargets(keys groupKeys: [CelKey]? = nil, active: CelKey? = nil) -> [(key: CelKey, linked: [CelKey])] {
         let keys: [CelKey]
-        if let range = timelineRange {
+        if let groupKeys {
+            keys = groupKeys
+        } else if let range = timelineRange {
             keys = rangeKeys(range).flatMap { $0 }
         } else if let scope = selectionScopeKeys {
             keys = scope
         } else {
             return []
         }
-        let active = activeCelKey, activeGroup = storage.links[active]
+        let active = active ?? activeCelKey, activeGroup = storage.links[active]
         let locked = Set(storage.layers.filter { storage.locks($0) }.map(\.id))
         var result: [(key: CelKey, linked: [CelKey])] = []
         var byGroup: [UUID: Int] = [:]

@@ -116,6 +116,24 @@ final class LayerGroupTests: XCTestCase {
         XCTAssertTrue(doc.canMoveLayer(group.id, by: 1))
     }
 
+    func testTheMoveToolMovesEveryLayerInAGroup() {
+        let doc = makeDocument()
+        doc.groupLayers([id(doc, "A"), id(doc, "B")])
+        doc.select(.move)
+        doc.beginTransformDrag(.move, at: CGPoint(x: 0.5, y: 0.5))
+        doc.continueTransformDrag(to: CGPoint(x: 1.5, y: 0.5))
+        doc.endTransformDrag()
+        doc.applyTransform()
+        let s = doc.sprite, frame = s.frames[0].id
+        XCTAssertEqual(s.cel(layer: id(doc, "A"), frame: frame)?[1, 0], .black, "A's dot moved right")
+        XCTAssertEqual(s.cel(layer: id(doc, "A"), frame: frame)?[0, 0], .clear)
+        XCTAssertEqual(s.cel(layer: id(doc, "B"), frame: frame)?[2, 0], .black, "B's dot moved right")
+        XCTAssertEqual(s.cel(layer: id(doc, "B"), frame: frame)?[1, 0], .clear)
+        XCTAssertEqual(s.cel(layer: id(doc, "C"), frame: frame)?[2, 0], .black, "C, outside the group, stays")
+        doc.undo()
+        XCTAssertEqual(doc.sprite.cel(layer: id(doc, "A"), frame: frame)?[0, 0], .black, "one undo step")
+    }
+
     func testIntoOutOfUngroupAndDelete() {
         let doc = makeDocument()
         doc.groupLayers([id(doc, "A")])
