@@ -13,11 +13,13 @@ struct SpriteSummary: Identifiable {
     var thumbnail: CGImage?
 }
 
-/// A folder on the home screen, to keep projects together. One level, like
-/// Procreate's stacks.
+/// A folder on the home screen, to keep projects together. Folders can
+/// hold folders too.
 struct ProjectFolder: Identifiable, Codable, Equatable {
     let id: UUID
     var name: String
+    /// The folder it's in; nil on the home screen.
+    var parent: UUID?
 }
 
 /// Sprites live as `.openpixel` JSON files in Documents/Sprites, which is
@@ -97,6 +99,12 @@ final class DocumentStore {
         }
         folders = index.folders
         let ids = Set(items.map(\.id)), folderIDs = Set(folders.map(\.id))
+        // A folder whose parent is gone, or that ended up inside itself, goes to the home screen.
+        for i in folders.indices {
+            if let parent = folders[i].parent, !folderIDs.contains(parent) || path(to: parent).contains(where: { $0.id == folders[i].id }) {
+                folders[i].parent = nil
+            }
+        }
         folderOf = Dictionary(uniqueKeysWithValues: index.projects.compactMap { key, folder in
             guard let id = UUID(uuidString: key), ids.contains(id), folderIDs.contains(folder) else { return nil }
             return (id, folder)
@@ -115,16 +123,48 @@ final class DocumentStore {
 
     func folder(_ id: UUID) -> ProjectFolder? { folders.first { $0.id == id } }
 
-    /// A new folder, first on the home screen, with a name no other folder has.
+    /// The folders in `parent`, or on the home screen when it's nil.
+    func folders(in parent: UUID?) -> [ProjectFolder] {
+        folders.filter { $0.parent == parent }
+    }
+
+    /// The folders from the home screen down to `id`, `id` last.
+    func path(to id: UUID) -> [ProjectFolder] {
+        var path: [ProjectFolder] = [], next: UUID? = id
+        while let current = next, let folder = folder(current), !path.contains(folder) {
+            path.insert(folder, at: 0)
+            next = folder.parent
+        }
+        return path
+    }
+
+    /// The projects in `id` and in every folder inside it, newest first.
+    func allItems(in id: UUID) -> [SpriteSummary] {
+        let inside = Set(folders.filter { path(to: $0.id).contains { $0.id == id } }.map(\.id))
+        return items.filter { folderOf[$0.id].map(inside.contains) ?? false }
+    }
+
+    /// A new folder, first in `parent`, with a name no folder beside it has.
     @discardableResult
-    func createFolder(name: String) throws -> UUID {
-        let taken = Set(folders.map(\.name))
+    func createFolder(name: String, in parent: UUID? = nil) throws -> UUID {
+        let taken = Set(folders(in: parent).map(\.name))
         var unique = name, n = 2
         while taken.contains(unique) { unique = "\(name) \(n)"; n += 1 }
-        let folder = ProjectFolder(id: UUID(), name: unique)
+        let folder = ProjectFolder(id: UUID(), name: unique, parent: parent.flatMap { self.folder($0) }?.id)
         folders.insert(folder, at: 0)
         try saveFolders()
         return folder.id
+    }
+
+    /// Puts a folder in `parent` (nil: the home screen). A folder can't go
+    /// inside itself or a folder within it.
+    func moveFolder(_ id: UUID, to parent: UUID?) throws {
+        guard let i = folders.firstIndex(where: { $0.id == id }) else { return }
+        if let parent {
+            guard folder(parent) != nil, !path(to: parent).contains(where: { $0.id == id }) else { return }
+        }
+        folders[i].parent = parent
+        try saveFolders()
     }
 
     func renameFolder(_ id: UUID, to name: String) throws {
@@ -134,10 +174,13 @@ final class DocumentStore {
         try saveFolders()
     }
 
-    /// Deletes the folder only: its projects go back to the home screen.
+    /// Deletes the folder only: its projects and folders go up to the
+    /// folder it was in (or the home screen).
     func deleteFolder(_ id: UUID) throws {
+        guard let deleted = folder(id) else { return }
         folders.removeAll { $0.id == id }
-        folderOf = folderOf.filter { $0.value != id }
+        for i in folders.indices where folders[i].parent == id { folders[i].parent = deleted.parent }
+        for (project, folder) in folderOf where folder == id { folderOf[project] = deleted.parent }
         try saveFolders()
     }
 

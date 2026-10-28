@@ -63,7 +63,7 @@ struct GalleryView: View {
     }
 
     private var visibleFolders: [ProjectFolder] {
-        openFolder == nil && query.isEmpty ? store.folders : []
+        query.isEmpty ? store.folders(in: openFolder) : []
     }
 
     var body: some View {
@@ -76,8 +76,11 @@ struct GalleryView: View {
                         LazyVGrid(columns: columns, spacing: 20) {
                             if query.isEmpty { NewSpriteCard { showingNewSprite = true } }
                             ForEach(visibleFolders) { folder in
-                                FolderCard(folder: folder) { withAnimation(.snappy) { openFolder = folder.id } }
+                                FolderCard(folder: folder, open: { withAnimation(.snappy) { openFolder = folder.id } },
+                                           drop: { drop($0, into: folder.id) })
                                     .contextMenu { contextMenu(for: folder) }
+                                    // Drop it on another folder to put it inside.
+                                    .draggable(Self.folderPayload + folder.id.uuidString)
                             }
                             ForEach(visibleItems) { item in
                                 Button { path.append(item.id) } label: { SpriteCard(item: item) }
@@ -91,7 +94,7 @@ struct GalleryView: View {
                             ContentUnavailableView.search(text: query)
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 40)
-                        } else if visibleItems.isEmpty && openFolder != nil {
+                        } else if visibleItems.isEmpty && visibleFolders.isEmpty && openFolder != nil {
                             ContentUnavailableView("This folder is empty", systemImage: "folder",
                                                    description: Text("Touch and hold a project and choose Move to folder, or drag it onto the folder."))
                                 .frame(maxWidth: .infinity)
@@ -155,7 +158,7 @@ struct GalleryView: View {
                     let projects = newFolderProjects ?? []
                     let name = folderName.trimmingCharacters(in: .whitespaces)
                     attempt {
-                        let folder = try store.createFolder(name: name.isEmpty ? L10n.string("Folder") : name)
+                        let folder = try store.createFolder(name: name.isEmpty ? L10n.string("Folder") : name, in: openFolder)
                         try store.move(projects, to: folder)
                     }
                 }
@@ -176,7 +179,7 @@ struct GalleryView: View {
                     if let folder = deletingFolder { attempt { try store.deleteFolder(folder.id) } }
                 }
             } message: {
-                Text("Its projects go back to Projects.")
+                Text("What's in it moves up a level.")
             }
             .onChange(of: store.folders) {
                 // The open folder was deleted (or the files changed under it).
@@ -243,9 +246,7 @@ struct GalleryView: View {
                 .keyboardShortcut("f", modifiers: .command)
             }
 
-            if openFolder == nil {
-                headerIconButton("folder.badge.plus", label: "New folder") { startNewFolder(with: []) }
-            }
+            headerIconButton("folder.badge.plus", label: "New folder") { startNewFolder(with: []) }
 
             headerIconButton("gearshape", label: "Preferences") { showingPreferences = true }
                 .keyboardShortcut(",", modifiers: .command)
@@ -294,8 +295,10 @@ struct GalleryView: View {
     private var titleRow: some View {
         HStack(alignment: .center, spacing: 14) {
             if let folder = openFolder.flatMap(store.folder) {
-                Button { withAnimation(.snappy) { openFolder = nil } } label: {
-                    Label("Projects", systemImage: "chevron.left")
+                let parent = folder.parent.flatMap(store.folder)
+                Button { withAnimation(.snappy) { openFolder = parent?.id } } label: {
+                    Label { parent.map { Text($0.name) } ?? Text("Projects") } icon: { Image(systemName: "chevron.left") }
+                        .lineLimit(1)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 12)
@@ -304,9 +307,9 @@ struct GalleryView: View {
                         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(backDropTargeted ? Theme.accent : Theme.border, lineWidth: backDropTargeted ? 2 : 1))
                 }
                 .buttonStyle(.plain)
-                // Drop a project here to take it out of the folder.
-                .dropDestination(for: String.self) { ids, _ in
-                    attempt { try store.move(ids.compactMap(UUID.init(uuidString:)), to: nil) }
+                // Drop a project or folder here to take it up a level.
+                .dropDestination(for: String.self) { payloads, _ in
+                    drop(payloads, into: parent?.id)
                     return true
                 } isTargeted: { backDropTargeted = $0 }
                 Text(folder.name)
@@ -354,15 +357,38 @@ struct GalleryView: View {
         let current = store.folderOf[item.id]
         Menu("Move to folder", systemImage: "folder") {
             ForEach(store.folders.filter { $0.id != current }) { folder in
-                Button(folder.name, systemImage: "folder") { attempt { try store.move([item.id], to: folder.id) } }
+                Button(folderPath(folder.id), systemImage: "folder") { attempt { try store.move([item.id], to: folder.id) } }
             }
             Button("New folder…", systemImage: "folder.badge.plus") { startNewFolder(with: [item.id]) }
-            if current != nil {
+            if let current {
                 Divider()
-                Button("Remove from folder", systemImage: "folder.badge.minus") { attempt { try store.move([item.id], to: nil) } }
+                Button("Remove from folder", systemImage: "folder.badge.minus") {
+                    attempt { try store.move([item.id], to: store.folder(current)?.parent) }
+                }
             }
         }
         Button("Delete", systemImage: "trash", role: .destructive) { deleting = item }
+    }
+
+    /// "Characters › Dummy", to tell nested folders apart in menus.
+    private func folderPath(_ id: UUID) -> String {
+        store.path(to: id).map(\.name).joined(separator: " › ")
+    }
+
+    static let folderPayload = "openpixel-folder:"
+
+    /// Projects (their ids) or folders (`folderPayload` + id) dropped on a folder.
+    private func drop(_ payloads: [String], into folder: UUID?) {
+        attempt {
+            for payload in payloads {
+                if payload.hasPrefix(Self.folderPayload) {
+                    guard let id = UUID(uuidString: String(payload.dropFirst(Self.folderPayload.count))), id != folder else { continue }
+                    try store.moveFolder(id, to: folder)
+                } else if let id = UUID(uuidString: payload) {
+                    try store.move([id], to: folder)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -370,6 +396,21 @@ struct GalleryView: View {
         Button("Rename", systemImage: "pencil") {
             folderName = folder.name
             renamingFolder = folder
+        }
+        // Anywhere but inside itself, or where it already is.
+        let targets = store.folders.filter { target in
+            target.id != folder.parent && !store.path(to: target.id).contains { $0.id == folder.id }
+        }
+        Menu("Move to folder", systemImage: "folder") {
+            ForEach(targets) { target in
+                Button(folderPath(target.id), systemImage: "folder") { attempt { try store.moveFolder(folder.id, to: target.id) } }
+            }
+            if let parent = folder.parent {
+                Divider()
+                Button("Remove from folder", systemImage: "folder.badge.minus") {
+                    attempt { try store.moveFolder(folder.id, to: store.folder(parent)?.parent) }
+                }
+            }
         }
         Button("Delete folder", systemImage: "trash", role: .destructive) { deletingFolder = folder }
     }
@@ -414,11 +455,21 @@ private struct NewSpriteCard: View {
 private struct FolderCard: View {
     let folder: ProjectFolder
     let open: () -> Void
+    /// Projects or folders dropped on it.
+    let drop: ([String]) -> Void
     @Environment(DocumentStore.self) private var store
     @State private var targeted = false
 
+    private var count: Text {
+        let projects = store.items(in: folder.id).count, folders = store.folders(in: folder.id).count
+        let projectText = projects == 1 ? Text("1 project") : Text("\(projects) projects")
+        guard folders > 0 else { return projectText }
+        return projectText + Text(verbatim: " · ") + (folders == 1 ? Text("1 folder") : Text("\(folders) folders"))
+    }
+
     var body: some View {
-        let items = store.items(in: folder.id)
+        // The thumbnails come from inner folders too.
+        let items = store.allItems(in: folder.id)
         Button(action: open) {
             VStack(alignment: .leading, spacing: 0) {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
@@ -441,7 +492,7 @@ private struct FolderCard: View {
                     Label { Text(folder.name).lineLimit(1) } icon: { Image(systemName: "folder.fill").foregroundStyle(Theme.accent) }
                         .font(.headline)
                         .foregroundStyle(Theme.text)
-                    (items.count == 1 ? Text("1 project") : Text("\(items.count) projects"))
+                    count
                         .font(.footnote)
                         .foregroundStyle(Theme.muted)
                 }
@@ -455,8 +506,8 @@ private struct FolderCard: View {
             .contentShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .dropDestination(for: String.self) { ids, _ in
-            try? store.move(ids.compactMap(UUID.init(uuidString:)), to: folder.id)
+        .dropDestination(for: String.self) { payloads, _ in
+            drop(payloads)
             return true
         } isTargeted: { targeted = $0 }
         .accessibilityHint(Text("Opens the folder"))

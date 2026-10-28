@@ -150,4 +150,54 @@ final class ProjectFolderTests: XCTestCase {
         try store.move([walk], to: nil)
         XCTAssertNil(store.folderOf[walk])
     }
+
+    func testFoldersGoInsideFolders() throws {
+        let store = makeStore()
+        let characters = try store.createFolder(name: "Characters")
+        let dummy = try store.createFolder(name: "Dummy", in: characters)
+        let walk = try store.create(name: "Walk", sprite: blank, in: dummy)
+        XCTAssertEqual(store.folders(in: nil).map(\.id), [characters])
+        XCTAssertEqual(store.folders(in: characters).map(\.id), [dummy])
+        XCTAssertEqual(store.path(to: dummy).map(\.name), ["Characters", "Dummy"])
+        XCTAssertEqual(store.allItems(in: characters).map(\.id), [walk], "a folder shows what its folders hold")
+        XCTAssertTrue(store.items(in: characters).isEmpty)
+
+        let reopened = makeStore(store.directory)
+        XCTAssertEqual(reopened.folder(dummy)?.parent, characters, "the nesting is saved")
+    }
+
+    func testAFolderCantGoInsideItself() throws {
+        let store = makeStore()
+        let outer = try store.createFolder(name: "Outer")
+        let inner = try store.createFolder(name: "Inner", in: outer)
+        try store.moveFolder(outer, to: inner)
+        XCTAssertNil(store.folder(outer)?.parent, "not inside its own folder")
+        try store.moveFolder(outer, to: outer)
+        XCTAssertNil(store.folder(outer)?.parent)
+        try store.moveFolder(inner, to: nil)
+        XCTAssertNil(store.folder(inner)?.parent)
+        try store.moveFolder(outer, to: inner)
+        XCTAssertEqual(store.folder(outer)?.parent, inner, "once apart it can")
+    }
+
+    func testDeletingANestedFolderMovesItsContentUpALevel() throws {
+        let store = makeStore()
+        let characters = try store.createFolder(name: "Characters")
+        let dummy = try store.createFolder(name: "Dummy", in: characters)
+        let poses = try store.createFolder(name: "Poses", in: dummy)
+        let walk = try store.create(name: "Walk", sprite: blank, in: dummy)
+        try store.deleteFolder(dummy)
+        XCTAssertEqual(store.folderOf[walk], characters)
+        XCTAssertEqual(store.folder(poses)?.parent, characters)
+    }
+
+    func testNamesAreUniqueOnlyBesideEachOther() throws {
+        let store = makeStore()
+        let a = try store.createFolder(name: "A")
+        let b = try store.createFolder(name: "B")
+        let first = try store.createFolder(name: "Walk", in: a)
+        let second = try store.createFolder(name: "Walk", in: b)
+        XCTAssertEqual(store.folder(first)?.name, "Walk")
+        XCTAssertEqual(store.folder(second)?.name, "Walk")
+    }
 }

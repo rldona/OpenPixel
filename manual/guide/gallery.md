@@ -12,12 +12,12 @@ The gallery is the first screen: every sprite you have, with a thumbnail. Animat
 
 ## Folders
 
-Keep projects together in folders, one level deep:
+Keep projects together in folders, and folders inside folders:
 
-- Tap the **folder** button at the top to make an empty one, or touch and hold a project and choose **Move to folder › New folder…**.
-- Put a project in a folder by dragging it onto the folder, or with **Move to folder**. Inside a folder, drag a project onto **‹ Projects** (or choose **Remove from folder**) to take it out.
-- Tap a folder to open it. New sprites and imports made there go in it, and duplicates stay with the original.
-- Touch and hold a folder to **rename** or **delete** it. Deleting a folder keeps its projects: they go back to the home screen.
+- Tap the **folder** button at the top to make an empty one where you are, or touch and hold a project and choose **Move to folder › New folder…**.
+- Put a project or a folder in another folder by dragging it onto it, or with **Move to folder** (nested folders show their path, like *Characters › Dummy*). To take something up a level, drag it onto the back button at the top left (**‹ Projects** or the name of the folder above) or choose **Remove from folder**. A folder can't go inside itself.
+- Tap a folder to open it. Its card shows four projects from inside it (inner folders included) and how many projects and folders it holds. New sprites and imports made in a folder go in it, and duplicates stay with the original.
+- Touch and hold a folder to **rename**, **move** or **delete** it. Deleting a folder keeps what's in it: its projects and folders move up a level.
 - Search looks in every folder.
 
 ## A new sprite
