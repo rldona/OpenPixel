@@ -38,6 +38,14 @@ struct GalleryView: View {
     @State private var deleting: SpriteSummary?
     /// A project exported straight from its card, without opening it.
     @State private var exporting: SpriteDocument?
+    /// The folder on screen; nil is the home screen.
+    @State private var openFolder: UUID?
+    /// Projects going into the folder being created (none for an empty one).
+    @State private var newFolderProjects: [UUID]?
+    @State private var folderName = ""
+    @State private var renamingFolder: ProjectFolder?
+    @State private var deletingFolder: ProjectFolder?
+    @State private var backDropTargeted = false
     @State private var errorMessage: String?
     /// An Aseprite extension just added by opening it from Files.
     @State private var addedExtension: AsepriteExtension?
@@ -46,11 +54,16 @@ struct GalleryView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 240, maximum: 340), spacing: 20)]
 
+    /// The open folder's projects, or the home screen's; a search looks in every folder.
     private var visibleItems: [SpriteSummary] {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
-        return store.items.filter { item in
+        return (trimmed.isEmpty ? store.items(in: openFolder) : store.items).filter { item in
             filter.includes(item) && (trimmed.isEmpty || item.name.localizedCaseInsensitiveContains(trimmed))
         }
+    }
+
+    private var visibleFolders: [ProjectFolder] {
+        openFolder == nil && query.isEmpty ? store.folders : []
     }
 
     var body: some View {
@@ -62,16 +75,27 @@ struct GalleryView: View {
                         titleRow
                         LazyVGrid(columns: columns, spacing: 20) {
                             if query.isEmpty { NewSpriteCard { showingNewSprite = true } }
+                            ForEach(visibleFolders) { folder in
+                                FolderCard(folder: folder) { withAnimation(.snappy) { openFolder = folder.id } }
+                                    .contextMenu { contextMenu(for: folder) }
+                            }
                             ForEach(visibleItems) { item in
                                 Button { path.append(item.id) } label: { SpriteCard(item: item) }
                                     .buttonStyle(.plain)
                                     .contextMenu { contextMenu(for: item) }
+                                    // Drop it on a folder to put it there.
+                                    .draggable(item.id.uuidString) { SpriteCard(item: item).frame(width: 240) }
                             }
                         }
                         if visibleItems.isEmpty && !query.isEmpty {
                             ContentUnavailableView.search(text: query)
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 40)
+                        } else if visibleItems.isEmpty && openFolder != nil {
+                            ContentUnavailableView("This folder is empty", systemImage: "folder",
+                                                   description: Text("Touch and hold a project and choose Move to folder, or drag it onto the folder."))
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 20)
                         }
                     }
                     .padding(.horizontal, 40)
@@ -85,13 +109,13 @@ struct GalleryView: View {
             }
             .sheet(isPresented: $showingNewSprite) {
                 NewSpriteView { name, sprite in
-                    attempt { path.append(try store.create(name: name, sprite: sprite)) }
+                    attempt { path.append(try store.create(name: name, sprite: sprite, in: openFolder)) }
                 }
             }
             .sheet(isPresented: $showingPreferences) { PreferencesView() }
             .sheet(item: $exporting) { ExportView(document: $0) }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.aseprite, .png, .gif, .jpeg]) { result in
-                attempt { path.append(try store.importFile(at: result.get())) }
+                attempt { path.append(try store.importFile(at: result.get(), into: openFolder)) }
             }
             // Files, AirDrop or Mail opening a sprite in OpenPixel.
             .onOpenURL { url in
@@ -123,6 +147,40 @@ struct GalleryView: View {
                 Button("Save") {
                     if let item = renaming { attempt { try store.rename(item.id, to: renameText) } }
                 }
+            }
+            .alert("New folder", isPresented: Binding(get: { newFolderProjects != nil }, set: { if !$0 { newFolderProjects = nil } })) {
+                TextField("Name", text: $folderName)
+                Button("Cancel", role: .cancel) {}
+                Button("Create") {
+                    let projects = newFolderProjects ?? []
+                    let name = folderName.trimmingCharacters(in: .whitespaces)
+                    attempt {
+                        let folder = try store.createFolder(name: name.isEmpty ? L10n.string("Folder") : name)
+                        try store.move(projects, to: folder)
+                    }
+                }
+            }
+            .alert("Rename folder", isPresented: Binding(get: { renamingFolder != nil }, set: { if !$0 { renamingFolder = nil } })) {
+                TextField("Name", text: $folderName)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") {
+                    if let folder = renamingFolder { attempt { try store.renameFolder(folder.id, to: folderName) } }
+                }
+            }
+            .confirmationDialog(
+                Text("Delete “\(deletingFolder?.name ?? "")”?"),
+                isPresented: Binding(get: { deletingFolder != nil }, set: { if !$0 { deletingFolder = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Delete folder", role: .destructive) {
+                    if let folder = deletingFolder { attempt { try store.deleteFolder(folder.id) } }
+                }
+            } message: {
+                Text("Its projects go back to Projects.")
+            }
+            .onChange(of: store.folders) {
+                // The open folder was deleted (or the files changed under it).
+                if let openFolder, store.folder(openFolder) == nil { self.openFolder = nil }
             }
             .confirmationDialog(
                 Text("Delete “\(deleting?.name ?? "")”?"),
@@ -185,6 +243,10 @@ struct GalleryView: View {
                 .keyboardShortcut("f", modifiers: .command)
             }
 
+            if openFolder == nil {
+                headerIconButton("folder.badge.plus", label: "New folder") { startNewFolder(with: []) }
+            }
+
             headerIconButton("gearshape", label: "Preferences") { showingPreferences = true }
                 .keyboardShortcut(",", modifiers: .command)
 
@@ -230,10 +292,32 @@ struct GalleryView: View {
     }
 
     private var titleRow: some View {
-        HStack(alignment: .center) {
-            Text("Projects")
-                .font(.system(size: 32, weight: .bold))
-                .foregroundStyle(Theme.text)
+        HStack(alignment: .center, spacing: 14) {
+            if let folder = openFolder.flatMap(store.folder) {
+                Button { withAnimation(.snappy) { openFolder = nil } } label: {
+                    Label("Projects", systemImage: "chevron.left")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 12)
+                        .frame(height: 36)
+                        .background(Theme.card, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(backDropTargeted ? Theme.accent : Theme.border, lineWidth: backDropTargeted ? 2 : 1))
+                }
+                .buttonStyle(.plain)
+                // Drop a project here to take it out of the folder.
+                .dropDestination(for: String.self) { ids, _ in
+                    attempt { try store.move(ids.compactMap(UUID.init(uuidString:)), to: nil) }
+                    return true
+                } isTargeted: { backDropTargeted = $0 }
+                Text(folder.name)
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1)
+            } else {
+                Text("Projects")
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(Theme.text)
+            }
             Spacer()
             HStack(spacing: 4) {
                 ForEach(Filter.allCases) { f in
@@ -267,7 +351,32 @@ struct GalleryView: View {
         Button("Export", systemImage: "square.and.arrow.up") {
             attempt { exporting = try store.load(item.id) }
         }
+        let current = store.folderOf[item.id]
+        Menu("Move to folder", systemImage: "folder") {
+            ForEach(store.folders.filter { $0.id != current }) { folder in
+                Button(folder.name, systemImage: "folder") { attempt { try store.move([item.id], to: folder.id) } }
+            }
+            Button("New folder…", systemImage: "folder.badge.plus") { startNewFolder(with: [item.id]) }
+            if current != nil {
+                Divider()
+                Button("Remove from folder", systemImage: "folder.badge.minus") { attempt { try store.move([item.id], to: nil) } }
+            }
+        }
         Button("Delete", systemImage: "trash", role: .destructive) { deleting = item }
+    }
+
+    @ViewBuilder
+    private func contextMenu(for folder: ProjectFolder) -> some View {
+        Button("Rename", systemImage: "pencil") {
+            folderName = folder.name
+            renamingFolder = folder
+        }
+        Button("Delete folder", systemImage: "trash", role: .destructive) { deletingFolder = folder }
+    }
+
+    private func startNewFolder(with projects: [UUID]) {
+        folderName = L10n.string("Folder")
+        newFolderProjects = projects
     }
 
     private func attempt(_ work: () throws -> Void) {
@@ -297,6 +406,60 @@ private struct NewSpriteCard: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// A folder on the home screen: up to four of its projects, its name and
+/// how many it holds. Projects dropped on it go in.
+private struct FolderCard: View {
+    let folder: ProjectFolder
+    let open: () -> Void
+    @Environment(DocumentStore.self) private var store
+    @State private var targeted = false
+
+    var body: some View {
+        let items = store.items(in: folder.id)
+        Button(action: open) {
+            VStack(alignment: .leading, spacing: 0) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                    ForEach(0..<4, id: \.self) { i in
+                        Group {
+                            if i < items.count {
+                                PixelThumbnail(image: items[i].thumbnail)
+                            } else {
+                                Theme.raised
+                            }
+                        }
+                        .frame(height: 84)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+                .padding(6)
+                .frame(height: 186)
+                .background(Theme.panel)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label { Text(folder.name).lineLimit(1) } icon: { Image(systemName: "folder.fill").foregroundStyle(Theme.accent) }
+                        .font(.headline)
+                        .foregroundStyle(Theme.text)
+                    (items.count == 1 ? Text("1 project") : Text("\(items.count) projects"))
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+            }
+            .frame(height: 262, alignment: .top)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(targeted ? Theme.accent : Theme.border, lineWidth: targeted ? 3 : 1))
+            .contentShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .dropDestination(for: String.self) { ids, _ in
+            try? store.move(ids.compactMap(UUID.init(uuidString:)), to: folder.id)
+            return true
+        } isTargeted: { targeted = $0 }
+        .accessibilityHint(Text("Opens the folder"))
     }
 }
 

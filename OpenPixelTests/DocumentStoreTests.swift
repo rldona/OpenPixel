@@ -95,3 +95,59 @@ final class RecentColorTests: XCTestCase {
         XCTAssertEqual(doc.recentColors.count, SpriteDocument.recentColorCount)
     }
 }
+
+@MainActor
+final class ProjectFolderTests: XCTestCase {
+    private func makeStore(_ directory: URL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)) -> DocumentStore {
+        DocumentStore(directory: directory)
+    }
+
+    private let blank = Sprite.blank(width: 4, height: 4, background: nil, palette: [])
+
+    func testProjectsGoIntoFoldersAndTheIndexSurvivesAReload() throws {
+        let store = makeStore()
+        let walk = try store.create(name: "Walk", sprite: blank)
+        let idle = try store.create(name: "Idle", sprite: blank)
+        let folder = try store.createFolder(name: "Dummy")
+        try store.move([walk], to: folder)
+        XCTAssertEqual(store.items(in: folder).map(\.id), [walk])
+        XCTAssertEqual(store.items(in: nil).map(\.id), [idle], "the home screen shows what's not in a folder")
+
+        let reopened = makeStore(store.directory)
+        XCTAssertEqual(reopened.folders.map(\.name), ["Dummy"])
+        XCTAssertEqual(reopened.folderOf[walk], folder)
+    }
+
+    func testNewImportedAndDuplicatedProjectsStayInTheFolder() throws {
+        let store = makeStore()
+        let folder = try store.createFolder(name: "Dummy")
+        let made = try store.create(name: "Jump", sprite: blank, in: folder)
+        try store.duplicate(made)
+        XCTAssertEqual(store.items(in: folder).count, 2)
+        XCTAssertTrue(store.items(in: nil).isEmpty)
+    }
+
+    func testDeletingAFolderKeepsItsProjects() throws {
+        let store = makeStore()
+        let walk = try store.create(name: "Walk", sprite: blank)
+        let folder = try store.createFolder(name: "Dummy")
+        try store.move([walk], to: folder)
+        try store.deleteFolder(folder)
+        XCTAssertTrue(store.folders.isEmpty)
+        XCTAssertEqual(store.items(in: nil).map(\.id), [walk], "back on the home screen")
+    }
+
+    func testFolderNamesAreUniqueAndDeletedProjectsLeaveTheIndex() throws {
+        let store = makeStore()
+        try store.createFolder(name: "Dummy")
+        let second = try store.createFolder(name: "Dummy")
+        XCTAssertEqual(store.folder(second)?.name, "Dummy 2")
+        try store.renameFolder(second, to: "  ")
+        XCTAssertEqual(store.folder(second)?.name, "Dummy 2", "an empty name is ignored")
+        let walk = try store.create(name: "Walk", sprite: blank, in: second)
+        try store.delete(walk)
+        XCTAssertNil(store.folderOf[walk])
+        try store.move([walk], to: nil)
+        XCTAssertNil(store.folderOf[walk])
+    }
+}

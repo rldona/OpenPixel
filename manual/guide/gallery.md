@@ -10,6 +10,16 @@ The gallery is the first screen: every sprite you have, with a thumbnail. Animat
 - **All / Animations / Still** shows every sprite, only the animated ones, or only single images.
 - Touch and hold a sprite to **rename**, **duplicate**, **export** or **delete** it. **Export** opens the same [export](./export) window as the editor, without opening the sprite.
 
+## Folders
+
+Keep projects together in folders, one level deep:
+
+- Tap the **folder** button at the top to make an empty one, or touch and hold a project and choose **Move to folder › New folder…**.
+- Put a project in a folder by dragging it onto the folder, or with **Move to folder**. Inside a folder, drag a project onto **‹ Projects** (or choose **Remove from folder**) to take it out.
+- Tap a folder to open it. New sprites and imports made there go in it, and duplicates stay with the original.
+- Touch and hold a folder to **rename** or **delete** it. Deleting a folder keeps its projects: they go back to the home screen.
+- Search looks in every folder.
+
 ## A new sprite
 
 Tap **New sprite** (top right) or the dashed card.

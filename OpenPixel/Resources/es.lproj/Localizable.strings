@@ -827,3 +827,16 @@
 "Group deleted" = "Grupo eliminado";
 "All layers" = "Todas las capas";
 "Copy merged" = "Copiar fusionado";
+"New folder" = "Nueva carpeta";
+"New folder…" = "Nueva carpeta…";
+"Folder" = "Carpeta";
+"Move to folder" = "Mover a carpeta";
+"Remove from folder" = "Sacar de la carpeta";
+"Rename folder" = "Renombrar carpeta";
+"Delete folder" = "Eliminar carpeta";
+"Its projects go back to Projects." = "Sus proyectos vuelven a Proyectos.";
+"1 project" = "1 proyecto";
+"%lld projects" = "%lld proyectos";
+"This folder is empty" = "Esta carpeta está vacía";
+"Touch and hold a project and choose Move to folder, or drag it onto the folder." = "Mantén pulsado un proyecto y elige Mover a carpeta, o arrástralo sobre la carpeta.";
+"Opens the folder" = "Abre la carpeta";

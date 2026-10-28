@@ -13,8 +13,16 @@ struct SpriteSummary: Identifiable {
     var thumbnail: CGImage?
 }
 
+/// A folder on the home screen, to keep projects together. One level, like
+/// Procreate's stacks.
+struct ProjectFolder: Identifiable, Codable, Equatable {
+    let id: UUID
+    var name: String
+}
+
 /// Sprites live as `.openpixel` JSON files in Documents/Sprites, which is
-/// visible from the Files app.
+/// visible from the Files app. Folders are an index beside them
+/// (`folders.json`), so the sprite files never move.
 @MainActor
 @Observable
 final class DocumentStore {
@@ -63,6 +71,81 @@ final class DocumentStore {
                 return Self.summary(id: id, file: file, modified: modified)
             }
             .sorted { $0.modified > $1.modified }
+        loadFolders()
+    }
+
+    // MARK: Folders
+
+    private(set) var folders: [ProjectFolder] = []
+    /// The folder each project is in; projects left out are on the home screen.
+    private(set) var folderOf: [UUID: UUID] = [:]
+
+    private struct FolderIndex: Codable {
+        var folders: [ProjectFolder]
+        var projects: [String: UUID]
+    }
+
+    private var foldersURL: URL { directory.appendingPathComponent("folders.json") }
+
+    /// Reads the index, forgetting projects and folders that are gone.
+    private func loadFolders() {
+        guard let data = try? Data(contentsOf: foldersURL),
+              let index = try? JSONDecoder().decode(FolderIndex.self, from: data) else {
+            folders = []
+            folderOf = [:]
+            return
+        }
+        folders = index.folders
+        let ids = Set(items.map(\.id)), folderIDs = Set(folders.map(\.id))
+        folderOf = Dictionary(uniqueKeysWithValues: index.projects.compactMap { key, folder in
+            guard let id = UUID(uuidString: key), ids.contains(id), folderIDs.contains(folder) else { return nil }
+            return (id, folder)
+        })
+    }
+
+    private func saveFolders() throws {
+        let index = FolderIndex(folders: folders, projects: Dictionary(uniqueKeysWithValues: folderOf.map { ($0.key.uuidString, $0.value) }))
+        try JSONEncoder().encode(index).write(to: foldersURL, options: .atomic)
+    }
+
+    /// The projects in `folder`, or on the home screen when it's nil, newest first.
+    func items(in folder: UUID?) -> [SpriteSummary] {
+        items.filter { folderOf[$0.id] == folder }
+    }
+
+    func folder(_ id: UUID) -> ProjectFolder? { folders.first { $0.id == id } }
+
+    /// A new folder, first on the home screen, with a name no other folder has.
+    @discardableResult
+    func createFolder(name: String) throws -> UUID {
+        let taken = Set(folders.map(\.name))
+        var unique = name, n = 2
+        while taken.contains(unique) { unique = "\(name) \(n)"; n += 1 }
+        let folder = ProjectFolder(id: UUID(), name: unique)
+        folders.insert(folder, at: 0)
+        try saveFolders()
+        return folder.id
+    }
+
+    func renameFolder(_ id: UUID, to name: String) throws {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, let i = folders.firstIndex(where: { $0.id == id }) else { return }
+        folders[i].name = name
+        try saveFolders()
+    }
+
+    /// Deletes the folder only: its projects go back to the home screen.
+    func deleteFolder(_ id: UUID) throws {
+        folders.removeAll { $0.id == id }
+        folderOf = folderOf.filter { $0.value != id }
+        try saveFolders()
+    }
+
+    /// Puts projects in `folder`, or back on the home screen when it's nil.
+    func move(_ ids: [UUID], to folder: UUID?) throws {
+        guard folder.map({ self.folder($0) != nil }) ?? true else { return }
+        for id in ids where items.contains(where: { $0.id == id }) { folderOf[id] = folder }
+        try saveFolders()
     }
 
     /// The frames a gallery card plays, with their durations in ms.
@@ -151,9 +234,10 @@ final class DocumentStore {
     /// New sprites and imports get a name no other sprite has: a second
     /// "Untitled" becomes "Untitled 2", then "Untitled 3"…
     @discardableResult
-    func create(name: String, sprite: Sprite) throws -> UUID {
+    func create(name: String, sprite: Sprite, in folder: UUID? = nil) throws -> UUID {
         let id = UUID()
         try write(SpriteFile(name: uniqueName(name), sprite: sprite), id: id)
+        if let folder { try move([id], to: folder) }
         return id
     }
 
@@ -171,10 +255,13 @@ final class DocumentStore {
         try write(file, id: id)
     }
 
+    /// The copy goes in the same folder.
     func duplicate(_ id: UUID) throws {
         var file = try read(url(for: id))
         file.name += L10n.string(" (copy)")
-        try write(file, id: UUID())
+        let copy = UUID()
+        try write(file, id: copy)
+        if let folder = folderOf[id] { try move([copy], to: folder) }
     }
 
     /// Deleting forgets the sprite's pending card too, or the next `flush`
@@ -183,6 +270,7 @@ final class DocumentStore {
     func delete(_ id: UUID) throws {
         pendingFiles[id] = nil
         items.removeAll { $0.id == id }
+        if folderOf.removeValue(forKey: id) != nil { try? saveFolders() }
         let url = url(for: id)
         if let pending = pendingSaves.removeValue(forKey: id) {
             Task {
@@ -198,15 +286,15 @@ final class DocumentStore {
 
     /// Makes a project from an Aseprite file or an image; an animated GIF
     /// or PNG keeps its frames and their durations.
-    func importFile(at fileURL: URL) throws -> UUID {
+    func importFile(at fileURL: URL, into folder: UUID? = nil) throws -> UUID {
         let accessing = fileURL.startAccessingSecurityScopedResource()
         defer { if accessing { fileURL.stopAccessingSecurityScopedResource() } }
         let data = try Data(contentsOf: fileURL)
         let name = fileURL.deletingPathExtension().lastPathComponent
         if ["aseprite", "ase"].contains(fileURL.pathExtension.lowercased()) {
-            return try create(name: name, sprite: AsepriteFile.read(data))
+            return try create(name: name, sprite: AsepriteFile.read(data), in: folder)
         }
-        return try create(name: name, sprite: Self.sprite(fromImage: data))
+        return try create(name: name, sprite: Self.sprite(fromImage: data), in: folder)
     }
 
     /// One layer, with a frame for each frame of the image.

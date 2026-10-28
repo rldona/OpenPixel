@@ -10,6 +10,16 @@ La galería es la primera pantalla: todos tus sprites, con una miniatura. Los an
 - **Todos / Animaciones / Estáticos** muestra todos los sprites, solo los animados o solo las imágenes sueltas.
 - Mantén pulsado un sprite para **renombrarlo**, **duplicarlo**, **exportarlo** o **eliminarlo**. **Exportar** abre la misma ventana de [exportación](./export) que el editor, sin abrir el sprite.
 
+## Carpetas
+
+Agrupa proyectos en carpetas, de un solo nivel:
+
+- Toca el botón de **carpeta** de arriba para crear una vacía, o mantén pulsado un proyecto y elige **Mover a carpeta › Nueva carpeta…**.
+- Mete un proyecto en una carpeta arrastrándolo sobre ella o con **Mover a carpeta**. Dentro de una carpeta, arrastra un proyecto sobre **‹ Proyectos** (o elige **Sacar de la carpeta**) para sacarlo.
+- Toca una carpeta para abrirla. Los sprites nuevos y las importaciones que hagas dentro van a ella, y los duplicados se quedan junto al original.
+- Mantén pulsada una carpeta para **renombrarla** o **eliminarla**. Eliminar una carpeta conserva sus proyectos: vuelven a la pantalla de inicio.
+- La búsqueda mira en todas las carpetas.
+
 ## Un sprite nuevo
 
 Toca **Nuevo sprite** (arriba a la derecha) o la tarjeta discontinua.
