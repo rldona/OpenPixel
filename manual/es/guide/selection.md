@@ -17,7 +17,7 @@ La barra de opciones elige el modo: **reemplazar**, **añadir**, **restar** o **
 
 Mientras hay algo seleccionado, dibujar, rellenar y borrar se quedan dentro, y una barra te da las acciones habituales: transformar, duplicar y mover, cortar, copiar, pegar, eliminar, rellenar con el color principal, voltear, girar 90°, **organizar**, invertir y deseleccionar.
 
-La barra ocupa el lugar de la cabecera del timeline, así que nunca tapa el dibujo. Al deseleccionar, aplicar o cancelar vuelve la cabecera. Con el timeline oculto (plegado o en modo enfoque), la barra flota abajo del lienzo.
+La barra ocupa el lugar de la cabecera del timeline, así que nunca tapa el dibujo. Al deseleccionar vuelve la cabecera. Con el timeline oculto (plegado o en modo enfoque), la barra flota abajo del lienzo.
 
 Mientras arrastras un marco o el lazo, una etiqueta a su lado muestra el tamaño del área, contando solo la parte que queda dentro del sprite. Cuando ya hay una selección, la barra empieza con su tamaño y la posición de su esquina superior izquierda, como `12×8 · 3, 5`.
 
@@ -36,9 +36,9 @@ Con una herramienta de selección (o Mover) y algo seleccionado, el deslizador d
 
 - **Toca un elemento dibujado** con el marco o el lazo para seleccionar exactamente sus píxeles. Su capa pasa a ser la activa (la capa visible más alta bajo tu dedo). En modo añadir, sigue tocando para juntar varios elementos.
 - **Toca dos veces** con el marco o el lazo para seleccionar la **celda de la cuadrícula** entera bajo tu dedo (por ejemplo 16×16), con la capa activa (o, con **Todas las capas** activado, todas las que tengan píxeles en ella), lista para mover, rotar o copiar, como el doble clic de Aseprite.
-- Un marco o un lazo toma solo la **capa activa**, como en Aseprite. Activa **Todas las capas** en las opciones de la herramienta para que tome todas las capas visibles que tiene debajo (las capas seleccionadas en el timeline cuentan siempre). En ambos casos, con **Ajustar al contenido**, se encoge a los píxeles dibujados que hay dentro. Sobre el lienzo vacío mantiene su forma.
-- Mover, transformar, eliminar, rellenar y cortar esa selección cambia todas esas capas. Copiar las copia combinadas.
-- **Todos los frames** aplica todo esto a todos los frames de la animación.
+- Un marco o un lazo toma solo la **capa activa**, como en Aseprite. Activa **Todas las capas** en las opciones de la herramienta para que tome todas las capas visibles que tiene debajo (las capas seleccionadas en el timeline cuentan siempre). La selección es la forma que dibujaste, como en Aseprite, así que también puedes pintar en su parte vacía. Activa **Ajustar al contenido** para que una forma nueva o añadida se encoja a los píxeles dibujados que hay dentro (sobre el lienzo vacío mantiene su forma); restar e intersecar usan siempre la forma entera.
+- Mover, transformar, eliminar, rellenar y cortar esa selección cambia todas esas capas, menos las ocultas y las bloqueadas. Copiar las copia combinadas, y también funciona con capas ocultas y bloqueadas. Si eliges una capa que el marco no atrapó, la selección pasa a ser de esa capa.
+- **Todos los frames** aplica todo esto a todos los frames de la animación, también con un rango elegido en el timeline. La herramienta Mover también lo tiene, para mover una capa en todos los frames sin selección.
 
 ### Más comandos de selección
 
@@ -56,7 +56,7 @@ Mientras los píxeles flotan, el lienzo muestra asas:
 - arrastra el **asa redonda** de arriba para girar alrededor del **pivote** (el punto del centro, que se puede arrastrar);
 - la barra de transformación voltea, gira 90°, **organiza**, **borra** los píxeles flotantes (también ⌫), **mantiene la proporción**, **ajusta el ángulo** de 15 en 15° y elige giro **RotSprite** (pixel art más limpio) o **rápido**.
 
-**Aplicar** (o tocar fuera, o ↩) suelta los píxeles; **Cancelar** (⎋) lo devuelve todo a su sitio. La transformación entera es un solo paso de deshacer. Con teclado, las flechas mueven los píxeles de 1 en 1 px.
+**Aplicar** (o tocar fuera, o ↩) suelta los píxeles y deja la selección donde han quedado, como en Aseprite, para que pases al siguiente frame y vuelvas a moverla; cambiar de frame o de capa también aplica. **Cancelar** (⎋) lo devuelve todo a su sitio. La transformación entera es un solo paso de deshacer. Con teclado, las flechas mueven los píxeles de 1 en 1 px.
 
 ### Estirar al mover
 
@@ -64,7 +64,7 @@ Si seleccionas medio personaje y lo mueves, normalmente se separa del resto. Man
 
 ### Transformar varios cels
 
-Cuando hay varios cels, capas o frames seleccionados en el [timeline](./timeline#seleccionar-un-rango), mover, escalar, girar o voltear los cambia todos. La insignia **+N cels** de la barra de transformación dice cuántos más cambian.
+Cuando hay varios cels, capas o frames seleccionados en el [timeline](./timeline#seleccionar-un-rango), mover, escalar, girar o voltear los cambia todos (un grupo cuenta como las capas que tiene dentro; las capas ocultas y bloqueadas no se mueven). La insignia **+N cels** de la barra de transformación dice cuántos más cambian.
 
 ## Comandos del lienzo
 

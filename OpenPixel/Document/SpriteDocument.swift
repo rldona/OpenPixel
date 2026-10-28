@@ -101,6 +101,8 @@ final class SpriteDocument {
         didSet {
             guard oldValue != activeLayerID else { return }
             applyTransformIfNeeded()
+            // Picking a layer the marquee didn't catch: the selection is that layer's now.
+            if let layers = selectionLayers, !layers.contains(activeLayerID) { selectionLayers = nil }
             notifyScripts(.site)
         }
     }
@@ -233,9 +235,11 @@ final class SpriteDocument {
     var wandContiguous = true
     var wandSampleAllLayers = false
     /// Marquee and lasso selections shrink to the drawn pixels inside them.
-    var selectionFitsContent = true
+    /// Off, as in Aseprite: the selection is the shape you drew.
+    var selectionFitsContent = false
     /// Edits on the selection (move, transform, delete, fill) change every
-    /// frame, not just the one on screen.
+    /// frame, not just the one on screen, also with a timeline range. The
+    /// Move tool follows it without a selection too.
     var selectionAllFrames = false
     /// Marquee and lasso selections (and the double-tapped grid cell) take every
     /// visible layer under them; off, only the active layer, as in Aseprite.
@@ -2252,7 +2256,9 @@ extension SpriteDocument {
         } else if drag.moved, tool != .magicWand, let shape {
             // A marquee over several layers takes all of them, not just the active one.
             let caught = layersWithContent(in: shape)
-            if selectionFitsContent, let fitted = fittedToContent(shape, layers: caught) {
+            // Subtracting or intersecting takes the whole shape, so nothing transparent is left behind.
+            if selectionFitsContent, selectionMode == .replace || selectionMode == .add,
+               let fitted = fittedToContent(shape, layers: caught) {
                 selection = base.combined(with: fitted, mode: selectionMode)
             }
             var layers = Set(caught.map(\.id))
@@ -2284,8 +2290,9 @@ extension SpriteDocument {
     /// layers are left out: they won't move, so they shouldn't widen the selection.
     private var marqueeScope: (layers: [Layer], frames: [UUID]) {
         if let r = timelineRange {
-            return (storage.layers.filter { r.layers.contains($0.id) && storage.shows($0) && !$0.isBackground && !storage.locks($0) },
-                    r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil })
+            let layers = rangeLayers(r)
+            return (storage.layers.filter { layers.contains($0.id) && storage.shows($0) && !$0.isBackground && !storage.locks($0) },
+                    rangeFrames(r, all: selectionAllFrames).map { storage.frames[$0].id })
         }
         return (storage.layers.filter { (selectionAllLayers || $0.id == activeLayerID) && storage.shows($0) && !$0.isBackground && !storage.locks($0) },
                 selectionAllFrames ? storage.frames.map(\.id) : [activeFrame.id])
@@ -2349,6 +2356,11 @@ extension SpriteDocument {
 
     // MARK: Editing
 
+    /// Whether `layer` can be drawn on, without a notice.
+    private func canEdit(_ layer: Layer) -> Bool {
+        !layer.isGroup && storage.shows(layer) && !storage.locks(layer) && !layer.isReference
+    }
+
     private var activeLayerEditable: Bool {
         guard let layer = activeLayer else { return false }
         if layer.isGroup { notice = L10n.string("“%@” is a group: pick a layer inside it to draw", layer.name); return false }
@@ -2362,7 +2374,7 @@ extension SpriteDocument {
     /// marquee caught (or the active one), in the active frame or in every
     /// frame. Nil when it's just the active cel.
     private var selectionScopeKeys: [CelKey]? {
-        guard selection != nil else { return nil }
+        guard selection != nil || tool == .move else { return nil }
         let layers = storage.layers.filter { (selectionLayers ?? [activeLayerID]).contains($0.id) }.map(\.id)
         let frames = selectionAllFrames ? storage.frames.map(\.id) : [activeFrame.id]
         guard layers.count > 1 || frames.count > 1 else { return nil }
@@ -2375,7 +2387,7 @@ extension SpriteDocument {
     private var selectionEditKeys: [CelKey] {
         let keys: [CelKey]
         if let range = timelineRange {
-            keys = rangeKeys(range).flatMap { $0 }
+            keys = rangeKeys(range, allFrames: selectionAllFrames).flatMap { $0 }
         } else if let scope = selectionScopeKeys {
             keys = scope
         } else if let group = activeLayer, group.isGroup {
@@ -2390,6 +2402,18 @@ extension SpriteDocument {
         let result = keys.filter { editable.contains($0.layer) }
         if result.isEmpty { notice = L10n.string("The layers are hidden or locked") }
         return result
+    }
+
+    /// The cels Copy takes: those an edit would change, hidden and locked
+    /// ones included, since copying changes nothing.
+    private var selectionCopyKeys: [CelKey] {
+        if let range = timelineRange { return rangeKeys(range, allFrames: selectionAllFrames).flatMap { $0 } }
+        if let scope = selectionScopeKeys { return scope }
+        guard let layer = activeLayer, !layer.isReference else { return [] }
+        if layer.isGroup {
+            return storage.descendants(of: layer.id).filter { !$0.isGroup && !$0.isReference }.map { CelKey(layer: $0.id, frame: activeFrame.id) }
+        }
+        return [activeCelKey]
     }
 
     // MARK: Selection opacity
@@ -2513,7 +2537,7 @@ extension SpriteDocument {
     @discardableResult
     func copy() -> Bool {
         applyTransformIfNeeded()
-        let keys = selectionEditKeys.filter { $0.frame == activeFrame.id }
+        let keys = selectionCopyKeys.filter { $0.frame == activeFrame.id }
         guard !keys.isEmpty else { return false }
         let image: PixelImage
         if keys.count == 1 {
@@ -2521,8 +2545,10 @@ extension SpriteDocument {
             image = cel
         } else {
             var merged = storage
-            let layers = Set(keys.map(\.layer))
-            for i in merged.layers.indices where !layers.contains(merged.layers[i].id) { merged.layers[i].isVisible = false }
+            var layers = Set(keys.map(\.layer))
+            // Hidden layers copy too, and the groups they're in show them.
+            for layer in storage.layers where layers.contains(layer.id) { layers.formUnion(storage.ancestors(of: layer).map(\.id)) }
+            for i in merged.layers.indices { merged.layers[i].isVisible = layers.contains(merged.layers[i].id) }
             image = merged.composite(frameIndex: activeFrameIndex)
         }
         let mask = selection ?? SelectionMask(width: storage.width, height: storage.height, filled: true)
@@ -2536,6 +2562,8 @@ extension SpriteDocument {
     }
 
     func cut() {
+        // Locked or hidden layers copy but don't cut.
+        guard selection != nil || activeLayer?.isGroup == true ? !selectionEditKeys.isEmpty : activeLayerEditable else { return }
         guard copy() else { return }
         if selection != nil { deleteSelection() } else { clearActiveCel() }
         announce(L10n.string("Cut to the clipboard"), icon: "scissors")
@@ -2636,11 +2664,15 @@ extension SpriteDocument {
         guard !isTransforming else { return }
         // A group moves and transforms every layer inside it, as in Aseprite.
         let groupKeys = activeGroupCelKeys()
-        if groupKeys == nil { guard activeLayerEditable else { return } }
         if let groupKeys, groupKeys.isEmpty { return }
+        var key = groupKeys?.first ?? activeCelKey
+        if groupKeys == nil, let layer = activeLayer, !canEdit(layer) {
+            // A selection over several layers still moves the ones that can move.
+            guard let other = rangeTransformTargets().first?.key else { _ = activeLayerEditable; return }
+            key = other
+        }
         cancelStroke()
         stopPlayback()
-        let key = groupKeys?.first ?? activeCelKey
         let (w, h) = (storage.width, storage.height)
         let cel = storage.cels[key] ?? PixelImage(width: w, height: h)
         let targets = rangeTransformTargets(keys: groupKeys.map { Array($0.dropFirst()) }, active: key)
@@ -2730,14 +2762,15 @@ extension SpriteDocument {
         if let groupKeys {
             keys = groupKeys
         } else if let range = timelineRange {
-            keys = rangeKeys(range).flatMap { $0 }
+            keys = rangeKeys(range, allFrames: selectionAllFrames).flatMap { $0 }
         } else if let scope = selectionScopeKeys {
             keys = scope
         } else {
             return []
         }
         let active = active ?? activeCelKey, activeGroup = storage.links[active]
-        let locked = Set(storage.layers.filter { storage.locks($0) }.map(\.id))
+        // Hidden layers stay put, as they do for delete and fill.
+        let locked = Set(storage.layers.filter { storage.locks($0) || !storage.shows($0) || $0.isReference }.map(\.id))
         var result: [(key: CelKey, linked: [CelKey])] = []
         var byGroup: [UUID: Int] = [:]
         for key in keys where key != active && storage.cels[key] != nil && !locked.contains(key.layer) {
@@ -2840,10 +2873,8 @@ extension SpriteDocument {
         isTransforming = false
         stretchMove = false
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
-        // Applying finishes the job: the selection goes away (Reselect brings it back).
-        if let selection { lastSelection = selection }
-        selection = nil
-        selectionLayers = nil
+        // The selection stays where the pixels were dropped, as in Aseprite,
+        // ready for the next frame.
         if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
         restoreToolAfterTransform()
         changed()
@@ -2868,9 +2899,6 @@ extension SpriteDocument {
         transformDrag = nil
         isTransforming = false
         stretchMove = false
-        if let selection { lastSelection = selection }
-        selection = nil
-        selectionLayers = nil
         if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
         restoreToolAfterTransform()
         changed()
@@ -3184,12 +3212,29 @@ extension SpriteDocument {
         rangeAnchor = nil
     }
 
-    private func rangeKeys(_ range: TimelineRange) -> [[CelKey]] {
-        sprite.layers.filter { range.layers.contains($0.id) }.map { layer in
-            range.frames.compactMap { f in
-                sprite.frames.indices.contains(f) ? CelKey(layer: layer.id, frame: sprite.frames[f].id) : nil
+    /// `allFrames`: the selection's All frames, which widens the range to every frame.
+    private func rangeKeys(_ range: TimelineRange, allFrames: Bool = false) -> [[CelKey]] {
+        let layers = rangeLayers(range), frames = rangeFrames(range, all: allFrames)
+        return sprite.layers.filter { layers.contains($0.id) }.map { layer in
+            frames.map { CelKey(layer: layer.id, frame: sprite.frames[$0].id) }
+        }
+    }
+
+    /// The layers of a range with cels: a group stands for the layers inside it.
+    private func rangeLayers(_ range: TimelineRange) -> Set<UUID> {
+        var layers = Set<UUID>()
+        for layer in sprite.layers where range.layers.contains(layer.id) {
+            if layer.isGroup {
+                layers.formUnion(sprite.descendants(of: layer.id).filter { !$0.isGroup }.map(\.id))
+            } else {
+                layers.insert(layer.id)
             }
         }
+        return layers
+    }
+
+    private func rangeFrames(_ range: TimelineRange, all: Bool = false) -> [Int] {
+        all ? Array(sprite.frames.indices) : range.frames.filter { sprite.frames.indices.contains($0) }
     }
 
     /// Links the cels of each selected layer to the cel in the first selected frame.

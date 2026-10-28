@@ -144,6 +144,7 @@ struct ToolOptionsBar: View {
                 SliceOptions(document: document)
             }
             if document.tool == .move {
+                toggle("All frames", isOn: $document.selectionAllFrames)
                 Text("Drag to move the selection or the layer content")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)

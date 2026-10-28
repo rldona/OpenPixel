@@ -17,7 +17,7 @@ The options bar picks the mode: **replace**, **add**, **subtract** or **intersec
 
 While something is selected, drawing, filling and erasing stay inside it, and a bar gives you the common actions: transform, duplicate and move, cut, copy, paste, delete, fill with the primary color, flip, rotate 90°, **arrange**, invert and deselect.
 
-The bar takes the place of the timeline's header, so it never covers the drawing. Deselecting, applying or cancelling brings the header back. With the timeline hidden (collapsed or in focus mode), the bar floats at the bottom of the canvas instead.
+The bar takes the place of the timeline's header, so it never covers the drawing. Deselecting brings the header back. With the timeline hidden (collapsed or in focus mode), the bar floats at the bottom of the canvas instead.
 
 While you drag a marquee or the lasso, a label next to it shows the size of the area, counting only the part inside the sprite. Once there's a selection, the bar starts with its size and the position of its top-left corner, like `12×8 · 3, 5`.
 
@@ -36,9 +36,9 @@ With a selection tool (or Move) and something selected, the rail's slider sets t
 
 - **Tap a drawn element** with the marquee or lasso to select exactly its pixels. Its layer becomes active (the topmost visible layer under your finger). In add mode, keep tapping to collect several elements.
 - **Double tap** with the marquee or lasso to select the whole **grid cell** under your finger (for example 16×16), with the active layer (or, with **All layers** on, every layer that has pixels in it), ready to move, rotate or copy, like Aseprite's double click.
-- A marquee or lasso takes only the **active layer**, as in Aseprite. Turn on **All layers** in the tool options to take every visible layer under it (the layers selected in the timeline always count). Either way, with **Fit to content**, shrinks to the drawn pixels inside it. Over empty canvas it keeps its shape.
-- Moving, transforming, deleting, filling and cutting that selection changes all those layers. Copying copies them merged.
-- **All frames** applies all of it to every frame of the animation.
+- A marquee or lasso takes only the **active layer**, as in Aseprite. Turn on **All layers** in the tool options to take every visible layer under it (the layers selected in the timeline always count). The selection is the shape you drew, as in Aseprite, so you can paint in its empty part too. Turn on **Fit to content** to shrink a new or added shape to the drawn pixels inside it (over empty canvas it keeps its shape); subtracting and intersecting always use the whole shape.
+- Moving, transforming, deleting, filling and cutting that selection changes all those layers, except hidden and locked ones. Copying copies them merged, and works on hidden and locked layers too. Picking a layer the marquee didn't catch makes the selection that layer's.
+- **All frames** applies all of it to every frame of the animation, also with a range picked in the timeline. The Move tool has it too, for moving a layer in every frame without a selection.
 
 ### More selection commands
 
@@ -56,7 +56,7 @@ While pixels are floating, the canvas shows handles:
 - drag the **round handle** above to rotate around the **pivot** (the dot in the middle, which you can drag);
 - the transform bar flips, rotates 90°, **arranges**, **deletes** the floating pixels (also ⌫), **keeps the aspect**, **snaps the angle** to 15° and chooses **RotSprite** (cleaner pixel art) or **fast** rotation.
 
-**Apply** (or tap outside, or ↩) drops the pixels; **Cancel** (⎋) puts everything back. The whole transform is one undo step. With a keyboard, the arrows nudge the pixels 1 px.
+**Apply** (or tap outside, or ↩) drops the pixels and keeps the selection where they went, as in Aseprite, so you can go to the next frame and move it again; changing frame or layer applies too. **Cancel** (⎋) puts everything back. The whole transform is one undo step. With a keyboard, the arrows nudge the pixels 1 px.
 
 ### Stretch when moving
 
@@ -64,7 +64,7 @@ Select half a character and move it, and it normally tears away from the rest. H
 
 ### Transforming several cels
 
-When several cels, layers or frames are selected in the [timeline](./timeline#selecting-a-range), moving, scaling, rotating or flipping changes all of them. A **+N cels** badge in the transform bar tells you how many more change.
+When several cels, layers or frames are selected in the [timeline](./timeline#selecting-a-range), moving, scaling, rotating or flipping changes all of them (a group stands for the layers inside it; hidden and locked layers stay put). A **+N cels** badge in the transform bar tells you how many more change.
 
 ## Canvas commands
 

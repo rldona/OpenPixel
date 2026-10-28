@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class SmartSelectionTests: XCTestCase {
     /// Bottom layer: a 2×1 bar at (1, 1)–(2, 1). Top layer: a dot at (5, 5).
-    /// With All layers on, unless `allLayers` is false.
+    /// With All layers on, unless `allLayers` is false, and Fit to content on.
     private func makeDocument(allLayers: Bool = true) -> SpriteDocument {
         let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
         doc.primary = .black
@@ -13,6 +13,7 @@ final class SmartSelectionTests: XCTestCase {
         doc.beginStroke(at: PixelPoint(x: 5, y: 5)); doc.endStroke()
         doc.select(.selectRectangle)
         doc.selectionAllLayers = allLayers
+        doc.selectionFitsContent = true
         return doc
     }
 
@@ -274,5 +275,163 @@ final class SmartSelectionTests: XCTestCase {
         doc.continueTransformDrag(to: CGPoint(x: 6.5, y: 5.5))
         doc.applyTransform()
         XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .black, "the locked bar stays put")
+    }
+}
+
+/// The selection behaving as in Aseprite, across layers, frames and the timeline.
+@MainActor
+final class SelectionScopeTests: XCTestCase {
+    /// Bottom layer: a 2×1 bar at (1, 1)–(2, 1). Top layer (active): a dot at (5, 5).
+    private func makeDocument() -> SpriteDocument {
+        let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
+        doc.primary = .black
+        for x in 1...2 { doc.beginStroke(at: PixelPoint(x: x, y: 1)); doc.endStroke() }
+        doc.addLayer()
+        doc.beginStroke(at: PixelPoint(x: 5, y: 5)); doc.endStroke()
+        doc.select(.selectRectangle)
+        return doc
+    }
+
+    private func drag(_ doc: SpriteDocument, _ a: (Int, Int), _ b: (Int, Int)) {
+        doc.beginStroke(at: PixelPoint(x: a.0, y: a.1))
+        doc.continueStroke(to: PixelPoint(x: b.0, y: b.1))
+        doc.endStroke()
+    }
+
+    private func move(_ doc: SpriteDocument, dx: Double) {
+        doc.beginTransformDrag(.move, at: CGPoint(x: 1, y: 1))
+        doc.continueTransformDrag(to: CGPoint(x: 1 + dx, y: 1))
+        doc.endTransformDrag()
+    }
+
+    private func drawn(_ doc: SpriteDocument, layer: Int, frame: Int = 0, _ x: Int, _ y: Int) -> Bool {
+        let key = CelKey(layer: doc.sprite.layers[layer].id, frame: doc.sprite.frames[frame].id)
+        return (doc.sprite.cels[key]?[PixelPoint(x: x, y: y)].a ?? 0) != 0
+    }
+
+    func testFitToContentIsOffSoTheShapeCanBePaintedIn() {
+        let doc = makeDocument()
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        drag(doc, (0, 0), (4, 4))
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 0, minY: 0, maxX: 4, maxY: 4), "the rectangle you drew")
+        doc.select(.pencil)
+        doc.beginStroke(at: PixelPoint(x: 3, y: 3)); doc.endStroke()
+        XCTAssertTrue(drawn(doc, layer: 0, 3, 3), "its empty part can be painted")
+    }
+
+    func testSubtractingTakesTheWholeShapeEvenWithFitOn() {
+        let doc = makeDocument()
+        doc.selectionFitsContent = true
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        doc.selectAll()
+        doc.selectionMode = .subtract
+        drag(doc, (0, 0), (3, 3))
+        XCTAssertFalse(doc.selection!.contains(PixelPoint(x: 0, y: 0)), "empty pixels go too")
+        XCTAssertFalse(doc.selection!.contains(PixelPoint(x: 1, y: 1)))
+        XCTAssertTrue(doc.selection!.contains(PixelPoint(x: 5, y: 5)))
+    }
+
+    func testTheSelectionStaysAfterAMoveAndAcrossFrames() {
+        let doc = makeDocument()
+        doc.addFrame()
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        drag(doc, (0, 0), (2, 2))
+        move(doc, dx: 2)
+        doc.activeFrameIndex = 1
+        XCTAssertFalse(doc.isTransforming, "changing frames drops the pixels")
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 2, minY: 0, maxX: 4, maxY: 2), "and the selection stays where they went")
+        XCTAssertTrue(doc.dragMovesSelection(at: PixelPoint(x: 3, y: 1)), "ready to move the next frame the same way")
+        move(doc, dx: -2)
+        doc.applyTransform()
+        XCTAssertTrue(drawn(doc, layer: 0, frame: 0, 3, 1), "frame 1 moved right")
+        XCTAssertTrue(drawn(doc, layer: 0, frame: 1, 0, 1), "frame 2 moved left")
+        XCTAssertNotNil(doc.selection)
+    }
+
+    func testLockedAndHiddenLayersCanBeCopiedButNotCut() {
+        let doc = makeDocument()
+        let bottom = doc.sprite.layers[0].id
+        doc.selectCel(layer: bottom, frameIndex: 0)
+        doc.toggleLock(bottom)
+        doc.selectAll()
+        XCTAssertTrue(doc.copy(), "locking stops edits, not copying")
+        XCTAssertEqual(PixelClipboard.read(maxSize: 64)?.0[1, 1], .black)
+        doc.cut()
+        XCTAssertTrue(drawn(doc, layer: 0, 1, 1), "cut leaves a locked layer alone")
+        doc.toggleLock(bottom)
+        doc.toggleVisibility(bottom)
+        XCTAssertTrue(doc.copy(), "a hidden layer copies too")
+    }
+
+    func testAGroupCheckedInTheTimelineStandsForItsLayers() {
+        let doc = makeDocument()
+        doc.groupLayers(doc.sprite.layers.map(\.id))
+        let group = doc.sprite.layers.first { $0.isGroup }!.id
+        doc.toggleLayerCheck(group)
+        doc.selectAll()
+        doc.primary = .white
+        doc.fillSelection()
+        XCTAssertFalse(doc.sprite.cels.keys.contains { $0.layer == group }, "a group holds no pixels")
+        XCTAssertEqual(doc.sprite.cel(layer: doc.sprite.layers[0].id, frame: doc.sprite.frames[0].id)?[1, 1], .white, "its layers recolor")
+        XCTAssertEqual(doc.sprite.cel(layer: doc.sprite.layers[1].id, frame: doc.sprite.frames[0].id)?[5, 5], .white)
+    }
+
+    func testARangeLeavesHiddenLayersAloneWhenMoving() {
+        let doc = makeDocument()
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        doc.toggleVisibility(doc.sprite.layers[1].id)
+        doc.isSelectingRange = true
+        doc.extendRange(frameIndex: 0)
+        doc.select(.move)
+        move(doc, dx: 1)
+        doc.applyTransform()
+        XCTAssertTrue(drawn(doc, layer: 0, 3, 1), "the visible bar moves")
+        XCTAssertTrue(drawn(doc, layer: 1, 5, 5), "the hidden dot stays, as with delete")
+    }
+
+    func testAllFramesWidensATimelineRangeAndTheMoveTool() {
+        let doc = makeDocument()
+        doc.addFrame()
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        doc.selectionAllFrames = true
+        doc.isSelectingRange = true
+        doc.extendRange(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        doc.selectAll()
+        doc.deleteSelection()
+        XCTAssertFalse(drawn(doc, layer: 0, frame: 1, 1, 1), "every frame of the range's layers")
+        doc.undo()
+        doc.undo()
+        doc.endRangeSelection()
+        doc.deselect()
+        doc.select(.move)
+        move(doc, dx: 1)
+        doc.applyTransform()
+        XCTAssertTrue(drawn(doc, layer: 0, frame: 1, 3, 1), "the Move tool without a selection moves every frame")
+    }
+
+    func testPickingALayerOutsideTheMarqueeMakesTheSelectionItsOwn() {
+        let doc = makeDocument()
+        doc.addLayer()
+        doc.beginStroke(at: PixelPoint(x: 6, y: 6)); doc.endStroke()
+        doc.select(.selectRectangle)
+        doc.selectionAllLayers = true
+        doc.selectCel(layer: doc.sprite.layers[1].id, frameIndex: 0)
+        drag(doc, (0, 0), (5, 5))
+        doc.activeLayerID = doc.sprite.layers[2].id
+        move(doc, dx: 1)
+        doc.applyTransform()
+        XCTAssertTrue(drawn(doc, layer: 0, 1, 1), "the bar stays")
+        XCTAssertTrue(drawn(doc, layer: 1, 5, 5), "the dot stays")
+    }
+
+    func testALockedActiveLayerDoesNotStopTheOthersFromMoving() {
+        let doc = makeDocument()
+        doc.selectionAllLayers = true
+        drag(doc, (0, 0), (6, 6))
+        doc.toggleLock(doc.activeLayerID)
+        move(doc, dx: 1)
+        doc.applyTransform()
+        XCTAssertTrue(drawn(doc, layer: 0, 3, 1), "the unlocked bar moves")
+        XCTAssertTrue(drawn(doc, layer: 1, 5, 5), "the locked dot stays")
     }
 }
