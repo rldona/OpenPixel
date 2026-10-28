@@ -1,6 +1,6 @@
 # Export
 
-Tap **Export** (⇧⌘E) at the top right. Choose a format, its options, check the preview and tap **Share or save…** to send the file through the iOS share sheet (Files, AirDrop, Mail…).
+Tap **Export** (⇧⌘E) at the top right, or touch and hold a project in the [gallery](./gallery) and choose **Export**. Choose a format, its options, check the preview and tap **Share or save…** to send the file through the iOS share sheet (Files, AirDrop, Mail…).
 
 ![Exporting a GIF](/crops/en/export.jpg)
 

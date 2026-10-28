@@ -36,6 +36,8 @@ struct GalleryView: View {
     @State private var renaming: SpriteSummary?
     @State private var renameText = ""
     @State private var deleting: SpriteSummary?
+    /// A project exported straight from its card, without opening it.
+    @State private var exporting: SpriteDocument?
     @State private var errorMessage: String?
     /// An Aseprite extension just added by opening it from Files.
     @State private var addedExtension: AsepriteExtension?
@@ -87,6 +89,7 @@ struct GalleryView: View {
                 }
             }
             .sheet(isPresented: $showingPreferences) { PreferencesView() }
+            .sheet(item: $exporting) { ExportView(document: $0) }
             .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.aseprite, .png, .gif, .jpeg]) { result in
                 attempt { path.append(try store.importFile(at: result.get())) }
             }
@@ -261,6 +264,9 @@ struct GalleryView: View {
         Button("Duplicate", systemImage: "plus.square.on.square") {
             attempt { try store.duplicate(item.id) }
         }
+        Button("Export", systemImage: "square.and.arrow.up") {
+            attempt { exporting = try store.load(item.id) }
+        }
         Button("Delete", systemImage: "trash", role: .destructive) { deleting = item }
     }
 
@@ -376,3 +382,5 @@ struct EditorContainer: View {
         }
     }
 }
+
+extension SpriteDocument: Identifiable {}

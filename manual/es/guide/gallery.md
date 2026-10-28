@@ -8,7 +8,7 @@ La galería es la primera pantalla: todos tus sprites, con una miniatura. Los an
 
 - **Buscar** (la lupa) filtra por nombre.
 - **Todos / Animaciones / Estáticos** muestra todos los sprites, solo los animados o solo las imágenes sueltas.
-- Mantén pulsado un sprite para **renombrarlo**, **duplicarlo** o **eliminarlo**.
+- Mantén pulsado un sprite para **renombrarlo**, **duplicarlo**, **exportarlo** o **eliminarlo**. **Exportar** abre la misma ventana de [exportación](./export) que el editor, sin abrir el sprite.
 
 ## Un sprite nuevo
 

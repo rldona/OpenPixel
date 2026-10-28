@@ -8,7 +8,7 @@ The gallery is the first screen: every sprite you have, with a thumbnail. Animat
 
 - **Search** (magnifying glass) filters by name.
 - **All / Animations / Still** shows every sprite, only the animated ones, or only single images.
-- Touch and hold a sprite to **rename**, **duplicate** or **delete** it.
+- Touch and hold a sprite to **rename**, **duplicate**, **export** or **delete** it. **Export** opens the same [export](./export) window as the editor, without opening the sprite.
 
 ## A new sprite
 

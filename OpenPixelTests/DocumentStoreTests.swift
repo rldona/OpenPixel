@@ -56,6 +56,19 @@ final class DocumentStoreTests: XCTestCase {
         XCTAssertNoThrow(try store.delete(id))
         XCTAssertFalse(store.items.contains { $0.id == id })
     }
+
+    /// Export from a gallery card loads the saved sprite, as the editor would,
+    /// and exports it without opening it.
+    func testAProjectExportsFromTheGalleryWithoutOpeningIt() throws {
+        let store = makeStore()
+        let id = try store.create(name: "Walk", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
+        let document = try store.load(id)
+        XCTAssertEqual(document.name, "Walk")
+        var options = ExportOptions()
+        options.format = .gif
+        let files = try Exporter.exportFiles(document.sprite, name: document.name, frameIndex: document.activeFrameIndex, options: options)
+        XCTAssertEqual(files.map(\.lastPathComponent), ["Walk.gif"])
+    }
 }
 
 @MainActor
