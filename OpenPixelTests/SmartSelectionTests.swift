@@ -4,13 +4,15 @@ import XCTest
 @MainActor
 final class SmartSelectionTests: XCTestCase {
     /// Bottom layer: a 2×1 bar at (1, 1)–(2, 1). Top layer: a dot at (5, 5).
-    private func makeDocument() -> SpriteDocument {
+    /// With All layers on, unless `allLayers` is false.
+    private func makeDocument(allLayers: Bool = true) -> SpriteDocument {
         let doc = SpriteDocument(name: "Doc", sprite: .blank(width: 8, height: 8, background: nil, palette: []))
         doc.primary = .black
         for x in 1...2 { doc.beginStroke(at: PixelPoint(x: x, y: 1)); doc.endStroke() }
         doc.addLayer()
         doc.beginStroke(at: PixelPoint(x: 5, y: 5)); doc.endStroke()
         doc.select(.selectRectangle)
+        doc.selectionAllLayers = allLayers
         return doc
     }
 
@@ -87,6 +89,23 @@ final class SmartSelectionTests: XCTestCase {
         doc.endStroke()
         XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 1, minY: 1, maxX: 5, maxY: 5), "the bar and the dot, from both layers")
         XCTAssertNotNil(doc.timelineRange, "dragging keeps the range")
+    }
+
+    func testByDefaultAMarqueeTakesOnlyTheActiveLayer() {
+        let doc = makeDocument(allLayers: false)
+        let bottom = doc.sprite.layers[0].id, top = doc.sprite.layers[1].id
+        doc.beginStroke(at: PixelPoint(x: 0, y: 0))
+        doc.continueStroke(to: PixelPoint(x: 7, y: 7))
+        doc.endStroke()
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 5, minY: 5, maxX: 5, maxY: 5), "only the dot, on the active layer")
+        XCTAssertNil(doc.selectionLayers)
+        doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
+        doc.continueTransformDrag(to: CGPoint(x: 6.5, y: 6.5))
+        doc.endTransformDrag()
+        doc.applyTransform()
+        let frame = doc.sprite.frames[0].id
+        XCTAssertEqual(doc.sprite.cel(layer: bottom, frame: frame)?[1, 1], .black, "the other layer stays")
+        XCTAssertEqual(doc.sprite.cel(layer: top, frame: frame)?[6, 6], .black)
     }
 
     func testMarqueeOverSeveralLayersTakesThemAll() {

@@ -35,8 +35,8 @@ Con una herramienta de selección (o Mover) y algo seleccionado, el deslizador d
 ### Selección inteligente
 
 - **Toca un elemento dibujado** con el marco o el lazo para seleccionar exactamente sus píxeles. Su capa pasa a ser la activa (la capa visible más alta bajo tu dedo). En modo añadir, sigue tocando para juntar varios elementos.
-- **Toca dos veces** con el marco o el lazo para seleccionar la **celda de la cuadrícula** entera bajo tu dedo (por ejemplo 16×16), con todas las capas que tengan píxeles en ella, lista para mover, rotar o copiar, como el doble clic de Aseprite.
-- Un marco o un lazo toma **todas las capas visibles** que tiene debajo (o las capas seleccionadas en el timeline) y, con **Ajustar al contenido**, se encoge a los píxeles dibujados que hay dentro. Sobre el lienzo vacío mantiene su forma.
+- **Toca dos veces** con el marco o el lazo para seleccionar la **celda de la cuadrícula** entera bajo tu dedo (por ejemplo 16×16), con la capa activa (o, con **Todas las capas** activado, todas las que tengan píxeles en ella), lista para mover, rotar o copiar, como el doble clic de Aseprite.
+- Un marco o un lazo toma solo la **capa activa**, como en Aseprite. Activa **Todas las capas** en las opciones de la herramienta para que tome todas las capas visibles que tiene debajo (las capas seleccionadas en el timeline cuentan siempre). En ambos casos, con **Ajustar al contenido**, se encoge a los píxeles dibujados que hay dentro. Sobre el lienzo vacío mantiene su forma.
 - Mover, transformar, eliminar, rellenar y cortar esa selección cambia todas esas capas. Copiar las copia combinadas.
 - **Todos los frames** aplica todo esto a todos los frames de la animación.
 

@@ -108,6 +108,9 @@ struct ToolOptionsBar: View {
                     divider
                     toggle("Fit to content", isOn: $document.selectionFitsContent)
                 }
+                if document.tool != .magicWand {
+                    toggle("All layers", isOn: $document.selectionAllLayers)
+                }
                 toggle("All frames", isOn: $document.selectionAllFrames)
                 if document.tool != .magicWand {
                     // The hint gives way when the bar runs out of room.

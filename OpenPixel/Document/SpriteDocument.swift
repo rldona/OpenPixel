@@ -237,6 +237,9 @@ final class SpriteDocument {
     /// Edits on the selection (move, transform, delete, fill) change every
     /// frame, not just the one on screen.
     var selectionAllFrames = false
+    /// Marquee and lasso selections (and the double-tapped grid cell) take every
+    /// visible layer under them; off, only the active layer, as in Aseprite.
+    var selectionAllLayers = false
     /// Layers a marquee caught besides the active one: moving or transforming
     /// the selection changes them too. Nil when the selection is one layer's.
     @ObservationIgnored private(set) var selectionLayers: Set<UUID>?
@@ -2284,7 +2287,7 @@ extension SpriteDocument {
             return (storage.layers.filter { r.layers.contains($0.id) && storage.shows($0) && !$0.isBackground && !storage.locks($0) },
                     r.frames.compactMap { storage.frames.indices.contains($0) ? storage.frames[$0].id : nil })
         }
-        return (storage.layers.filter { storage.shows($0) && !$0.isBackground && !storage.locks($0) },
+        return (storage.layers.filter { (selectionAllLayers || $0.id == activeLayerID) && storage.shows($0) && !$0.isBackground && !storage.locks($0) },
                 selectionAllFrames ? storage.frames.map(\.id) : [activeFrame.id])
     }
 
