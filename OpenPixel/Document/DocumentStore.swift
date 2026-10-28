@@ -81,10 +81,13 @@ final class DocumentStore {
     private(set) var folders: [ProjectFolder] = []
     /// The folder each project is in; projects left out are on the home screen.
     private(set) var folderOf: [UUID: UUID] = [:]
+    /// The order projects were dragged into, per folder.
+    private var order: [UUID: [UUID]] = [:]
 
     private struct FolderIndex: Codable {
         var folders: [ProjectFolder]
         var projects: [String: UUID]
+        var order: [String: [UUID]]?
     }
 
     private var foldersURL: URL { directory.appendingPathComponent("folders.json") }
@@ -95,6 +98,7 @@ final class DocumentStore {
               let index = try? JSONDecoder().decode(FolderIndex.self, from: data) else {
             folders = []
             folderOf = [:]
+            order = [:]
             return
         }
         folders = index.folders
@@ -109,16 +113,39 @@ final class DocumentStore {
             guard let id = UUID(uuidString: key), ids.contains(id), folderIDs.contains(folder) else { return nil }
             return (id, folder)
         })
+        order = Dictionary(uniqueKeysWithValues: (index.order ?? [:]).compactMap { key, ids in
+            UUID(uuidString: key).flatMap { folderIDs.contains($0) ? ($0, ids) : nil }
+        })
     }
 
     private func saveFolders() throws {
-        let index = FolderIndex(folders: folders, projects: Dictionary(uniqueKeysWithValues: folderOf.map { ($0.key.uuidString, $0.value) }))
+        let index = FolderIndex(folders: folders,
+                                projects: Dictionary(uniqueKeysWithValues: folderOf.map { ($0.key.uuidString, $0.value) }),
+                                order: Dictionary(uniqueKeysWithValues: order.map { ($0.key.uuidString, $0.value) }))
         try JSONEncoder().encode(index).write(to: foldersURL, options: .atomic)
     }
 
-    /// The projects in `folder`, or on the home screen when it's nil, newest first.
+    /// The projects in `folder` in the order they were dragged into, the
+    /// ones not placed yet (new, or just moved in) first; on the home
+    /// screen (nil), newest first.
     func items(in folder: UUID?) -> [SpriteSummary] {
-        items.filter { folderOf[$0.id] == folder }
+        let list = items.filter { folderOf[$0.id] == folder }
+        guard let folder, let order = order[folder] else { return list }
+        var position: [UUID: Int] = [:]
+        for (i, id) in order.enumerated() where position[id] == nil { position[id] = i }
+        return list.filter { position[$0.id] == nil }
+            + list.compactMap { item in position[item.id].map { (item, $0) } }.sorted { $0.1 < $1.1 }.map(\.0)
+    }
+
+    /// Drags a project in a folder to where `target` is: it lands after it
+    /// when it comes from before, before it when it comes from after.
+    func reorder(_ id: UUID, to target: UUID, in folder: UUID) throws {
+        var ids = items(in: folder).map(\.id)
+        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: target), from != to else { return }
+        ids.remove(at: from)
+        ids.insert(id, at: to)
+        order[folder] = ids
+        try saveFolders()
     }
 
     func folder(_ id: UUID) -> ProjectFolder? { folders.first { $0.id == id } }
@@ -179,6 +206,7 @@ final class DocumentStore {
     func deleteFolder(_ id: UUID) throws {
         guard let deleted = folder(id) else { return }
         folders.removeAll { $0.id == id }
+        order[id] = nil
         for i in folders.indices where folders[i].parent == id { folders[i].parent = deleted.parent }
         for (project, folder) in folderOf where folder == id { folderOf[project] = deleted.parent }
         try saveFolders()
@@ -225,15 +253,22 @@ final class DocumentStore {
         return SpriteDocument(id: id, name: file.name, sprite: file.sprite)
     }
 
-    /// Reads and decodes the file off the main thread, so opening a big
-    /// sprite doesn't hold up the screen.
-    func loadInBackground(_ id: UUID) async throws -> SpriteDocument {
-        let url = url(for: id)
-        let file = try await Task.detached(priority: .userInitiated) {
-            try JSONDecoder().decode(SpriteFile.self, from: Data(contentsOf: url))
-        }.value
-        return SpriteDocument(id: id, name: file.name, sprite: file.sprite)
+    @ObservationIgnored private var opened: SpriteDocument?
+
+    /// The document the editor opens, ready for its first frame so there's
+    /// no blank screen on the way in. Reading takes a few milliseconds; the
+    /// latest save is used even before it reaches the disk. The editor asks
+    /// again while it shows, so the document is kept until the gallery is
+    /// back (`forgetOpened`).
+    func open(_ id: UUID) throws -> SpriteDocument {
+        if let opened, opened.id == id { return opened }
+        let file = try pendingFiles[id] ?? read(url(for: id))
+        let document = SpriteDocument(id: id, name: file.name, sprite: file.sprite)
+        opened = document
+        return document
     }
+
+    func forgetOpened() { opened = nil }
 
     /// Saves in the background: encoding a big sprite takes long enough to
     /// stutter drawing if done on the main thread. Saves of the same sprite

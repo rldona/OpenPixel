@@ -17,6 +17,7 @@ Agrupa proyectos en carpetas, y carpetas dentro de carpetas:
 - Toca el botón de **carpeta** de arriba para crear una vacía donde estás, o mantén pulsado un proyecto y elige **Mover a carpeta › Nueva carpeta…**.
 - Mete un proyecto o una carpeta en otra carpeta arrastrándolo sobre ella o con **Mover a carpeta** (las carpetas anidadas muestran su ruta, como *Personajes › Dummy*). Para subir algo un nivel, arrástralo sobre el botón de volver de arriba a la izquierda (**‹ Proyectos** o el nombre de la carpeta de arriba) o elige **Sacar de la carpeta**. Una carpeta no puede ir dentro de sí misma.
 - Toca una carpeta para abrirla. Su tarjeta muestra cuatro proyectos de dentro (también de sus carpetas) y cuántos proyectos y carpetas contiene. Los sprites nuevos y las importaciones que hagas dentro van a ella, y los duplicados se quedan junto al original.
+- Dentro de una carpeta, arrastra un proyecto sobre otro para ponerlo en su lugar; el orden se queda como lo dejes. Los proyectos nuevos y los recién movidos aparecen primero. La pantalla de inicio sigue mostrando primero los más recientes.
 - Mantén pulsada una carpeta para **renombrarla**, **moverla** o **eliminarla**. Eliminar una carpeta conserva lo que tiene: sus proyectos y carpetas suben un nivel.
 - La búsqueda mira en todas las carpetas.
 

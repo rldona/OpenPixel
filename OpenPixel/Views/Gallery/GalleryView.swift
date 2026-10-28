@@ -46,6 +46,8 @@ struct GalleryView: View {
     @State private var renamingFolder: ProjectFolder?
     @State private var deletingFolder: ProjectFolder?
     @State private var backDropTargeted = false
+    /// The project a dragged project would take the place of.
+    @State private var reorderTarget: UUID?
     @State private var errorMessage: String?
     /// An Aseprite extension just added by opening it from Files.
     @State private var addedExtension: AsepriteExtension?
@@ -88,8 +90,18 @@ struct GalleryView: View {
                                 Button { path.append(item.id) } label: { SpriteCard(item: item) }
                                     .buttonStyle(.plain)
                                     .contextMenu { contextMenu(for: item) }
-                                    // Drop it on a folder to put it there.
+                                    // Drop it on a folder to put it there, or on another project in a folder to reorder.
                                     .draggable(item.id.uuidString) { DragPreview(image: item.thumbnail, name: item.name) }
+                                    .overlay {
+                                        if reorderTarget == item.id {
+                                            RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.accent, lineWidth: 3)
+                                        }
+                                    }
+                                    .dropDestination(for: String.self) { payloads, _ in
+                                        reorder(payloads, to: item.id)
+                                    } isTargeted: { targeted in
+                                        if targeted, openFolder != nil { reorderTarget = item.id } else if reorderTarget == item.id { reorderTarget = nil }
+                                    }
                             }
                         }
                         if visibleItems.isEmpty && !query.isEmpty {
@@ -110,7 +122,7 @@ struct GalleryView: View {
             .background(Theme.background)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
-                EditorContainer(id: id)
+                EditorContainer(id: id, store: store)
             }
             .sheet(isPresented: $showingNewSprite) {
                 NewSpriteView { name, sprite in
@@ -205,6 +217,7 @@ struct GalleryView: View {
             }
         }
         .task {
+            store.forgetOpened()
             // Let background saves from the editor finish before reading the files.
             await store.flush()
             store.reload()
@@ -375,6 +388,25 @@ struct GalleryView: View {
     /// "Characters › Dummy", to tell nested folders apart in menus.
     private func folderPath(_ id: UUID) -> String {
         store.path(to: id).map(\.name).joined(separator: " › ")
+    }
+
+    /// Projects dropped on a project inside a folder take its place; ones
+    /// from elsewhere come into the folder there. On the home screen,
+    /// sorted by date, there's nothing to reorder.
+    private func reorder(_ payloads: [String], to target: UUID) -> Bool {
+        reorderTarget = nil
+        guard let folder = openFolder else { return false }
+        let ids = payloads.compactMap(UUID.init(uuidString:)).filter { $0 != target }
+        guard !ids.isEmpty else { return false }
+        withAnimation(.snappy) {
+            attempt {
+                for id in ids {
+                    if store.folderOf[id] != folder { try store.move([id], to: folder) }
+                    try store.reorder(id, to: target, in: folder)
+                }
+            }
+        }
+        return true
     }
 
     static let folderPayload = "openpixel-folder:"
@@ -597,26 +629,27 @@ private struct SpriteCard: View {
     }
 }
 
-/// Loads a sprite from disk and keeps it saved while editing.
+/// Opens a sprite for the editor, which keeps it saved. The sprite is read
+/// up front, so the editor slides in already drawn.
 struct EditorContainer: View {
     let id: UUID
-    @Environment(DocumentStore.self) private var store
     @State private var document: SpriteDocument?
     @State private var loadError: String?
 
-    var body: some View {
-        Group {
-            if let document {
-                EditorView(document: document)
-            } else if let loadError {
-                ContentUnavailableView("Couldn't open the project", systemImage: "exclamationmark.triangle", description: Text(loadError))
-            } else {
-                ProgressView()
-            }
+    init(id: UUID, store: DocumentStore) {
+        self.id = id
+        do {
+            _document = State(initialValue: try store.open(id))
+        } catch {
+            _loadError = State(initialValue: error.localizedDescription)
         }
-        .task(id: id) {
-            await store.flush()
-            do { document = try await store.loadInBackground(id) } catch { loadError = error.localizedDescription }
+    }
+
+    var body: some View {
+        if let document {
+            EditorView(document: document)
+        } else {
+            ContentUnavailableView("Couldn't open the project", systemImage: "exclamationmark.triangle", description: Text(loadError ?? ""))
         }
     }
 }

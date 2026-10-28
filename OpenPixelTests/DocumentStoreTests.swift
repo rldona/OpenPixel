@@ -57,14 +57,20 @@ final class DocumentStoreTests: XCTestCase {
         XCTAssertFalse(store.items.contains { $0.id == id })
     }
 
-    /// Opening a project decodes it off the main thread, with the same result.
-    func testLoadingInTheBackgroundGivesTheSameSprite() async throws {
+    /// The editor opens with the newest save, even one still on its way to
+    /// the disk, and gets the same document each time it asks.
+    func testOpeningUsesTheLatestSaveAndKeepsTheDocument() async throws {
         let store = makeStore()
         let id = try store.create(name: "Walk", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
-        let background = try await store.loadInBackground(id)
-        let foreground = try store.load(id)
-        XCTAssertEqual(background.name, "Walk")
-        XCTAssertEqual(background.sprite, foreground.sprite)
+        let first = try store.open(id)
+        XCTAssertTrue(try store.open(id) === first, "the editor asks again while it shows")
+        first.name = "Run"
+        store.save(first)
+        store.forgetOpened()
+        let reopened = try store.open(id)
+        XCTAssertFalse(reopened === first)
+        XCTAssertEqual(reopened.name, "Run", "the save not flushed yet")
+        await store.flush()
     }
 
     /// Export from a gallery card loads the saved sprite, as the editor would,
@@ -209,5 +215,24 @@ final class ProjectFolderTests: XCTestCase {
         let second = try store.createFolder(name: "Walk", in: b)
         XCTAssertEqual(store.folder(first)?.name, "Walk")
         XCTAssertEqual(store.folder(second)?.name, "Walk")
+    }
+
+    func testProjectsInAFolderKeepTheOrderTheyAreDraggedInto() throws {
+        let store = makeStore()
+        let folder = try store.createFolder(name: "Dummy")
+        let a = try store.create(name: "A", sprite: blank, in: folder)
+        let b = try store.create(name: "B", sprite: blank, in: folder)
+        let c = try store.create(name: "C", sprite: blank, in: folder)
+        XCTAssertEqual(store.items(in: folder).map(\.id), [c, b, a], "newest first until reordered")
+        try store.reorder(c, to: a, in: folder)
+        XCTAssertEqual(store.items(in: folder).map(\.id), [b, a, c], "dragged down: after the target")
+        try store.reorder(a, to: b, in: folder)
+        XCTAssertEqual(store.items(in: folder).map(\.id), [a, b, c], "dragged up: before it")
+
+        try store.rename(b, to: "B2")
+        XCTAssertEqual(store.items(in: folder).map(\.id), [a, b, c], "editing doesn't move it")
+        let d = try store.create(name: "D", sprite: blank, in: folder)
+        XCTAssertEqual(store.items(in: folder).map(\.id), [d, a, b, c], "a new one comes first")
+        XCTAssertEqual(makeStore(store.directory).items(in: folder).map(\.id), [d, a, b, c], "the order is saved")
     }
 }
