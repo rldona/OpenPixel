@@ -217,22 +217,37 @@ final class ProjectFolderTests: XCTestCase {
         XCTAssertEqual(store.folder(second)?.name, "Walk")
     }
 
-    func testProjectsInAFolderKeepTheOrderTheyAreDraggedInto() throws {
+    func testEverythingKeepsTheOrderItIsDraggedInto() throws {
         let store = makeStore()
         let folder = try store.createFolder(name: "Dummy")
         let a = try store.create(name: "A", sprite: blank, in: folder)
         let b = try store.create(name: "B", sprite: blank, in: folder)
         let c = try store.create(name: "C", sprite: blank, in: folder)
-        XCTAssertEqual(store.items(in: folder).map(\.id), [c, b, a], "newest first until reordered")
-        try store.reorder(c, to: a, in: folder)
-        XCTAssertEqual(store.items(in: folder).map(\.id), [b, a, c], "dragged down: after the target")
-        try store.reorder(a, to: b, in: folder)
-        XCTAssertEqual(store.items(in: folder).map(\.id), [a, b, c], "dragged up: before it")
+        let inner = try store.createFolder(name: "Inner", in: folder)
+        func ids() -> [UUID] { store.entries(in: folder).map(\.id) }
+        XCTAssertEqual(ids(), [inner, c, b, a], "folders, then projects newest first, until reordered")
+        try store.place(inner, by: a, after: true, in: folder)
+        XCTAssertEqual(ids(), [c, b, a, inner], "a folder goes among the projects")
+        try store.place(a, by: c, after: false, in: folder)
+        XCTAssertEqual(ids(), [a, c, b, inner])
 
         try store.rename(b, to: "B2")
-        XCTAssertEqual(store.items(in: folder).map(\.id), [a, b, c], "editing doesn't move it")
+        XCTAssertEqual(ids(), [a, c, b, inner], "editing doesn't move it")
         let d = try store.create(name: "D", sprite: blank, in: folder)
-        XCTAssertEqual(store.items(in: folder).map(\.id), [d, a, b, c], "a new one comes first")
-        XCTAssertEqual(makeStore(store.directory).items(in: folder).map(\.id), [d, a, b, c], "the order is saved")
+        XCTAssertEqual(ids(), [d, a, c, b, inner], "a new one comes first")
+        XCTAssertEqual(makeStore(store.directory).entries(in: folder).map(\.id), [d, a, c, b, inner], "the order is saved")
+    }
+
+    func testTheHomeScreenCanBeOrderedToo() throws {
+        let store = makeStore()
+        let old = try store.create(name: "Old", sprite: blank)
+        let new = try store.create(name: "New", sprite: blank)
+        let folder = try store.createFolder(name: "Dummy")
+        XCTAssertEqual(store.entries(in: nil).map(\.id), [folder, new, old])
+        try store.place(folder, by: old, after: true, in: nil)
+        try store.place(old, by: new, after: false, in: nil)
+        XCTAssertEqual(store.entries(in: nil).map(\.id), [old, new, folder])
+        try store.place(old, by: old, after: true, in: nil)
+        XCTAssertEqual(store.entries(in: nil).map(\.id), [old, new, folder], "onto itself: nothing")
     }
 }

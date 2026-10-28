@@ -22,6 +22,19 @@ struct ProjectFolder: Identifiable, Codable, Equatable {
     var parent: UUID?
 }
 
+/// A card on the home screen or in a folder.
+enum GalleryEntry: Identifiable {
+    case folder(ProjectFolder)
+    case project(SpriteSummary)
+
+    var id: UUID {
+        switch self {
+        case .folder(let folder): folder.id
+        case .project(let item): item.id
+        }
+    }
+}
+
 /// Sprites live as `.openpixel` JSON files in Documents/Sprites, which is
 /// visible from the Files app. Folders are an index beside them
 /// (`folders.json`), so the sprite files never move.
@@ -81,8 +94,10 @@ final class DocumentStore {
     private(set) var folders: [ProjectFolder] = []
     /// The folder each project is in; projects left out are on the home screen.
     private(set) var folderOf: [UUID: UUID] = [:]
-    /// The order projects were dragged into, per folder.
-    private var order: [UUID: [UUID]] = [:]
+    /// The order folders and projects were dragged into, per folder; the
+    /// home screen's under `homeKey`.
+    private var order: [String: [UUID]] = [:]
+    private static let homeKey = "home"
 
     private struct FolderIndex: Codable {
         var folders: [ProjectFolder]
@@ -113,38 +128,45 @@ final class DocumentStore {
             guard let id = UUID(uuidString: key), ids.contains(id), folderIDs.contains(folder) else { return nil }
             return (id, folder)
         })
-        order = Dictionary(uniqueKeysWithValues: (index.order ?? [:]).compactMap { key, ids in
-            UUID(uuidString: key).flatMap { folderIDs.contains($0) ? ($0, ids) : nil }
-        })
+        order = (index.order ?? [:]).filter { key, _ in
+            key == Self.homeKey || UUID(uuidString: key).map(folderIDs.contains) == true
+        }
     }
 
     private func saveFolders() throws {
         let index = FolderIndex(folders: folders,
                                 projects: Dictionary(uniqueKeysWithValues: folderOf.map { ($0.key.uuidString, $0.value) }),
-                                order: Dictionary(uniqueKeysWithValues: order.map { ($0.key.uuidString, $0.value) }))
+                                order: order)
         try JSONEncoder().encode(index).write(to: foldersURL, options: .atomic)
     }
 
-    /// The projects in `folder` in the order they were dragged into, the
-    /// ones not placed yet (new, or just moved in) first; on the home
-    /// screen (nil), newest first.
+    private static func key(_ folder: UUID?) -> String { folder?.uuidString ?? homeKey }
+
+    /// The projects in `folder`, or on the home screen when it's nil, newest first.
     func items(in folder: UUID?) -> [SpriteSummary] {
-        let list = items.filter { folderOf[$0.id] == folder }
-        guard let folder, let order = order[folder] else { return list }
+        items.filter { folderOf[$0.id] == folder }
+    }
+
+    /// The folders and projects in `folder` (nil: the home screen) in the
+    /// order they were dragged into. Ones not placed yet, new or just moved
+    /// in, come first: folders, then projects newest first.
+    func entries(in folder: UUID?) -> [GalleryEntry] {
+        let list = folders(in: folder).map(GalleryEntry.folder) + items(in: folder).map(GalleryEntry.project)
+        guard let order = order[Self.key(folder)] else { return list }
         var position: [UUID: Int] = [:]
         for (i, id) in order.enumerated() where position[id] == nil { position[id] = i }
         return list.filter { position[$0.id] == nil }
-            + list.compactMap { item in position[item.id].map { (item, $0) } }.sorted { $0.1 < $1.1 }.map(\.0)
+            + list.compactMap { entry in position[entry.id].map { (entry, $0) } }.sorted { $0.1 < $1.1 }.map(\.0)
     }
 
-    /// Drags a project in a folder to where `target` is: it lands after it
-    /// when it comes from before, before it when it comes from after.
-    func reorder(_ id: UUID, to target: UUID, in folder: UUID) throws {
-        var ids = items(in: folder).map(\.id)
-        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: target), from != to else { return }
-        ids.remove(at: from)
-        ids.insert(id, at: to)
-        order[folder] = ids
+    /// Puts a folder or project of `folder` right before or after `target`, another one there.
+    func place(_ id: UUID, by target: UUID, after: Bool, in folder: UUID?) throws {
+        var ids = entries(in: folder).map(\.id)
+        guard id != target, ids.contains(id), ids.contains(target) else { return }
+        ids.removeAll { $0 == id }
+        let t = ids.firstIndex(of: target)!
+        ids.insert(id, at: after ? t + 1 : t)
+        order[Self.key(folder)] = ids
         try saveFolders()
     }
 
@@ -206,7 +228,7 @@ final class DocumentStore {
     func deleteFolder(_ id: UUID) throws {
         guard let deleted = folder(id) else { return }
         folders.removeAll { $0.id == id }
-        order[id] = nil
+        order[Self.key(id)] = nil
         for i in folders.indices where folders[i].parent == id { folders[i].parent = deleted.parent }
         for (project, folder) in folderOf where folder == id { folderOf[project] = deleted.parent }
         try saveFolders()

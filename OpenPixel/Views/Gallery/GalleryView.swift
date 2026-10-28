@@ -46,8 +46,6 @@ struct GalleryView: View {
     @State private var renamingFolder: ProjectFolder?
     @State private var deletingFolder: ProjectFolder?
     @State private var backDropTargeted = false
-    /// The project a dragged project would take the place of.
-    @State private var reorderTarget: UUID?
     @State private var errorMessage: String?
     /// An Aseprite extension just added by opening it from Files.
     @State private var addedExtension: AsepriteExtension?
@@ -56,16 +54,17 @@ struct GalleryView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 240, maximum: 340), spacing: 20)]
 
-    /// The open folder's projects, or the home screen's; a search looks in every folder.
-    private var visibleItems: [SpriteSummary] {
+    /// The open folder's folders and projects, or the home screen's, in
+    /// their order; a search lists the matching projects of every folder.
+    private var visibleEntries: [GalleryEntry] {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
-        return (trimmed.isEmpty ? store.items(in: openFolder) : store.items).filter { item in
-            filter.includes(item) && (trimmed.isEmpty || item.name.localizedCaseInsensitiveContains(trimmed))
+        guard trimmed.isEmpty else {
+            return store.items.filter { filter.includes($0) && $0.name.localizedCaseInsensitiveContains(trimmed) }.map(GalleryEntry.project)
         }
-    }
-
-    private var visibleFolders: [ProjectFolder] {
-        query.isEmpty ? store.folders(in: openFolder) : []
+        return store.entries(in: openFolder).filter { entry in
+            if case .project(let item) = entry { return filter.includes(item) }
+            return true
+        }
     }
 
     var body: some View {
@@ -77,38 +76,31 @@ struct GalleryView: View {
                         titleRow
                         LazyVGrid(columns: columns, spacing: 20) {
                             if query.isEmpty { NewSpriteCard { showingNewSprite = true } }
-                            ForEach(visibleFolders) { folder in
-                                FolderCard(folder: folder, open: { withAnimation(.snappy) { openFolder = folder.id } },
-                                           drop: { drop($0, into: folder.id) })
-                                    .contextMenu { contextMenu(for: folder) }
-                                    // Drop it on another folder to put it inside.
-                                    .draggable(Self.folderPayload + folder.id.uuidString) {
-                                        DragPreview(image: store.allItems(in: folder.id).first?.thumbnail, name: folder.name, systemImage: "folder.fill")
-                                    }
-                            }
-                            ForEach(visibleItems) { item in
-                                Button { path.append(item.id) } label: { SpriteCard(item: item) }
-                                    .buttonStyle(.plain)
-                                    .contextMenu { contextMenu(for: item) }
-                                    // Drop it on a folder to put it there, or on another project in a folder to reorder.
-                                    .draggable(item.id.uuidString) { DragPreview(image: item.thumbnail, name: item.name) }
-                                    .overlay {
-                                        if reorderTarget == item.id {
-                                            RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.accent, lineWidth: 3)
+                            // Drag any card onto the side of another to put it there, or onto
+                            // the middle of a folder to put it inside.
+                            ForEach(visibleEntries) { entry in
+                                switch entry {
+                                case .folder(let folder):
+                                    FolderCard(folder: folder) { withAnimation(.snappy) { openFolder = folder.id } }
+                                        .contextMenu { contextMenu(for: folder) }
+                                        .draggable(Self.folderPayload + folder.id.uuidString) {
+                                            DragPreview(image: store.allItems(in: folder.id).first?.thumbnail, name: folder.name, systemImage: "folder.fill")
                                         }
-                                    }
-                                    .dropDestination(for: String.self) { payloads, _ in
-                                        reorder(payloads, to: item.id)
-                                    } isTargeted: { targeted in
-                                        if targeted, openFolder != nil { reorderTarget = item.id } else if reorderTarget == item.id { reorderTarget = nil }
-                                    }
+                                        .modifier(CardDrop(holds: true) { drop($0, on: folder.id, zone: $1) })
+                                case .project(let item):
+                                    Button { path.append(item.id) } label: { SpriteCard(item: item) }
+                                        .buttonStyle(.plain)
+                                        .contextMenu { contextMenu(for: item) }
+                                        .draggable(item.id.uuidString) { DragPreview(image: item.thumbnail, name: item.name) }
+                                        .modifier(CardDrop(holds: false) { drop($0, on: item.id, zone: $1) })
+                                }
                             }
                         }
-                        if visibleItems.isEmpty && !query.isEmpty {
+                        if visibleEntries.isEmpty && !query.isEmpty {
                             ContentUnavailableView.search(text: query)
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 40)
-                        } else if visibleItems.isEmpty && visibleFolders.isEmpty && openFolder != nil {
+                        } else if visibleEntries.isEmpty && openFolder != nil {
                             ContentUnavailableView("This folder is empty", systemImage: "folder",
                                                    description: Text("Touch and hold a project and choose Move to folder, or drag it onto the folder."))
                                 .frame(maxWidth: .infinity)
@@ -390,23 +382,30 @@ struct GalleryView: View {
         store.path(to: id).map(\.name).joined(separator: " › ")
     }
 
-    /// Projects dropped on a project inside a folder take its place; ones
-    /// from elsewhere come into the folder there. On the home screen,
-    /// sorted by date, there's nothing to reorder.
-    private func reorder(_ payloads: [String], to target: UUID) -> Bool {
-        reorderTarget = nil
-        guard let folder = openFolder else { return false }
-        let ids = payloads.compactMap(UUID.init(uuidString:)).filter { $0 != target }
-        guard !ids.isEmpty else { return false }
+    /// Cards dropped beside `target` go right before or after it, coming
+    /// into this folder if they were elsewhere; dropped into a folder, they
+    /// go inside it. A search's results have no order to change.
+    private func drop(_ payloads: [String], on target: UUID, zone: DropZone) {
+        if zone == .into { return drop(payloads, into: target) }
+        guard query.isEmpty else { return }
+        let here = openFolder
         withAnimation(.snappy) {
             attempt {
-                for id in ids {
-                    if store.folderOf[id] != folder { try store.move([id], to: folder) }
-                    try store.reorder(id, to: target, in: folder)
+                for payload in payloads {
+                    if payload.hasPrefix(Self.folderPayload) {
+                        guard let id = UUID(uuidString: String(payload.dropFirst(Self.folderPayload.count))), id != target,
+                              let folder = store.folder(id) else { continue }
+                        if folder.parent != here { try store.moveFolder(id, to: here) }
+                        // It can't come here if here is inside it.
+                        guard store.folder(id)?.parent == here else { continue }
+                        try store.place(id, by: target, after: zone == .after, in: here)
+                    } else if let id = UUID(uuidString: payload), id != target {
+                        if store.folderOf[id] != here { try store.move([id], to: here) }
+                        try store.place(id, by: target, after: zone == .after, in: here)
+                    }
                 }
             }
         }
-        return true
     }
 
     static let folderPayload = "openpixel-folder:"
@@ -489,10 +488,7 @@ private struct NewSpriteCard: View {
 private struct FolderCard: View {
     let folder: ProjectFolder
     let open: () -> Void
-    /// Projects or folders dropped on it.
-    let drop: ([String]) -> Void
     @Environment(DocumentStore.self) private var store
-    @State private var targeted = false
 
     private var count: Text {
         let projects = store.items(in: folder.id).count, folders = store.folders(in: folder.id).count
@@ -536,15 +532,89 @@ private struct FolderCard: View {
             .frame(height: 262, alignment: .top)
             .background(Theme.card)
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(targeted ? Theme.accent : Theme.border, lineWidth: targeted ? 3 : 1))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.border))
             .contentShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .dropDestination(for: String.self) { payloads, _ in
-            drop(payloads)
-            return true
-        } isTargeted: { targeted = $0 }
         .accessibilityHint(Text("Opens the folder"))
+    }
+}
+
+enum DropZone { case before, after, into }
+
+/// Where a dragged card lands on another: its left or right side puts it
+/// before or after; the middle of a folder (`holds`) puts it inside. A bar
+/// beside the card, or a frame around the folder, shows which.
+private struct CardDrop: ViewModifier {
+    let holds: Bool
+    let perform: ([String], DropZone) -> Void
+    @State private var width: CGFloat = 1
+    @State private var zone: DropZone?
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .overlay {
+                // Half the grid's spacing out, so the bar sits between two cards.
+                switch zone {
+                case .before:
+                    HStack { bar.offset(x: -12.5); Spacer() }
+                case .after:
+                    HStack { Spacer(); bar.offset(x: 12.5) }
+                case .into:
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Theme.accent.opacity(0.1))
+                        .strokeBorder(Theme.accent, lineWidth: 3)
+                case nil:
+                    EmptyView()
+                }
+            }
+            .onDrop(of: [.plainText], delegate: Delegate(width: width, holds: holds, zone: $zone, perform: perform))
+    }
+
+    private var bar: some View {
+        Capsule().fill(Theme.accent).frame(width: 5).padding(.vertical, 8)
+    }
+
+    struct Delegate: DropDelegate {
+        let width: CGFloat
+        let holds: Bool
+        @Binding var zone: DropZone?
+        let perform: ([String], DropZone) -> Void
+
+        private func zone(at x: CGFloat) -> DropZone {
+            if holds {
+                if x < width * 0.25 { return .before }
+                if x > width * 0.75 { return .after }
+                return .into
+            }
+            return x < width / 2 ? .before : .after
+        }
+
+        func dropUpdated(info: DropInfo) -> DropProposal? {
+            zone = zone(at: info.location.x)
+            return DropProposal(operation: .move)
+        }
+
+        func dropExited(info: DropInfo) { zone = nil }
+
+        func performDrop(info: DropInfo) -> Bool {
+            let zone = zone(at: info.location.x)
+            self.zone = nil
+            let providers = info.itemProviders(for: [.plainText])
+            guard !providers.isEmpty else { return false }
+            Task { @MainActor in
+                var payloads: [String] = []
+                for provider in providers {
+                    let text: String? = await withCheckedContinuation { done in
+                        _ = provider.loadTransferable(type: String.self) { done.resume(returning: try? $0.get()) }
+                    }
+                    if let text { payloads.append(text) }
+                }
+                perform(payloads, zone)
+            }
+            return true
+        }
     }
 }
 
