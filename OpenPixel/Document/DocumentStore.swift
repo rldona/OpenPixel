@@ -225,6 +225,16 @@ final class DocumentStore {
         return SpriteDocument(id: id, name: file.name, sprite: file.sprite)
     }
 
+    /// Reads and decodes the file off the main thread, so opening a big
+    /// sprite doesn't hold up the screen.
+    func loadInBackground(_ id: UUID) async throws -> SpriteDocument {
+        let url = url(for: id)
+        let file = try await Task.detached(priority: .userInitiated) {
+            try JSONDecoder().decode(SpriteFile.self, from: Data(contentsOf: url))
+        }.value
+        return SpriteDocument(id: id, name: file.name, sprite: file.sprite)
+    }
+
     /// Saves in the background: encoding a big sprite takes long enough to
     /// stutter drawing if done on the main thread. Saves of the same sprite
     /// are queued so an older one can never overwrite a newer one.

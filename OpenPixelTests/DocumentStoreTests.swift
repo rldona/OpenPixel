@@ -57,6 +57,16 @@ final class DocumentStoreTests: XCTestCase {
         XCTAssertFalse(store.items.contains { $0.id == id })
     }
 
+    /// Opening a project decodes it off the main thread, with the same result.
+    func testLoadingInTheBackgroundGivesTheSameSprite() async throws {
+        let store = makeStore()
+        let id = try store.create(name: "Walk", sprite: .blank(width: 4, height: 4, background: nil, palette: []))
+        let background = try await store.loadInBackground(id)
+        let foreground = try store.load(id)
+        XCTAssertEqual(background.name, "Walk")
+        XCTAssertEqual(background.sprite, foreground.sprite)
+    }
+
     /// Export from a gallery card loads the saved sprite, as the editor would,
     /// and exports it without opening it.
     func testAProjectExportsFromTheGalleryWithoutOpeningIt() throws {

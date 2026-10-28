@@ -80,14 +80,16 @@ struct GalleryView: View {
                                            drop: { drop($0, into: folder.id) })
                                     .contextMenu { contextMenu(for: folder) }
                                     // Drop it on another folder to put it inside.
-                                    .draggable(Self.folderPayload + folder.id.uuidString)
+                                    .draggable(Self.folderPayload + folder.id.uuidString) {
+                                        DragPreview(image: store.allItems(in: folder.id).first?.thumbnail, name: folder.name, systemImage: "folder.fill")
+                                    }
                             }
                             ForEach(visibleItems) { item in
                                 Button { path.append(item.id) } label: { SpriteCard(item: item) }
                                     .buttonStyle(.plain)
                                     .contextMenu { contextMenu(for: item) }
                                     // Drop it on a folder to put it there.
-                                    .draggable(item.id.uuidString) { SpriteCard(item: item).frame(width: 240) }
+                                    .draggable(item.id.uuidString) { DragPreview(image: item.thumbnail, name: item.name) }
                             }
                         }
                         if visibleItems.isEmpty && !query.isEmpty {
@@ -514,6 +516,28 @@ private struct FolderCard: View {
     }
 }
 
+/// What follows the finger while dragging a project or a folder. It's drawn
+/// apart from the gallery, without its environment, so it can't read the store.
+private struct DragPreview: View {
+    let image: CGImage?
+    let name: String
+    var systemImage: String?
+
+    var body: some View {
+        VStack(spacing: 6) {
+            PixelThumbnail(image: image)
+                .frame(width: 120, height: 96)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            Label { Text(name).lineLimit(1) } icon: { systemImage.map { Image(systemName: $0) } }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.text)
+        }
+        .padding(8)
+        .frame(width: 140)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
 private struct SpriteCard: View {
     let item: SpriteSummary
     @Environment(DocumentStore.self) private var store
@@ -592,7 +616,7 @@ struct EditorContainer: View {
         }
         .task(id: id) {
             await store.flush()
-            do { document = try store.load(id) } catch { loadError = error.localizedDescription }
+            do { document = try await store.loadInBackground(id) } catch { loadError = error.localizedDescription }
         }
     }
 }
