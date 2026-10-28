@@ -134,6 +134,22 @@ struct SelectionMask: Equatable, Sendable {
         return mask
     }
 
+    /// The drawn piece of `image` under `start`: its non-transparent pixels
+    /// that touch each other, diagonals included, whatever their color.
+    static func piece(of image: PixelImage, at start: PixelPoint) -> SelectionMask {
+        var mask = SelectionMask(width: image.width, height: image.height)
+        guard image.contains(start), image[start].a != 0 else { return mask }
+        var stack = [start]
+        while let p = stack.popLast() {
+            guard image.contains(p), !mask[p.x, p.y], image[p].a != 0 else { continue }
+            mask[p.x, p.y] = true
+            for dy in -1...1 {
+                for dx in -1...1 where dx != 0 || dy != 0 { stack.append(PixelPoint(x: p.x + dx, y: p.y + dy)) }
+            }
+        }
+        return mask
+    }
+
     /// Every non-transparent pixel of `image` (Aseprite's "select layer content").
     static func opaquePixels(of image: PixelImage) -> SelectionMask {
         SelectionMask(width: image.width, height: image.height, bits: image.pixels.map { $0.a != 0 })

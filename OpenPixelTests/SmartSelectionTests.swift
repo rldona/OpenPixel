@@ -47,13 +47,14 @@ final class SmartSelectionTests: XCTestCase {
         XCTAssertNil(doc.selection, "a hidden layer can't be picked")
     }
 
-    func testTapEndsTheTimelineRange() {
-        let doc = makeDocument()
+    func testATapPicksWithinTheTimelineRange() {
+        let doc = makeDocument(allLayers: false)
         doc.isSelectingRange = true
         doc.extendRange(layerRow: doc.sprite.layers[0].id)
         doc.extendRange(layerRow: doc.sprite.layers[1].id)
-        tap(doc, 5, 5)
-        XCTAssertNil(doc.timelineRange, "picking one element leaves the multi-layer range")
+        tap(doc, 1, 1)
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 1, minY: 1, maxX: 2, maxY: 1), "the bar, from a layer in the range")
+        XCTAssertNotNil(doc.timelineRange, "the range stays")
     }
 
     func testMarqueeFitsTheDrawnPixels() {
@@ -99,7 +100,7 @@ final class SmartSelectionTests: XCTestCase {
         doc.continueStroke(to: PixelPoint(x: 7, y: 7))
         doc.endStroke()
         XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 5, minY: 5, maxX: 5, maxY: 5), "only the dot, on the active layer")
-        XCTAssertNil(doc.selectionLayers)
+        XCTAssertNil(doc.timelineRange)
         doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
         doc.continueTransformDrag(to: CGPoint(x: 6.5, y: 6.5))
         doc.endTransformDrag()
@@ -117,7 +118,7 @@ final class SmartSelectionTests: XCTestCase {
         doc.continueStroke(to: PixelPoint(x: 7, y: 7))
         doc.endStroke()
         XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 1, minY: 1, maxX: 5, maxY: 5), "the bar (bottom layer) and the dot (top layer)")
-        XCTAssertEqual(doc.selectionLayers, [bottom, top])
+        XCTAssertEqual(doc.timelineRange?.layers, [bottom, top], "All layers marks them in the timeline")
 
         doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
         XCTAssertEqual(doc.transformExtraCels, 1)
@@ -132,12 +133,12 @@ final class SmartSelectionTests: XCTestCase {
         XCTAssertEqual(doc.sprite.cel(layer: bottom, frame: frame)?[1, 1], .black, "one undo step for both layers")
     }
 
-    func testMarqueeOverOneLayerStaysOnThatLayer() {
-        let doc = makeDocument()
+    func testWithoutAllLayersAMarqueeStaysOnTheActiveLayer() {
+        let doc = makeDocument(allLayers: false)
         doc.beginStroke(at: PixelPoint(x: 4, y: 4))
         doc.continueStroke(to: PixelPoint(x: 6, y: 6))
         doc.endStroke()
-        XCTAssertNil(doc.selectionLayers)
+        XCTAssertNil(doc.timelineRange)
         doc.select(.move)
         doc.beginTransformDrag(.move, at: CGPoint(x: 5.5, y: 5.5))
         XCTAssertEqual(doc.transformExtraCels, 0)
@@ -178,16 +179,21 @@ final class SmartSelectionTests: XCTestCase {
         XCTAssertEqual(pixel(doc, layer: 1, 1, 1), .clear, "the top layer doesn't get a copy of the bar")
     }
 
-    func testCopyMergesTheLayersAndCutClearsThem() throws {
+    /// As in Aseprite: Copy takes the active layer, Copy merged every visible one.
+    func testCopyTakesTheActiveLayerAndCopyMergedTakesThemAll() throws {
         let doc = makeDocument()
         selectEverything(doc)
-        doc.cut()
-        let (image, origin) = try XCTUnwrap(PixelClipboard.read(maxSize: 64))
+        doc.copy(merged: true)
+        let (merged, origin) = try XCTUnwrap(PixelClipboard.read(maxSize: 64))
         XCTAssertEqual(origin, PixelPoint(x: 1, y: 1))
-        XCTAssertEqual(image.width, 5)
-        XCTAssertEqual(image[0, 0], .black, "the bar")
-        XCTAssertEqual(image[4, 4], .black, "the dot")
-        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .clear)
+        XCTAssertEqual(merged.width, 5)
+        XCTAssertEqual(merged[0, 0], .black, "the bar")
+        XCTAssertEqual(merged[4, 4], .black, "the dot")
+        doc.cut()
+        let (image, _) = try XCTUnwrap(PixelClipboard.read(maxSize: 64))
+        XCTAssertEqual(image[0, 0], .clear, "not the bar")
+        XCTAssertEqual(image[4, 4], .black, "only the active layer's dot")
+        XCTAssertEqual(pixel(doc, layer: 0, 1, 1), .black, "cut leaves the other layer alone")
         XCTAssertEqual(pixel(doc, layer: 1, 5, 5), .clear)
     }
 
@@ -247,7 +253,7 @@ final class SmartSelectionTests: XCTestCase {
         doc.selectionAllFrames = true
         tap(doc, 1, 1)
         doc.beginTransformDrag(.move, at: CGPoint(x: 1.5, y: 1.5))
-        XCTAssertEqual(doc.transformExtraCels, 1, "the bar in frame 2")
+        XCTAssertEqual(doc.transformExtraCels, 3, "every other cel of the range")
         doc.continueTransformDrag(to: CGPoint(x: 1.5, y: 3.5))
         doc.applyTransform()
         XCTAssertEqual(pixel(doc, layer: 0, frame: 1, 1, 3), .black)
@@ -265,7 +271,6 @@ final class SmartSelectionTests: XCTestCase {
         doc.continueStroke(to: PixelPoint(x: 7, y: 7))
         doc.endStroke()
         XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 5, minY: 5, maxX: 5, maxY: 5), "only the unlocked dot")
-        XCTAssertNil(doc.selectionLayers)
         tap(doc, 1, 1)
         XCTAssertNil(doc.selection, "a locked layer's element can't be picked")
         doc.selectionAllFrames = true
@@ -389,39 +394,55 @@ final class SelectionScopeTests: XCTestCase {
         XCTAssertTrue(drawn(doc, layer: 1, 5, 5), "the hidden dot stays, as with delete")
     }
 
-    func testAllFramesWidensATimelineRangeAndTheMoveTool() {
+    func testAllFramesMovesALayerInEveryFrameWithTheMoveTool() {
         let doc = makeDocument()
         doc.addFrame()
         doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
         doc.selectionAllFrames = true
-        doc.isSelectingRange = true
-        doc.extendRange(layer: doc.sprite.layers[0].id, frameIndex: 0)
-        doc.selectAll()
-        doc.deleteSelection()
-        XCTAssertFalse(drawn(doc, layer: 0, frame: 1, 1, 1), "every frame of the range's layers")
-        doc.undo()
-        doc.undo()
-        doc.endRangeSelection()
-        doc.deselect()
         doc.select(.move)
         move(doc, dx: 1)
         doc.applyTransform()
-        XCTAssertTrue(drawn(doc, layer: 0, frame: 1, 3, 1), "the Move tool without a selection moves every frame")
+        XCTAssertTrue(drawn(doc, layer: 0, frame: 1, 3, 1), "without a selection too")
+        XCTAssertTrue(drawn(doc, layer: 1, frame: 1, 5, 5), "the other layer stays")
     }
 
-    func testPickingALayerOutsideTheMarqueeMakesTheSelectionItsOwn() {
+    /// All layers and All frames are shortcuts for the timeline range, as in
+    /// Aseprite, where the range is what edits change.
+    func testTheTogglesMarkTheTimelineRangeAndFollowTheActiveCel() {
         let doc = makeDocument()
-        doc.addLayer()
-        doc.beginStroke(at: PixelPoint(x: 6, y: 6)); doc.endStroke()
-        doc.select(.selectRectangle)
+        doc.addFrame()
+        doc.goToFrame(0)
+        let all = Set(doc.sprite.layers.map(\.id))
         doc.selectionAllLayers = true
-        doc.selectCel(layer: doc.sprite.layers[1].id, frameIndex: 0)
-        drag(doc, (0, 0), (5, 5))
-        doc.activeLayerID = doc.sprite.layers[2].id
-        move(doc, dx: 1)
-        doc.applyTransform()
-        XCTAssertTrue(drawn(doc, layer: 0, 1, 1), "the bar stays")
-        XCTAssertTrue(drawn(doc, layer: 1, 5, 5), "the dot stays")
+        XCTAssertEqual(doc.timelineRange, TimelineRange(kind: .cels, layers: all, frames: 0...0))
+        doc.goToFrame(1)
+        XCTAssertEqual(doc.timelineRange?.frames, 1...1, "it follows the frame")
+        doc.selectionAllFrames = true
+        XCTAssertEqual(doc.timelineRange?.frames, 0...1)
+        doc.selectionAllLayers = false
+        XCTAssertEqual(doc.timelineRange?.layers, [doc.activeLayerID])
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        doc.focusTimeline(.cel)
+        XCTAssertEqual(doc.timelineRange?.layers, [doc.sprite.layers[0].id], "it follows the layer, even after a timeline tap")
+        doc.isSelectingRange = true
+        XCTAssertFalse(doc.selectionAllFrames, "picking a range by hand turns them off")
+        XCTAssertNil(doc.timelineRange)
+        doc.endRangeSelection()
+        XCTAssertNil(doc.timelineRange)
+    }
+
+    /// A tap selects the piece under it, on the active layer only.
+    func testATapPicksThePieceOnTheActiveLayer() {
+        let doc = makeDocument()
+        let top = doc.activeLayerID
+        doc.select(.pencil)
+        doc.beginStroke(at: PixelPoint(x: 1, y: 6)); doc.endStroke()
+        doc.select(.selectRectangle)
+        doc.beginStroke(at: PixelPoint(x: 5, y: 5)); doc.endStroke()
+        XCTAssertEqual(doc.selection?.bounds, PixelRect(minX: 5, minY: 5, maxX: 5, maxY: 5), "the dot, not the other piece of its layer")
+        doc.beginStroke(at: PixelPoint(x: 1, y: 1)); doc.endStroke()
+        XCTAssertNil(doc.selection, "the bar is on another layer: the tap deselects")
+        XCTAssertEqual(doc.activeLayerID, top, "and the layer stays")
     }
 
     func testALockedActiveLayerDoesNotStopTheOthersFromMoving() {

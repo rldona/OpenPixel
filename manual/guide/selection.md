@@ -34,11 +34,12 @@ With a selection tool (or Move) and something selected, the rail's slider sets t
 
 ### Smart selection
 
-- **Tap a drawn element** with the marquee or lasso to select exactly its pixels. Its layer becomes active (the topmost visible layer under your finger). In add mode, keep tapping to collect several elements.
-- **Double tap** with the marquee or lasso to select the whole **grid cell** under your finger (for example 16×16), with the active layer (or, with **All layers** on, every layer that has pixels in it), ready to move, rotate or copy, like Aseprite's double click.
-- A marquee or lasso takes only the **active layer**, as in Aseprite. Turn on **All layers** in the tool options to take every visible layer under it (the layers selected in the timeline always count). The selection is the shape you drew, as in Aseprite, so you can paint in its empty part too. Turn on **Fit to content** to shrink a new or added shape to the drawn pixels inside it (over empty canvas it keeps its shape); subtracting and intersecting always use the whole shape.
-- Moving, transforming, deleting, filling and cutting that selection changes all those layers, except hidden and locked ones. Copying copies them merged, and works on hidden and locked layers too. Picking a layer the marquee didn't catch makes the selection that layer's.
-- **All frames** applies all of it to every frame of the animation, also with a range picked in the timeline. The Move tool has it too, for moving a layer in every frame without a selection.
+- **Tap a drawn piece** with the marquee or lasso to select exactly its pixels: the ones touching each other (diagonals too) on the **active layer**, whatever their color. A tap elsewhere deselects, as in Aseprite. With **All layers** on (or several layers picked in the timeline) it picks the topmost of those layers under your finger and makes it active. In add mode, keep tapping to collect several pieces.
+- **Double tap** with the marquee or lasso to select the whole **grid cell** under your finger (for example 16×16), ready to move, rotate or copy, like Aseprite's double click.
+- The selection is the shape you drew, as in Aseprite, so you can paint in its empty part too. Turn on **Fit to content** to shrink a new or added shape to the drawn pixels inside it (over empty canvas it keeps its shape); subtracting and intersecting always use the whole shape.
+- What moving, transforming, deleting and filling change is decided by the [timeline](./timeline#selecting-a-range), as in Aseprite: the cels picked there, or else the **active layer** in the active frame. Hidden and locked layers are left alone.
+- **All layers** and **All frames** in the tool options are shortcuts for that range: All layers picks every layer in the active frame, All frames the active layer in every frame, both every cel. The timeline outlines those cels, and the range follows the active layer and frame while they're on. Picking cels by hand in the timeline turns them off. The Move tool has **All frames** too, for moving a layer in every frame without a selection.
+- **Copy** (⌘C) takes the active layer, hidden or locked included; with a group active, its layers merged. **Copy merged** (⇧⌘C, in the Edit menu) takes every visible layer as they look. **Cut** clears what Copy took.
 
 ### More selection commands
 

@@ -265,6 +265,7 @@ struct EditMenu: View {
             Section("Edit") {
                 Button("Cut", systemImage: "scissors") { document.cut() }
                 Button("Copy", systemImage: "doc.on.doc") { document.copy() }
+                Button("Copy merged", systemImage: "square.3.layers.3d") { document.copy(merged: true) }
                 Button("Paste", systemImage: "doc.on.clipboard") { document.paste() }
                 Button("Delete", systemImage: "trash") { document.deleteSelection() }
                     .disabled(!document.hasSelection)
@@ -354,6 +355,7 @@ struct EditorShortcuts: View {
         Group {
             shortcut("x", .command) { document.cut() }
             shortcut("c", .command) { document.copy() }
+            shortcut("c", [.command, .shift]) { document.copy(merged: true) }
             shortcut("v", .command) { document.paste() }
             shortcut("a", .command) { document.selectAll() }
             shortcut("d", .command) { document.deselect() }

@@ -29,6 +29,7 @@ With a keyboard, OpenPixel uses [Aseprite's shortcuts](https://www.aseprite.org/
 |---|---|
 | ⌘Z / ⇧⌘Z | Undo / redo |
 | ⌘X ⌘C ⌘V | Cut, copy, paste |
+| ⇧⌘C | Copy merged |
 | ⌫ | Delete |
 | ⌘T | Transform |
 | ⇧H / ⇧V | Flip horizontally / vertically |

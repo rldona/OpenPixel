@@ -35,6 +35,7 @@ struct KeyboardShortcutsView: View {
                 Shortcut(keys: "⇧⌘Z", title: "Redo"),
                 Shortcut(keys: "⌘X", title: "Cut"),
                 Shortcut(keys: "⌘C", title: "Copy"),
+                Shortcut(keys: "⇧⌘C", title: "Copy merged"),
                 Shortcut(keys: "⌘V", title: "Paste"),
                 Shortcut(keys: "⌫", title: "Delete"),
                 Shortcut(keys: "⌘T", title: "Transform"),

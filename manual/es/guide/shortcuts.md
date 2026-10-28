@@ -29,6 +29,7 @@ Con teclado, OpenPixel usa los [atajos de Aseprite](https://www.aseprite.org/doc
 |---|---|
 | ⌘Z / ⇧⌘Z | Deshacer / rehacer |
 | ⌘X ⌘C ⌘V | Cortar, copiar, pegar |
+| ⇧⌘C | Copiar fusionado |
 | ⌫ | Eliminar |
 | ⌘T | Transformar |
 | ⇧H / ⇧V | Voltear en horizontal / vertical |

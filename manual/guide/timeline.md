@@ -60,6 +60,7 @@ A cel's menu also sets its **opacity** (shared by linked cels).
 
 Tap **Select**, then cels, frame numbers or layer names to select a block. With it you can **link**, **unlink**, **clear**, **duplicate**, **reverse** or **delete** it, make a **tag** over its frames, set the **duration** of several frames at once, and **loop** that section.
 
+- **What the selection edits**: moving, transforming, deleting and filling a selection on the canvas change every cel of the block (a group stands for its layers). The selection tools' **All layers** and **All frames** pick such a block for you; see [Selection](./selection#smart-selection).
 - **Pick cels one by one**: each cel you tap outside the block grows it to take that cel in, even on other layers. Tap a cel inside the block to trim it back.
 - **Move and copy blocks** of cels, frames or layers by dragging them. A switch next to **Done** chooses between moving and copying. Blocks dropped past the last frame add frames.
 - **Copy and paste**: touch and hold a frame number, a cel or a layer and choose **Copy frame**, **Copy cel**, **Copy layer** or **Copy group** (layers and groups can also be cut) (or copy a selected block). Then paste from the same menu elsewhere: **Paste into this frame** (the copied pixels go on top of what the frame already has, layer by layer, so an empty frame gets them as they were), **Paste frames after** (new frames), **Paste cels here** or **Paste layers above**. It works between sprites too.
