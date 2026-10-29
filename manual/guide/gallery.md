@@ -19,6 +19,7 @@ Keep projects together in folders, and folders inside folders:
 - Tap a folder to open it. Its card shows four projects from inside it (inner folders included) and how many projects and folders it holds. New sprites and imports made in a folder go in it, and duplicates stay with the original.
 - **Everything can be ordered**, on the home screen and in every folder, projects and folders mixed. Drag a card onto the left or right side of another to put it before or after it (a bar between the cards shows where), or onto the middle of a folder to put it inside (the folder lights up). The order stays as you leave it; new projects and folders, and ones just moved in, come first. Until you reorder a place, it shows folders first, then the most recent projects.
 - Touch and hold a folder to **rename**, **move** or **delete** it. Deleting a folder keeps what's in it: its projects and folders move up a level.
+- **Copy and paste**: touch and hold a project or a folder and choose **Copy**, go where you want it and tap the **paste** button at the top (⌘V), or touch and hold a folder and choose **Paste into folder**. A folder is copied with everything inside it, in its order. A copy next to its original gets *(copy)* added to its name. What you copied stays ready to paste again.
 - Search looks in every folder.
 
 ## A new sprite

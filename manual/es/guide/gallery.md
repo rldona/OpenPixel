@@ -19,6 +19,7 @@ Agrupa proyectos en carpetas, y carpetas dentro de carpetas:
 - Toca una carpeta para abrirla. Su tarjeta muestra cuatro proyectos de dentro (también de sus carpetas) y cuántos proyectos y carpetas contiene. Los sprites nuevos y las importaciones que hagas dentro van a ella, y los duplicados se quedan junto al original.
 - **Todo se puede ordenar**, en la pantalla de inicio y en cada carpeta, con proyectos y carpetas mezclados. Arrastra una tarjeta sobre el lado izquierdo o derecho de otra para ponerla delante o detrás (una barra entre las tarjetas marca dónde), o sobre el centro de una carpeta para meterla dentro (la carpeta se ilumina). El orden se queda como lo dejes; los proyectos y carpetas nuevos, y los recién movidos, aparecen primero. Hasta que ordenes un sitio, muestra primero las carpetas y luego los proyectos más recientes.
 - Mantén pulsada una carpeta para **renombrarla**, **moverla** o **eliminarla**. Eliminar una carpeta conserva lo que tiene: sus proyectos y carpetas suben un nivel.
+- **Copiar y pegar**: mantén pulsado un proyecto o una carpeta y elige **Copiar**, ve a donde lo quieras y toca el botón de **pegar** de arriba (⌘V), o mantén pulsada una carpeta y elige **Pegar en la carpeta**. Una carpeta se copia con todo lo que tiene dentro, en su orden. Una copia junto a su original añade *(copia)* a su nombre. Lo copiado sigue listo para pegarlo otra vez.
 - La búsqueda mira en todas las carpetas.
 
 ## Un sprite nuevo

@@ -253,6 +253,11 @@ struct GalleryView: View {
                 .keyboardShortcut("f", modifiers: .command)
             }
 
+            if !store.copied.isEmpty {
+                headerIconButton("doc.on.clipboard", label: "Paste") { paste(into: openFolder) }
+                    .keyboardShortcut("v", modifiers: .command)
+            }
+
             headerIconButton("folder.badge.plus", label: "New folder") { startNewFolder(with: []) }
 
             headerIconButton("gearshape", label: "Preferences") { showingPreferences = true }
@@ -358,6 +363,7 @@ struct GalleryView: View {
         Button("Duplicate", systemImage: "plus.square.on.square") {
             attempt { try store.duplicate(item.id) }
         }
+        Button("Copy", systemImage: "doc.on.doc") { store.copy([.project(item.id)]) }
         Button("Export", systemImage: "square.and.arrow.up") {
             attempt { exporting = try store.load(item.id) }
         }
@@ -430,6 +436,10 @@ struct GalleryView: View {
             folderName = folder.name
             renamingFolder = folder
         }
+        Button("Copy", systemImage: "doc.on.doc") { store.copy([.folder(folder.id)]) }
+        if !store.copied.isEmpty {
+            Button("Paste into folder", systemImage: "doc.on.clipboard") { paste(into: folder.id) }
+        }
         // Anywhere but inside itself, or where it already is.
         let targets = store.folders.filter { target in
             target.id != folder.parent && !store.path(to: target.id).contains { $0.id == folder.id }
@@ -446,6 +456,10 @@ struct GalleryView: View {
             }
         }
         Button("Delete folder", systemImage: "trash", role: .destructive) { deletingFolder = folder }
+    }
+
+    private func paste(into folder: UUID?) {
+        withAnimation(.snappy) { attempt { try store.paste(into: folder) } }
     }
 
     private func startNewFolder(with projects: [UUID]) {

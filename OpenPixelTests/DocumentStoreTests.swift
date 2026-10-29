@@ -217,6 +217,44 @@ final class ProjectFolderTests: XCTestCase {
         XCTAssertEqual(store.folder(second)?.name, "Walk")
     }
 
+    func testACopiedProjectPastesAsANewProject() throws {
+        let store = makeStore()
+        let walk = try store.create(name: "Walk", sprite: blank)
+        let folder = try store.createFolder(name: "Dummy")
+        store.copy([.project(walk)])
+        try store.paste(into: folder)
+        XCTAssertEqual(store.items(in: folder).map(\.name), ["Walk"], "a copy elsewhere keeps the name")
+        XCTAssertNotEqual(store.items(in: folder).first?.id, walk)
+        try store.paste(into: nil)
+        XCTAssertEqual(Set(store.items(in: nil).map(\.name)), ["Walk", "Walk" + L10n.string(" (copy)")], "beside the original it's a copy")
+        XCTAssertEqual(store.copied, [.project(walk)], "it can be pasted again")
+    }
+
+    func testACopiedFolderPastesWithEverythingInsideInItsOrder() throws {
+        let store = makeStore()
+        let dummy = try store.createFolder(name: "Dummy")
+        let inner = try store.createFolder(name: "Poses", in: dummy)
+        let walk = try store.create(name: "Walk", sprite: blank, in: dummy)
+        let idle = try store.create(name: "Idle", sprite: blank, in: dummy)
+        _ = try store.create(name: "Sit", sprite: blank, in: inner)
+        try store.place(walk, by: idle, after: false, in: dummy)
+        try store.place(inner, by: idle, after: true, in: dummy)
+        store.copy([.folder(dummy)])
+        try store.paste(into: dummy)
+
+        let copy = try XCTUnwrap(store.folders(in: dummy).first { $0.name == "Dummy" }, "pasted into itself, once")
+        XCTAssertEqual(store.entries(in: copy.id).map(\.name), ["Walk", "Idle", "Poses"], "in the same order")
+        let poses = try XCTUnwrap(store.folders(in: copy.id).first)
+        XCTAssertEqual(store.items(in: poses.id).map(\.name), ["Sit"])
+        XCTAssertNil(store.folders(in: poses.id).first, "the copy doesn't copy itself")
+        XCTAssertEqual(store.items(in: dummy).count, 2, "the original keeps its projects")
+
+        try store.paste(into: nil)
+        XCTAssertEqual(Set(store.folders(in: nil).map(\.name)), ["Dummy", "Dummy" + L10n.string(" (copy)")])
+        let reopened = makeStore(store.directory)
+        XCTAssertEqual(reopened.folders.count, 8, "the copy inside came along, and it all survives a reload")
+    }
+
     func testEverythingKeepsTheOrderItIsDraggedInto() throws {
         let store = makeStore()
         let folder = try store.createFolder(name: "Dummy")

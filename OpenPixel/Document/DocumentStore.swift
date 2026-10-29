@@ -33,6 +33,12 @@ enum GalleryEntry: Identifiable {
         case .project(let item): item.id
         }
     }
+    var name: String {
+        switch self {
+        case .folder(let folder): folder.name
+        case .project(let item): item.name
+        }
+    }
 }
 
 /// Sprites live as `.openpixel` JSON files in Documents/Sprites, which is
@@ -239,6 +245,66 @@ final class DocumentStore {
         guard folder.map({ self.folder($0) != nil }) ?? true else { return }
         for id in ids where items.contains(where: { $0.id == id }) { folderOf[id] = folder }
         try saveFolders()
+    }
+
+    /// A project or folder copied on the home screen, waiting to be pasted.
+    enum Copied: Hashable {
+        case project(UUID)
+        case folder(UUID)
+    }
+
+    /// What Copy took, for Paste: the items themselves, so pasting copies
+    /// them as they are then.
+    private(set) var copied: [Copied] = []
+
+    func copy(_ items: [Copied]) { copied = items }
+
+    /// Copies what was copied into `folder` (nil: the home screen): projects
+    /// as new projects, folders with everything inside them. A copy beside
+    /// its original is named "… (copy)". Items deleted since are skipped.
+    func paste(into folder: UUID?) throws {
+        guard folder.map({ self.folder($0) != nil }) ?? true else { return }
+        // The tree as it is now, so a folder pasted into itself copies once.
+        let tree = folders, placed = folderOf, orders = order
+        for item in copied {
+            switch item {
+            case .project(let id):
+                guard items.contains(where: { $0.id == id }) else { continue }
+                try copyProject(id, into: folder, beside: placed[id] == folder)
+            case .folder(let id):
+                guard tree.contains(where: { $0.id == id }) else { continue }
+                try copyFolder(id, into: folder, tree: tree, placed: placed, orders: orders)
+            }
+        }
+    }
+
+    @discardableResult
+    private func copyProject(_ id: UUID, into folder: UUID?, beside: Bool) throws -> UUID {
+        var file = try pendingFiles[id] ?? read(url(for: id))
+        if beside { file.name += L10n.string(" (copy)") }
+        let copy = UUID()
+        try write(file, id: copy)
+        if let folder { folderOf[copy] = folder; try saveFolders() }
+        return copy
+    }
+
+    @discardableResult
+    private func copyFolder(_ id: UUID, into parent: UUID?, tree: [ProjectFolder], placed: [UUID: UUID], orders: [String: [UUID]]) throws -> UUID? {
+        guard let source = tree.first(where: { $0.id == id }) else { return nil }
+        let name = source.parent == parent ? source.name + L10n.string(" (copy)") : source.name
+        let copy = try createFolder(name: name, in: parent)
+        var copies: [UUID: UUID] = [:]
+        for child in tree where child.parent == id {
+            copies[child.id] = try copyFolder(child.id, into: copy, tree: tree, placed: placed, orders: orders)
+        }
+        for project in items.map(\.id) where placed[project] == id {
+            copies[project] = try copyProject(project, into: copy, beside: false)
+        }
+        if let inside = orders[Self.key(id)] {
+            order[Self.key(copy)] = inside.compactMap { copies[$0] }
+            try saveFolders()
+        }
+        return copy
     }
 
     /// The frames a gallery card plays, with their durations in ms.
