@@ -57,7 +57,7 @@ Mientras los píxeles flotan, el lienzo muestra asas:
 - arrastra el **asa redonda** de arriba para girar alrededor del **pivote** (el punto del centro, que se puede arrastrar);
 - la barra de transformación voltea, gira 90°, **organiza**, **borra** los píxeles flotantes (también ⌫), **mantiene la proporción**, **ajusta el ángulo** de 15 en 15° y elige giro **RotSprite** (pixel art más limpio) o **rápido**.
 
-**Aplicar** (o tocar fuera, o ↩) suelta los píxeles y deja la selección donde han quedado, como en Aseprite, para que pases al siguiente frame y vuelvas a moverla; cambiar de frame o de capa también aplica. **Cancelar** (⎋) lo devuelve todo a su sitio. La transformación entera es un solo paso de deshacer. Con teclado, las flechas mueven los píxeles de 1 en 1 px.
+**Aplicar** (o ↩) suelta los píxeles y deja la selección donde han quedado, como en Aseprite, para que pases al siguiente frame y vuelvas a moverla; cambiar de frame o de capa también aplica. **Toca fuera** para soltarlos y deseleccionar de una vez. Si moviste el contenido de una capa con la herramienta Mover sin seleccionar antes, no queda nada seleccionado. **Cancelar** (⎋) lo devuelve todo a su sitio. La transformación entera es un solo paso de deshacer. Con teclado, las flechas mueven los píxeles de 1 en 1 px.
 
 ### Estirar al mover
 

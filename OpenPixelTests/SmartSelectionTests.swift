@@ -353,6 +353,30 @@ final class SelectionScopeTests: XCTestCase {
         XCTAssertNotNil(doc.selection)
     }
 
+    func testATapOutsideDropsThePixelsAndDeselects() {
+        let doc = makeDocument()
+        doc.selectCel(layer: doc.sprite.layers[0].id, frameIndex: 0)
+        drag(doc, (0, 0), (2, 2))
+        move(doc, dx: 2)
+        doc.applyTransform(deselect: true)
+        XCTAssertFalse(doc.isTransforming)
+        XCTAssertTrue(drawn(doc, layer: 0, 3, 1), "the pixels stay where they went")
+        XCTAssertNil(doc.selection, "and nothing is left selected")
+        doc.undo()
+        XCTAssertFalse(drawn(doc, layer: 0, 3, 1), "one undo step")
+        XCTAssertNotNil(doc.selection, "brings the selection back too")
+    }
+
+    func testMovingALayerWithoutASelectionLeavesNoneBehind() {
+        let doc = makeDocument()
+        doc.select(.move)
+        move(doc, dx: 1)
+        XCTAssertNotNil(doc.selection, "the moving pixels show their outline")
+        doc.applyTransform()
+        XCTAssertTrue(drawn(doc, layer: 1, 6, 5))
+        XCTAssertNil(doc.selection, "Apply leaves nothing selected, as in Aseprite")
+    }
+
     func testLockedAndHiddenLayersCanBeCopiedButNotCut() {
         let doc = makeDocument()
         let bottom = doc.sprite.layers[0].id

@@ -2871,7 +2871,10 @@ extension SpriteDocument {
     }
 
     /// Drops the floating pixels into the cel and deselects, as one undo step.
-    func applyTransform() {
+    /// Drops the floating pixels. The selection stays where they went, as in
+    /// Aseprite, unless `deselect` (a tap outside) or the move began without
+    /// one: moving a layer's content leaves nothing selected.
+    func applyTransform(deselect: Bool = false) {
         guard isTransforming, let start = transformStart, let key = floating?.celKey else { return }
         applyRangeFloating()
         floating = nil
@@ -2882,8 +2885,7 @@ extension SpriteDocument {
         isTransforming = false
         stretchMove = false
         if storage.cels[key]?.isEmpty == true { storage.cels[key] = nil }
-        // The selection stays where the pixels were dropped, as in Aseprite,
-        // ready for the next frame.
+        if deselect || start.selection == nil { selection = nil }
         if start != DocumentSnapshot(sprite: storage, selection: selection) { registerUndo(start) }
         restoreToolAfterTransform()
         changed()

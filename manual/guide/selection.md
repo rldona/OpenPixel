@@ -57,7 +57,7 @@ While pixels are floating, the canvas shows handles:
 - drag the **round handle** above to rotate around the **pivot** (the dot in the middle, which you can drag);
 - the transform bar flips, rotates 90°, **arranges**, **deletes** the floating pixels (also ⌫), **keeps the aspect**, **snaps the angle** to 15° and chooses **RotSprite** (cleaner pixel art) or **fast** rotation.
 
-**Apply** (or tap outside, or ↩) drops the pixels and keeps the selection where they went, as in Aseprite, so you can go to the next frame and move it again; changing frame or layer applies too. **Cancel** (⎋) puts everything back. The whole transform is one undo step. With a keyboard, the arrows nudge the pixels 1 px.
+**Apply** (or ↩) drops the pixels and keeps the selection where they went, as in Aseprite, so you can go to the next frame and move it again; changing frame or layer applies too. **Tap outside** to drop them and deselect in one go. When you moved a layer's content with the Move tool without selecting first, nothing stays selected. **Cancel** (⎋) puts everything back. The whole transform is one undo step. With a keyboard, the arrows nudge the pixels 1 px.
 
 ### Stretch when moving
 
